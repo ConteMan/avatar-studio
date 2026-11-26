@@ -1,6 +1,6 @@
 # 半身像工坊 · 打包、候选验证与发布指南
 
-记录日期：2026-11-26（2026-11-27 修正发布 CI 闭环与撤下方案）。本指南对应 Issue #4，说明纯静态产物 `dist/` 的显式白名单构建、本地预览、双模式校验与 PR CI 门禁、`cf` CLI 授权后发布以及回退/撤下流程。当前仅完成首发候选打包与本地/dry-run 校验，`0.1.0` 尚未正式上线。
+记录日期：2026-11-26（2026-11-27 经所有者正式授权启用 `0.1.0` 发布配置）。本指南对应 Issue #4，说明纯静态产物 `dist/` 的显式白名单构建、本地预览、双模式校验与 PR CI 门禁、`cf` CLI 授权后发布以及回退/撤下流程。当前已完成 `0.1.0` 正式发布配置（目标 Worker `avatar-studio`、域名 `avatar.conteman.com`），尚未执行正式部署与公开地址复测。
 
 ## 1. 架构决策与官方依据
 
@@ -19,13 +19,15 @@
 
 `dist/` 是生成目录（已在 `.gitignore` 忽略），绝不把仓库根目录直接作为静态资产目录。
 
-`deploy/release.json` 是受版本控制与 PR 评审的阶段及域名白名单配置：
+`deploy/release.json` 是受版本控制与 PR 评审的阶段及域名白名单配置（当前 `0.1.0` 授权发布配置示例）：
 
 ```json
 {
-  "stage": "candidate",
+  "stage": "release",
   "plannedVersion": "0.1.0",
-  "allowedDomains": []
+  "allowedDomains": [
+    "avatar.conteman.com"
+  ]
 }
 ```
 
@@ -85,9 +87,9 @@ npm run preview
 - `/docs/`、`/rounds/`、`/assets/missing.svg`、`/_headers` 与未知路径均返回 `404`；
 - 如未覆盖真机、Safari、微信内置浏览器或系统剪贴板真实写入，必须如实记录为未验证项。
 
-## 4. 授权后正式发布步骤（待所有者验收后执行）
+## 4. 授权后正式发布步骤（2026-11-27 已获所有者授权，待合并后执行部署）
 
-> 候选阶段不执行以下步骤，也不提前在 `cloudflare.config.ts` 或 `deploy/release.json` 中写入生产域名。
+> 候选阶段不启用生产域名；2026-11-27 所有者已明确授权 `0.1.0` 正式发布（目标 Worker `avatar-studio`、域名 `avatar.conteman.com`），本发布配置仍须经评审、CI 通过与合并进入干净目标提交后，再执行真实部署与公开地址复测。
 
 ### 关键规则：配置变更先经 PR 进入目标提交，配置变更后必须重生成 Build Output
 
@@ -96,9 +98,9 @@ npm run preview
 
 ### 发布前核对（待填项不得编造）
 
-- 目标 Cloudflare 账号 / Account ID：`待确认（执行 cf auth whoami 核对）`
-- 目标 Worker 名称：候选 `avatar-studio`（待所有者确认）
-- 目标公开域名：候选 `avatar.conteman.com`（`conteman.com` 子域名，待所有者确认；当前无 DNS 记录、未配置）
+- 目标 Cloudflare 账号：发布前执行 `cf auth whoami` 核对当前授权账号（不在仓库写入账号 ID、Token 或凭据）
+- 目标 Worker 名称：`avatar-studio`（2026-11-27 所有者确认；只读核对尚未创建）
+- 目标公开域名：`avatar.conteman.com`（`conteman.com` 子域名，2026-11-27 所有者确认；只读核对尚未占用 DNS/Custom Domain，尚未上线）
 - 认证状态：仅使用已授权的 `cf` 认证上下文，不在仓库写入 Token 或凭据。
 
 ### 正式发布顺序（经锁定 `cf@1.0.0-rc.1` 静态与干跑验证）
