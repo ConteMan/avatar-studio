@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>半身像工坊 · Avatar Studio</title>
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#ffffff; --line:#e4e1da; --ink:#1b1a18; --muted:#8a857c;
+    --brand:#a9322b; --brand-soft:#f6e9e7; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased; font-size:14px;
+  }
+  button,input,select{font-family:inherit}
+  button{cursor:pointer}
+  header{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:18px 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.72);
+    position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.02em;font-weight:650}
+  .brand span{font-size:12px;color:var(--muted)}
+  .brand a{font-size:12px;color:var(--muted);text-decoration:none;margin-left:8px}
+  .brand a:hover{color:var(--brand)}
+  .brand a:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+  .seedbox{display:flex;align-items:center;gap:6px}
+  .seedbox label{font-size:12px;color:var(--muted)}
+  input[type=text]{
+    width:132px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+    background:#fff;color:var(--ink);font-size:13px;outline:none;
+  }
+  input[type=text]:focus{border-color:var(--brand)}
+  .btn{
+    padding:8px 14px;border:1px solid var(--line);border-radius:9px;background:#fff;
+    color:var(--ink);font-size:13px;font-weight:500;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{border-color:#c9c4bb;background:#faf9f6}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:#932a24}
+  .btn.sm{padding:5px 9px;font-size:11px;border-radius:7px}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;padding:24px 28px 48px;max-width:1500px;margin:0 auto}
+  .stage{position:sticky;top:88px;align-self:start;width:100%;max-width:600px;margin:0 auto}
+  .canvas{
+    background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+    aspect-ratio:1/1;box-shadow:0 12px 40px rgba(30,25,20,.05);position:relative;
+  }
+  .canvas svg{width:100%;height:100%;display:block}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:8px 13px;font-size:12px;color:var(--muted)}
+  .seg button.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+  .spacer{flex:1}
+  .stat{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .plain{margin-top:12px;font-size:12px;color:#5c574f;line-height:1.7;max-width:40rem}
+  .stat b{color:var(--ink);font-weight:600}
+  .gallery{margin-top:22px}
+  .gallery h3{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px;letter-spacing:.04em}
+  .ggrid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+  .ggrid button{
+    aspect-ratio:1/1;padding:0;border:1px solid var(--line);border-radius:10px;
+    overflow:hidden;background:#fff;transition:.15s;
+  }
+  .ggrid button:hover{border-color:var(--brand);transform:translateY(-2px)}
+  .ggrid svg{width:100%;height:100%;display:block}
+  .panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .card > h2{font-size:12px;font-weight:650;letter-spacing:.06em;color:var(--muted);margin:0 0 14px;text-transform:uppercase}
+  .slot{padding:12px 0;border-top:1px dashed var(--line)}
+  .slot:first-of-type{border-top:0;padding-top:0}
+  .slot-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .slot-head .name{font-size:13px;font-weight:600}
+  .slot-head .count{font-size:11px;color:var(--muted);font-weight:400}
+  .slot-head .spacer{flex:1}
+  .mini{font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted)}
+  .mini:hover{color:var(--ink)}
+  .mini.on{background:var(--brand-soft);border-color:#e8c9c5;color:var(--brand)}
+  .opts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .opt{
+    padding:0;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;
+    display:flex;flex-direction:column;align-items:stretch;transition:.15s;min-width:0;
+  }
+  .opt:hover{border-color:#c9c4bb}
+  .opt.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-soft)}
+  .opt .thumb{aspect-ratio:1/1;background:#fbfaf7;display:block;overflow:hidden}
+  .opt .thumb svg{width:100%;height:100%;display:block}
+  .opt .oname{font-size:10px;color:var(--muted);padding:5px 2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .opt.on .oname{color:var(--brand);font-weight:600}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+  .row:last-child{margin-bottom:0}
+  .row label{font-size:12px;color:var(--muted);width:76px;flex:none}
+  .row input[type=range]{flex:1;accent-color:var(--brand);height:4px;min-width:0}
+  .row .val{font-size:11px;color:var(--muted);width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .palettes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pal{
+    display:flex;align-items:center;gap:6px;padding:6px 9px 6px 6px;border:1px solid var(--line);
+    border-radius:9px;background:#fff;font-size:11px;color:var(--muted)
+  }
+  .pal.on{border-color:var(--brand);color:var(--brand);font-weight:600}
+  .dots{display:flex}
+  .dots i{width:11px;height:11px;border-radius:50%;display:block;margin-right:-3px;border:1.5px solid #fff}
+  .colorrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .citem{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+  .citem input[type=color]{
+    width:26px;height:26px;padding:0;border:1px solid var(--line);border-radius:7px;background:none;cursor:pointer;flex:none
+  }
+  .citem input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  .citem input[type=color]::-webkit-color-swatch{border:0;border-radius:4px}
+  details{font-size:12px;color:var(--muted);line-height:1.8}
+  details summary{cursor:pointer;font-weight:600;color:var(--ink);font-size:12px;letter-spacing:.06em;text-transform:uppercase;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"＋ ";color:var(--brand)}
+  details[open] summary::before{content:"－ "}
+  details p{margin:12px 0 0}
+  details code{background:#f2f0eb;padding:1px 5px;border-radius:4px;font-size:11px;color:var(--ink)}
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);opacity:0;pointer-events:none;
+    background:#1b1a18;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:99;transition:.22s
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  @media(max-width:1080px){
+    main{grid-template-columns:1fr}
+    .stage{position:static}
+    .canvas{max-width:560px}
+    .opts{grid-template-columns:repeat(6,1fr)}
+  }
+  @media(max-width:620px){
+    header{padding:14px 16px}
+    main{padding:16px;gap:16px}
+    .opts{grid-template-columns:repeat(4,1fr)}
+    .ggrid{grid-template-columns:repeat(4,1fr)}
+    .brand span{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>半身像工坊</h1>
+    <span>分层槽位 · 参数化部件 · 确定性种子</span>
+  </div>
+  <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false"></div>
+  <button class="btn primary" id="btnRandom" title="按种子重抽未锁定的部件、参数和配色">随机生成</button>
+  <button class="btn" id="btnShare" title="复制能再次打开同一张图的链接">复制分享链接</button>
+</header>
+
+<main>
+  <section class="stage">
+    <div class="canvas" id="canvas"></div>
+    <div class="toolbar">
+      <div class="seg" id="viewSeg">
+        <button data-view="half" class="on">半身</button>
+        <button data-view="bust">胸像</button>
+        <button data-view="head">头像</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn" id="btnSvg" title="把当前这张图下载成自包含的矢量文件">导出 SVG</button>
+      <button class="btn" id="btnPng" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
+      <button class="btn" id="btnJson" title="复制当前的种子、部件、参数和配色">复制配置</button>
+    </div>
+    <p class="plain" id="howto">「随机生成」按当前种子重抽未锁定的部件、参数和配色。「锁定」后，这一项在随机时保持不变。「换一个」只更换这一个槽位。「复制分享链接」得到能再次打开同一张图的地址。「导出 SVG」和「导出 PNG」把图下载到本机，「复制配置」复制当前参数。</p>
+    <div class="stat" id="stat"></div>
+    <div class="gallery">
+      <h3>不同部件的例子 · 点击载入</h3>
+      <div class="ggrid" id="gallery"></div>
+    </div>
+    <p class="plain" id="boundary">打开后即可生成、调整、导出。这里不收集账号。导出的图由使用者自己保存。</p>
+  </section>
+
+  <aside class="panel">
+    <div class="card">
+      <h2>部件槽位</h2>
+      <div id="slots"></div>
+    </div>
+
+    <div class="card">
+      <h2>连续参数 <button class="mini" id="lockParams" title="锁定后，随机生成不会改变这些滑块" style="float:right;margin-top:-4px">锁定</button></h2>
+      <div id="params"></div>
+    </div>
+
+    <div class="card">
+      <h2>配色 <button class="mini" id="lockColors" title="锁定后，随机生成不会改变配色" style="float:right;margin-top:-4px">锁定</button></h2>
+      <div class="palettes" id="palettes"></div>
+      <div class="colorrow" id="colors"></div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>这套组合模型是怎么设计的</summary>
+        <p><b>11 个绘制层</b>：背景 → 衣服廓形 → 后层长发 → 脖子 → 脸 → 主发型 → 眼睛/眼镜 → 嘴巴 → 领口细节 → 配饰 → 头顶搭档。发型和领口各自拆成前后两层，才能正确表达「头发压在额头上、帽子压在脖子上」这类遮挡关系——这也是只做头像的工具最难补的部分。</p>
+        <p><b>部件不是素材，是函数</b>：头发的轮廓由半径、扇贝数、鼓包幅度、发梢长度、刘海斜度实时算出来，所以 9 种发型 × 6 个滑块是连续空间，而不是 9 张固定图。想加新发型只要加一组参数，不用画新 SVG。</p>
+        <p><b>确定性</b>：<code>seed + 槽位名</code> 各自哈希，因此单独洗牌某个槽位不会连带改变其它槽位；锁定的槽位在随机生成中保持不变。配置可以序列化成 URL 或 JSON，同一份配置永远渲染同一张图。</p>
+        <p><b>一图三用</b>：同一份 SVG 换 viewBox 就得到半身 / 胸像 / 头像，不需要维护三套素材。</p>
+        <p><b>颜色通道</b>：描边、肤色、发色、衣色、点缀色、背景色互相独立，换色不重绘结构。</p>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   ENGINE — 纯函数 SVG 渲染，无 DOM 依赖，可直接抽成 npm 包
+   ============================================================ */
+var Engine = (function () {
+
+  var SLOTS = [
+    { key:'bg',     name:'背景',       focus:'full', options:['plain','circle','dots','grid','rays','blob'] },
+    { key:'body',   name:'衣服',       focus:'body', options:['hoodie','crew','tee','jacket','turtleneck','overalls'] },
+    { key:'hair',   name:'发型',       focus:'head', options:['cloud','curly','bob','long','short','bun','pigtails','buzz','bald'] },
+    { key:'eyes',   name:'眼睛 / 眼镜', focus:'face', options:['round','square','dots','closed','shades','monocle','wink'] },
+    { key:'mouth',  name:'嘴巴',       focus:'face', options:['none','smile','flat','open','cat','smirk'] },
+    { key:'extra',  name:'配饰',       focus:'head', options:['none','headphones','earrings','scarf','badge','freckles'] },
+    { key:'topper', name:'头顶搭档',   focus:'head', options:['none','cat','calico','dog','bird','plant','cap','bow'] }
+  ];
+
+  var LABELS = {
+    plain:'纯色', circle:'圆形', dots:'圆点', grid:'网格', rays:'放射', blob:'色块',
+    hoodie:'连帽衫', crew:'圆领', tee:'T 恤', jacket:'翻领', turtleneck:'高领', overalls:'背带',
+    cloud:'蓬松卷', curly:'小卷', bob:'波波头', long:'长发', short:'短发', bun:'丸子头', pigtails:'双马尾', buzz:'寸头', bald:'光头',
+    round:'圆框', square:'方框', dots:'点眼', closed:'弯眼', shades:'墨镜', monocle:'单片镜', wink:'眨眼',
+    none:'无', smile:'微笑', flat:'抿嘴', open:'张嘴', cat:'猫嘴', smirk:'坏笑',
+    headphones:'耳机', earrings:'耳环', scarf:'围巾', badge:'徽章', freckles:'雀斑',
+    cat:'黑猫', calico:'花猫', dog:'小狗', bird:'小鸟', plant:'绿植', cap:'鸭舌帽', bow:'蝴蝶结'
+  };
+
+  var PALETTES = [
+    { name:'砖红', colors:{ ink:'#141414', skin:'#ffffff', hair:'#a9322b', cloth:'#a9322b', accent:'#141414', bg:'#ffffff' } },
+    { name:'靛蓝', colors:{ ink:'#1d2836', skin:'#fff5e9', hair:'#2f4d7c', cloth:'#dfa63b', accent:'#1d2836', bg:'#f4efe3' } },
+    { name:'抹茶', colors:{ ink:'#23302a', skin:'#fffaf0', hair:'#3f6b50', cloth:'#e2c46e', accent:'#23302a', bg:'#f6f5ec' } },
+    { name:'莓果', colors:{ ink:'#2d1b2e', skin:'#fff3f5', hair:'#7c3f6d', cloth:'#e8a0a8', accent:'#2d1b2e', bg:'#fbf4f6' } },
+    { name:'海盐', colors:{ ink:'#17324d', skin:'#fff8ec', hair:'#d9a05b', cloth:'#4f86a8', accent:'#17324d', bg:'#eaf3f7' } },
+    { name:'炭灰', colors:{ ink:'#1a1a1a', skin:'#f7f4ee', hair:'#2b2b2b', cloth:'#d8d4cb', accent:'#b5533f', bg:'#f2f1ed' } }
+  ];
+
+  var VIEWS = { half:'0 0 600 600', bust:'60 60 480 480', head:'140 60 320 340' };
+  var FOCUS = { full:'0 0 600 600', head:'160 90 280 340', face:'215 215 170 170', body:'120 385 360 215' };
+
+  var SW = 8;            // 主体描边
+  var SW_THIN = 5;
+  var SW_BOLD = 16;      // 尾巴等粗笔画
+
+  function hash32(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function rngFor(seed, tag) { return mulberry32(hash32(String(seed) + '|' + tag)); }
+  function n(x) { return Math.round(x * 10) / 10; }
+  function slotDef(key) { for (var i = 0; i < SLOTS.length; i++) if (SLOTS[i].key === key) return SLOTS[i]; return null; }
+  function fromSeed(seed, key) {
+    var d = slotDef(key);
+    return d.options[hash32(String(seed) + '|' + key) % d.options.length];
+  }
+  function paletteIndex(seed) { return hash32(String(seed) + '|palette') % PALETTES.length; }
+
+  function defaultState() {
+    var c = {}; for (var k in PALETTES[0].colors) c[k] = PALETTES[0].colors[k];
+    return {
+      seed: 'studio-01',
+      slots: { bg:'plain', body:'hoodie', hair:'cloud', eyes:'round', mouth:'smile', extra:'none', topper:'cat' },
+      locks: {},
+      params: { volume:1.00, wave:0.50, length:0.35, fringe:0.35, faceW:1.00, shoulders:1.00 },
+      colors: c,
+      palette: 0,
+      view: 'half'
+    };
+  }
+
+  /* --- 基础绘图原语 --- */
+  function path(d, fill, stroke, sw, extra) {
+    return '<path d="' + d + '" fill="' + (fill || 'none') + '" stroke="' + (stroke || 'none') +
+      '" stroke-width="' + (sw || 0) + '" stroke-linecap="round" stroke-linejoin="round" ' + (extra || '') + '/>';
+  }
+  function circle(cx, cy, r, fill, stroke, sw) {
+    return '<circle cx="' + n(cx) + '" cy="' + n(cy) + '" r="' + n(r) + '" fill="' + (fill || 'none') +
+      '" stroke="' + (stroke || 'none') + '" stroke-width="' + (sw || 0) + '"/>';
+  }
+  function rr(x, y, w, h, r, fill, stroke, sw) {
+    return '<rect x="' + n(x) + '" y="' + n(y) + '" width="' + n(w) + '" height="' + n(h) +
+      '" rx="' + n(r) + '" fill="' + (fill || 'none') + '" stroke="' + (stroke || 'none') +
+      '" stroke-width="' + (sw || 0) + '"/>';
+  }
+  /* ---------- 曲线工具 ----------
+     Catmull-Rom 转三次贝塞尔：相邻段共享切线，保证 C1 连续。
+     之前逐段拼 Q 曲线，接点处切线跳变，就是画面里"线条抖动/折角"的根因。 */
+  function crPath(pts, closed, tailOnly) {
+    var p = pts;
+    if (!closed) {
+      var f = [2 * p[0][0] - p[1][0], 2 * p[0][1] - p[1][1]];
+      var l = [2 * p[p.length - 1][0] - p[p.length - 2][0], 2 * p[p.length - 1][1] - p[p.length - 2][1]];
+      p = [f].concat(p, [l]);
+    }
+    var N = p.length, segs = closed ? N : N - 3;
+    var d = tailOnly ? '' : 'M ' + n(pts[0][0]) + ' ' + n(pts[0][1]);
+    for (var i = 0; i < segs; i++) {
+      var p0 = p[closed ? (i - 1 + N) % N : i];
+      var p1 = p[closed ? i % N : i + 1];
+      var p2 = p[closed ? (i + 1) % N : i + 2];
+      var p3 = p[closed ? (i + 2) % N : i + 3];
+      d += ' C ' + n(p1[0] + (p2[0] - p0[0]) / 6) + ' ' + n(p1[1] + (p2[1] - p0[1]) / 6) +
+        ' ' + n(p2[0] - (p3[0] - p1[0]) / 6) + ' ' + n(p2[1] - (p3[1] - p1[1]) / 6) +
+        ' ' + n(p2[0]) + ' ' + n(p2[1]);
+    }
+    if (closed) d += ' Z';
+    return d;
+  }
+
+  /* 低频起伏：正弦叠加，而不是逐点白噪声。
+     白噪声让相邻采样点幅值独立跳变 → 轮廓锯齿；正弦叠加保证起伏是连续的。 */
+  function wave(t, waves, ph1, ph2) {
+    return Math.sin(t * waves + ph1) * 0.7 + Math.sin(t * waves * 2.4 + ph2) * 0.3;
+  }
+
+  /* 椭圆采样点：给叶片、鸟身、围巾这类有机形状用，
+     配合 crPath 得到没有尖角的闭合轮廓（手写 Z 收口必然留下折角）。 */
+  function ellipsePts(cx, cy, rx, ry, rotDeg, count) {
+    var pts = [], rot = (rotDeg || 0) * Math.PI / 180, n2 = count || 10;
+    for (var i = 0; i < n2; i++) {
+      var t = i / n2 * Math.PI * 2;
+      var x = Math.cos(t) * rx, y = Math.sin(t) * ry;
+      pts.push([cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]);
+    }
+    return pts;
+  }
+
+  /* 沿椭圆上半圈取点：从左端点(π)到右端点(0)，半径带低频起伏 */
+  function arcPoints(cx, cy, rx, ry, count, waves, amp, ph1, ph2) {
+    var pts = [];
+    for (var i = 0; i <= count; i++) {
+      var t = Math.PI - Math.PI * i / count;
+      var rad = 1 + wave(t, waves, ph1, ph2) * amp;
+      pts.push([cx + rx * Math.cos(t) * rad, cy - ry * Math.sin(t) * rad]);
+    }
+    return pts;
+  }
+
+  /* --- 各绘制层 --- */
+  function bgLayer(st, C) {
+    var v = st.slots.bg, out = '', i;
+    if (v === 'circle') {
+      out += circle(300, 300, 218, C.cloth, null, 0).replace('/>', ' opacity="0.16"/>');
+    } else if (v === 'dots') {
+      for (i = 0; i < 7; i++) for (var j = 0; j < 7; j++) {
+        out += circle(40 + i * 87, 40 + j * 87, 7, C.ink, null, 0).replace('/>', ' opacity="0.10"/>');
+      }
+    } else if (v === 'grid') {
+      for (i = 0; i <= 6; i++) {
+        var p = 50 + i * 84;
+        out += path('M ' + p + ' 0 L ' + p + ' 600 M 0 ' + p + ' L 600 ' + p, null, C.ink, 2).replace('/>', ' opacity="0.09"/>');
+      }
+    } else if (v === 'rays') {
+      for (i = 0; i < 12; i++) {
+        var t = i * Math.PI / 6;
+        out += path('M 300 300 L ' + n(300 + Math.cos(t) * 620) + ' ' + n(300 + Math.sin(t) * 620), null, C.cloth, 26).replace('/>', ' opacity="0.09"/>');
+      }
+    } else if (v === 'blob') {
+      // 色块：椭圆采样 + 低频半径起伏，再样条收口。
+      // 手写 C 链的凹凸控制点方向不连续，会在转折处留下可测的折角。
+      var bp = ellipsePts(286, 318, 214, 142, -9, 10);
+      for (var bi = 0; bi < bp.length; bi++) {
+        var kk = 1 + Math.sin(bi * 1.7 + 0.4) * 0.09;
+        bp[bi] = [286 + (bp[bi][0] - 286) * kk, 318 + (bp[bi][1] - 318) * kk];
+      }
+      out += path(crPath(bp, true), C.cloth, null, 0).replace('/>', ' opacity="0.17"/>');
+    }
+    return out;
+  }
+
+  /* ---------- 拼接锚点 ----------
+     跨部件的接口坐标只在这里定义一次。脖子两侧的线与衣服领口的 U 形
+     共用同一组数字，所以端点必然重合，不会再出现"悬空/断裂"。 */
+  var GEO = {
+    cx: 300,
+    faceTop: 242, faceBot: 374, faceHalfW: 68,
+    neckHalf: 30,          // 脖宽 → 270..330
+    neckTop: 352,
+    neckBottom: 520,       // 脖块下沿，远低于领口，保证被衣服完全盖住
+    collarY: 402,          // 领口基面 = 衣服上缘
+    collarDepth: 72,       // 领口开口深度（太浅会让脖区被框成一个小方块）
+    shoulderOff: 108,      // 肩头相对中心的 x 偏移
+    hemHalf: 208,          // 下摆半宽
+    hemY: 648
+  };
+  var NECK_L = GEO.cx - GEO.neckHalf;   // 274
+  var NECK_R = GEO.cx + GEO.neckHalf;   // 326
+
+  function bodyBack(st, C) {
+    // 极简抽象：只有 6 个关键点 —— 领口左 / 左肩 / 左侧 / 下摆 / 右肩 / 领口右 + 领口底。
+    // 漫画风格不需要写实轮廓，拐点越少越容易保证流畅。
+    var k = st.params.shoulders, cx = GEO.cx;
+    var sh = 110 * k, hem = 164 * k, y = GEO.collarY;
+    var pts = [
+      [n(cx - GEO.neckHalf), y],
+      [n(cx - sh), n(y + 10)],
+      [n(cx - hem * 0.92), 528],
+      [n(cx - hem), 662],
+      [n(cx + hem), 662],
+      [n(cx + hem * 0.92), 528],
+      [n(cx + sh), n(y + 10)],
+      [n(cx + GEO.neckHalf), y],
+      [cx, n(y + 26)]
+    ];
+    return path(crPath(pts, true), C.cloth, C.ink, SW);
+  }
+
+  function neck(st, C) {
+    // 白块一直延伸到衣服内部（多出的部分被衣服填充盖住），
+    // 露出的部分正好填满领口的 U；两侧线端点与 U 的端点完全重合。
+    return path('M ' + NECK_L + ' ' + GEO.neckTop + ' L ' + NECK_L + ' ' + GEO.neckBottom +
+      ' L ' + NECK_R + ' ' + GEO.neckBottom + ' L ' + NECK_R + ' ' + GEO.neckTop + ' Z', C.skin, null, 0) +
+      path('M ' + NECK_L + ' 364 L ' + NECK_L + ' ' + GEO.collarY +
+        ' M ' + NECK_R + ' 364 L ' + NECK_R + ' ' + GEO.collarY, null, C.ink, SW);
+  }
+
+  function face(st, C) {
+    var w = GEO.faceHalfW * st.params.faceW, cx = GEO.cx, top = GEO.faceTop, bot = GEO.faceBot;
+    /* 下颌：从太阳穴起就开始持续内收。原来是 0.97→0.88 到 y=348 才急速
+       收到 0.68，等于"直筒 + 切角"，脸看起来是个电视屏幕。改成 7 点均匀
+       收敛，脸型变成蛋形。 */
+    var jaw = [
+      [cx - w, top + 24],
+      [cx - w * 0.99, top + 50],
+      [cx - w * 0.94, top + 78],
+      [cx - w * 0.83, top + 104],
+      [cx - w * 0.64, top + 120],
+      [cx - w * 0.34, bot - 3],
+      [cx, bot],
+      [cx + w * 0.34, bot - 3],
+      [cx + w * 0.64, top + 120],
+      [cx + w * 0.83, top + 104],
+      [cx + w * 0.94, top + 78],
+      [cx + w * 0.99, top + 50],
+      [cx + w, top + 24]
+    ];
+    // 整个头形（下颌 + 头顶）用同一个闭合点集生成，保证边界完全连续，
+    // 同时也让白色填充与描边严格重合。
+    var headPts = jaw.slice();
+    var crown = arcPoints(cx, top - 16, w * 0.99, 54, 14, 2, 0, 0, 0);
+    for (var ci = crown.length - 1; ci >= 0; ci--) headPts.push(crown[ci]);
+    var out = path(crPath(headPts, true), C.skin, null, 0) + path(crPath(jaw, false), null, C.ink, SW);
+    if (st.slots.hair === 'bald') {
+      var sk = arcPoints(cx, 268, w, 92, 14, 2, 0, 0, 0);
+      out += path(crPath(sk, false), null, C.ink, SW);
+    }
+    return out;
+  }
+
+  /* 发型尺寸的硬约束：
+     - 头骨椭圆 = arcPoints(cx, faceTop-16, faceHalfW*0.99, 54)，顶点在 y=172。
+       所以 ry 必须满足 252-ry <= 166，即 ry >= 86，否则白底之外会露出头皮。
+     - 脸半宽 68，rx 控制在 84~94：比脸宽 16~26px 正好。原来 118 宽出 50px，
+       两侧就成了"翅膀"，整体像爆炸头/假发。 */
+  var HAIR_CFG = {
+    cloud:    { rx:90, ry:86, lobes:5, bulge:10, side:30,  fr:0.30 },
+    curly:    { rx:94, ry:86, lobes:8, bulge:9,  side:28,  fr:0.34 },
+    bob:      { rx:90, ry:88, lobes:4, bulge:8,  side:74,  fr:0.26 },
+    long:     { rx:92, ry:90, lobes:4, bulge:9,  side:118, fr:0.28 },
+    short:    { rx:86, ry:84, lobes:4, bulge:7,  side:20,  fr:0.22 },
+    bun:      { rx:88, ry:84, lobes:4, bulge:8,  side:22,  fr:0.24, bun:true },
+    pigtails: { rx:86, ry:84, lobes:4, bulge:8,  side:24,  fr:0.24, tails:true },
+    buzz:     { rx:84, ry:82, lobes:6, bulge:5,  side:12,  fr:0.18 }
+  };
+
+  function hairGeom(st) {
+    var cfg = HAIR_CFG[st.slots.hair] || HAIR_CFG.cloud;
+    var v = st.params.volume, wv = st.params.wave, ln = st.params.length;
+    return {
+      cfg: cfg,
+      cx: 300, cy: 252,
+      rx: cfg.rx * v,
+      ry: cfg.ry * v,
+      lobes: Math.max(3, Math.round(cfg.lobes + (wv - 0.5) * 8)),
+      bulge: cfg.bulge * (0.65 + wv * 0.7),
+      side: cfg.side * (0.45 + ln * 1.25),
+      fr: cfg.fr,
+      slant: st.params.fringe
+    };
+  }
+
+  /* hairBack 画在 face 之前，所以只有"超出脸轮廓"的部分才看得见。
+     这决定了这里的坐标必须贴着脸的边缘算 —— 原来 bob 外沿到 cx+122、
+     pigtails 到 cx+138，露出来就是两块耳罩和两个浮空的圆球。 */
+  function hairBack(st, C) {
+    var g = hairGeom(st), s = st.slots.hair, out = '', cx = g.cx;
+    var R = g.rx;
+    if (s === 'pigtails') {
+      // 两束马尾：起点落在脸轮廓以内，确保和头连上，再向外下垂
+      [-1, 1].forEach(function (sg) {
+        var bx = cx + sg * R * 0.82;
+        var pts = [
+          [bx, 254], [bx + sg * R * 0.24, 276], [bx + sg * R * 0.33, 312],
+          [bx + sg * R * 0.22, 348], [bx + sg * R * 0.02, 360],
+          [bx - sg * R * 0.15, 330], [bx - sg * R * 0.18, 286],
+          [bx - sg * R * 0.09, 258]
+        ];
+        out += path(crPath(pts, true), C.hair, C.ink, SW);
+      });
+    } else if (s === 'long' || s === 'bob') {
+      var bot = 250 + g.side * 1.35;
+      [-1, 1].forEach(function (sg) {
+        var bx = cx + sg * R * 0.76;
+        var pts = [
+          [bx, 232],
+          [bx + sg * R * 0.25, 272],
+          [bx + sg * R * 0.28, 316],
+          [bx + sg * R * 0.26, bot - 12],
+          [bx + sg * R * 0.14, bot + 6],
+          [bx - sg * R * 0.02, bot],
+          [bx - sg * R * 0.16, 320],
+          [bx - sg * R * 0.13, 258]
+        ];
+        out += path(crPath(pts, true), C.hair, C.ink, SW);
+      });
+    }
+    return out;
+  }
+
+  function hairMain(st, C) {
+    if (st.slots.hair === 'bald') return '';
+    var g = hairGeom(st), r = rngFor(st.seed, 'hair-shape');
+    var cx = g.cx, cy = g.cy, rx = g.rx, ry = g.ry;
+    var asym = (r() - 0.5) * 0.5;
+    var sideR = g.side * (1 - asym), sideL = g.side * (1 + asym);
+    var ph1 = r() * 6.283, ph2 = r() * 6.283;
+    // 刘海底线：原来 238+fr*30+slant*22 会压到眼睛；眼睛下移到 284 后
+    // 圆镜片顶端在 257，这里收到 232+fr*16+slant*14（最高约 247），留出额头。
+    var yR = 232 + g.fr * 16 + g.slant * 14;
+    var yL = 232 + g.fr * 16 - g.slant * 14;
+
+    // 整圈一次走完，横向位移全程单调，收口才不会留折角：
+    // 左鬓角尖 → 左外沿(上行) → 头顶弧 → 右外沿(下行) → 右鬓角尖
+    // → 右内沿(上行) → 刘海(右→左) → 左内沿(下行) → 闭合回左尖
+    var pts = [
+      [cx - rx * 0.93, cy + sideL + 4],
+      [cx - rx * 1.002, cy + sideL * 0.5]
+    ];
+    pts = pts.concat(arcPoints(cx, cy, rx, ry, Math.max(12, g.lobes * 3), g.lobes,
+      Math.min(0.075, g.bulge / rx * 0.55), ph1, ph2));
+
+    pts.push([cx + rx * 1.002, cy + sideR * 0.5]);
+    pts.push([cx + rx * 0.93, cy + sideR + 4]);
+    // 内沿从鬓角尖往发际线上行，y 必须单调递减；
+    // 原来写死的 cy+30 在 side 小的发型上会比上一句更低，形成一处反向的缺口。
+    pts.push([cx + rx * 0.82, cy + sideR * 0.55]);
+    pts.push([cx + rx * 0.70, yR + 9]);
+    pts.push([cx + 54, yR]);
+
+    var nF = 5, phF = r() * 6.283, ampF = 4 + g.fr * 6;
+    for (var j = 1; j <= nF; j++) {
+      var u = j / nF;
+      pts.push([
+        cx + 54 - 108 * u,
+        yR + (yL - yR) * u + Math.sin(u * Math.PI * 3 + phF) * ampF * Math.sin(Math.PI * u)
+      ]);
+    }
+
+    pts.push([cx - rx * 0.70, yL + 9]);
+    pts.push([cx - rx * 0.82, cy + sideL * 0.55]);
+
+    var out = path(crPath(pts, true), C.hair, C.ink, SW);
+    if (g.cfg.bun) {
+      var bunPts = [];
+      for (var bi = 0; bi < 14; bi++) {
+        var bt = bi / 14 * Math.PI * 2;
+        bunPts.push([cx + Math.cos(bt) * 36, 186 + Math.sin(bt) * 30]);
+      }
+      out += path(crPath(bunPts, true), C.hair, C.ink, SW);
+    }
+    return out;
+  }
+
+  /* 眼睛：整体下移到 y=284（原来 278 离发际线太近，刘海必然压到眼睛；
+     而且眼→嘴 66、嘴→下巴 30，比例失衡）。镜片半宽收到 25，
+     左右镜片在中央留 6px 缝 —— 原来 60 宽 ×2 正好在 x=300 首尾相接，
+     两个镜片会连成一条黑杠。 */
+  function eyes(st, C) {
+    var v = st.slots.eyes, out = '', ink = C.ink, skin = C.skin;
+    var l = 272, r2 = 328, y = 284, R = 27, HW = 25;
+    var brow = ' M ' + (l - 22) + ' ' + (y - 8) + ' L ' + (l - 33) + ' ' + (y - 13) +
+      ' M ' + (r2 + 22) + ' ' + (y - 8) + ' L ' + (r2 + 33) + ' ' + (y - 13);
+    var bridge = ' M ' + (l + HW) + ' ' + (y - 8) + ' L ' + (r2 - HW) + ' ' + (y - 8);
+    if (v === 'round') {
+      out += circle(l, y, R, skin, ink, SW) + circle(r2, y, R, skin, ink, SW);
+      out += path(bridge + brow, null, ink, SW);
+    } else if (v === 'square') {
+      out += rr(l - HW, y - 22, HW * 2, 44, 10, skin, ink, SW) + rr(r2 - HW, y - 22, HW * 2, 44, 10, skin, ink, SW);
+      out += path(bridge + brow, null, ink, SW);
+    } else if (v === 'dots') {
+      out += circle(l, y, 7, ink, null, 0) + circle(r2, y, 7, ink, null, 0);
+    } else if (v === 'closed') {
+      out += path('M ' + (l - 24) + ' ' + y + ' Q ' + l + ' ' + (y - 19) + ' ' + (l + 24) + ' ' + y +
+        ' M ' + (r2 - 24) + ' ' + y + ' Q ' + r2 + ' ' + (y - 19) + ' ' + (r2 + 24) + ' ' + y, null, ink, SW);
+    } else if (v === 'shades') {
+      out += rr(l - HW - 1, y - 19, (HW + 1) * 2, 38, 8, ink, ink, SW) +
+        rr(r2 - HW - 1, y - 19, (HW + 1) * 2, 38, 8, ink, ink, SW);
+      out += path(' M ' + (l + HW + 1) + ' ' + (y - 6) + ' L ' + (r2 - HW - 1) + ' ' + (y - 6) + brow, null, ink, SW);
+      out += path('M ' + (l - 14) + ' ' + (y - 9) + ' L ' + (l + 2) + ' ' + (y - 15) +
+        ' M ' + (r2 + 14) + ' ' + (y - 9) + ' L ' + (r2 - 2) + ' ' + (y - 15), null, skin, 3).replace('/>', ' opacity="0.55"/>');
+    } else if (v === 'monocle') {
+      out += circle(l, y, 28, skin, ink, SW) +
+        path('M ' + (l + 26) + ' ' + (y + 23) + ' C ' + (l + 18) + ' ' + (y + 53) + ' ' +
+          (l + 6) + ' ' + (y + 63) + ' ' + (l + 6) + ' ' + (y + 60), null, ink, SW_THIN);
+      out += circle(r2, y, 6, ink, null, 0);
+    } else if (v === 'wink') {
+      out += path('M ' + (l - 24) + ' ' + y + ' Q ' + l + ' ' + (y - 19) + ' ' + (l + 24) + ' ' + y,
+        null, ink, SW) + circle(r2, y, 7, ink, null, 0);
+    }
+    return out;
+  }
+
+  function mouth(st, C) {
+    var v = st.slots.mouth, ink = C.ink, d = '';
+    if (v === 'smile') d = 'M 282 340 Q 300 358 318 340';
+    else if (v === 'flat') d = 'M 286 344 L 314 344';
+    // 猫嘴 ω 形：形状保留，但用样条过点，中峰不再是 103° 的硬折角
+    else if (v === 'cat') d = crPath([[282, 339], [290, 350], [300, 341], [310, 350], [318, 339]], false);
+    else if (v === 'smirk') d = 'M 284 346 Q 302 354 318 336';
+    else if (v === 'open') return path(crPath(ellipsePts(300, 346, 12, 11, 0, 10), true), ink, null, 0);
+    return d ? path(d, null, ink, SW) : '';
+  }
+
+  function bodyFront(st, C) {
+    // 极简：每个款式只留 1–3 条识别线，不画褶皱、不重复肩线。
+    // 线条越少，越容易保持流畅；细节留给配色和配件。
+    var v = st.slots.body, ink = C.ink, cloth = C.cloth, out = '', cx = GEO.cx;
+    var y = GEO.collarY;
+    if (v === 'hoodie') {
+      out += path('M ' + n(cx - 11) + ' ' + n(y + 26) + ' L ' + n(cx - 14) + ' ' + n(y + 92) +
+        ' M ' + n(cx + 11) + ' ' + n(y + 26) + ' L ' + n(cx + 14) + ' ' + n(y + 92), null, ink, SW_THIN);
+      out += circle(cx - 14, y + 97, 4.5, null, ink, SW_THIN) + circle(cx + 14, y + 97, 4.5, null, ink, SW_THIN);
+    } else if (v === 'crew') {
+      out += path('M ' + n(cx - 26) + ' ' + n(y + 2) + ' Q ' + cx + ' ' + n(y + 34) + ' ' + n(cx + 26) + ' ' + n(y + 2), null, ink, SW_THIN);
+    } else if (v === 'tee') {
+      out += path('M ' + n(cx - 96) + ' ' + n(y + 40) + ' L ' + n(cx - 116) + ' ' + n(y + 96) +
+        ' M ' + n(cx + 96) + ' ' + n(y + 40) + ' L ' + n(cx + 116) + ' ' + n(y + 96), null, ink, SW);
+    } else if (v === 'jacket') {
+      out += path('M ' + n(cx - 34) + ' ' + n(y + 18) + ' L ' + cx + ' ' + n(y + 58) + ' L ' + n(cx + 34) + ' ' + n(y + 18), null, ink, SW);
+      out += path('M ' + cx + ' ' + n(y + 58) + ' L ' + cx + ' 662', null, ink, SW);
+    } else if (v === 'turtleneck') {
+      out += rr(cx - 33, 368, 66, 62, 20, cloth, ink, SW);
+    } else if (v === 'overalls') {
+      out += path('M ' + n(cx - 40) + ' ' + n(y + 4) + ' L ' + n(cx - 24) + ' ' + n(y + 4) + ' L ' + n(cx - 16) + ' 560 L ' + n(cx - 34) + ' 560 Z' +
+        ' M ' + n(cx + 40) + ' ' + n(y + 4) + ' L ' + n(cx + 24) + ' ' + n(y + 4) + ' L ' + n(cx + 16) + ' 560 L ' + n(cx + 34) + ' 560 Z', cloth, ink, SW);
+      out += rr(cx - 30, 516, 60, 50, 8, null, ink, SW);
+    }
+    return out;
+  }
+
+  function extra(st, C) {
+    var v = st.slots.extra, ink = C.ink, ac = C.accent, cloth = C.cloth, out = '', cx = GEO.cx;
+    if (v === 'headphones') {
+      out += path('M 202 280 C 198 152 402 152 398 280', null, ink, 11);
+      out += rr(188, 262, 30, 62, 13, ac, ink, SW) + rr(382, 262, 30, 62, 13, ac, ink, SW);
+    } else if (v === 'earrings') {
+      out += path('M 232 320 C 220 336 220 356 232 364 M 368 320 C 380 336 380 356 368 364', null, ink, SW_THIN);
+      out += circle(232, 366, 7, ac, ink, SW_THIN) + circle(368, 366, 7, ac, ink, SW_THIN);
+    } else if (v === 'scarf') {
+      // 用样条画围巾环与重下的带子，避开手写 Z 收口造成的尖角
+      out += path(crPath([
+        [cx - 42, 382], [cx - 22, 402], [cx, 410], [cx + 22, 402], [cx + 42, 382],
+        [cx + 38, 410], [cx, 422], [cx - 38, 410]
+      ], true), ac, ink, SW);
+      out += path(crPath([
+        [cx + 14, 408], [cx + 26, 468], [cx + 8, 464], [cx + 2, 410]
+      ], true), ac, ink, SW);
+    } else if (v === 'badge') {
+      out += circle(388, 520, 24, ac, ink, SW) + path('M 388 508 L 388 532 M 376 520 L 400 520', null, cloth, SW_THIN);
+    } else if (v === 'freckles') {
+      out += circle(250, 320, 3.5, ink, null, 0) + circle(262, 326, 3.5, ink, null, 0) + circle(256, 312, 3.5, ink, null, 0);
+      out += circle(350, 320, 3.5, ink, null, 0) + circle(338, 326, 3.5, ink, null, 0) + circle(344, 312, 3.5, ink, null, 0);
+    }
+    return out;
+  }
+
+  function topper(st, C) {
+    var v = st.slots.topper, ink = C.ink, ac = C.accent, skin = C.skin, out = '', cx = GEO.cx;
+    if (v === 'none') return '';
+    if (v === 'cat' || v === 'calico') {
+      var fill = v === 'cat' ? ac : skin;
+      // 尾巴
+      out += path('M 396 198 C 436 200 456 186 452 156 C 449 136 442 122 430 112', null, ac, SW_BOLD);
+      // 耳朵
+      out += path('M 242 150 C 236 120 240 100 250 96 C 264 94 276 116 278 140 Z', fill, ink, SW);
+      out += path('M 298 134 C 298 106 306 90 318 94 C 330 100 332 120 328 140 Z', fill, ink, SW);
+      // 身体：趴姿。背部只取 9 个点，底部爪子改用低频正弦起伏 —
+      // 原来逐个手写的爪子小弧，每个圆心都要拐一次，累计出 31° 折角。
+      var cb = [
+        [238, 164], [252, 136], [276, 126], [304, 124],
+        [332, 128], [356, 140], [376, 158], [390, 178], [394, 195]
+      ];
+      for (var pk = 0; pk <= 12; pk++) {
+        var pu = pk / 12;
+        cb.push([388 - 152 * pu, 202 + Math.sin(pu * Math.PI * 4.2 + 0.7) * 5]);
+      }
+      cb.push([234, 188]);
+      out += path(crPath(cb, true), fill, ink, SW);
+      if (v === 'calico') {
+        out += path(crPath(ellipsePts(318, 142, 24, 15, -12, 9), true), ac, null, 0);
+        out += circle(368, 176, 15, ac, null, 0);
+      }
+      var eyeFill = v === 'cat' ? skin : ink;
+      out += circle(272, 166, 8, eyeFill, null, 0) + circle(308, 166, 8, eyeFill, null, 0);
+      if (v === 'calico') out += path('M 284 184 L 294 184', null, ink, 3);
+      // 整体略缩小，让头发在两侧露出来，不再把发型压成"帽子"
+      return '<g transform="translate(278,202) scale(0.9) translate(-300,-196)">' + out + '</g>';
+    } else if (v === 'dog') {
+      out += path('M 238 152 C 222 156 214 182 222 208 C 230 226 246 222 252 206 Z', ac, ink, SW);
+      out += path('M 362 152 C 378 156 386 182 378 208 C 370 226 354 222 348 206 Z', ac, ink, SW);
+      out += path('M 240 196 C 236 148 264 124 300 124 C 336 124 364 148 360 196 C 356 220 244 220 240 196 Z', ac, ink, SW);
+      out += circle(280, 172, 6, skin, null, 0) + circle(320, 172, 6, skin, null, 0);
+      out += circle(300, 192, 8, ink, null, 0);
+      out += path('M 300 200 L 300 208 M 288 208 Q 300 216 312 208', null, ink, SW_THIN);
+    } else if (v === 'bird') {
+      out += path(crPath(ellipsePts(cx - 4, 184, 40, 32, -6), true), ac, ink, SW);
+      out += path(crPath(ellipsePts(cx + 34, 176, 13, 9, 12), true), ac, ink, SW);
+      out += path('M ' + (cx + 44) + ' 172 L ' + (cx + 62) + ' 178 L ' + (cx + 44) + ' 184 Z', ink, null, 0);
+      out += path(crPath(ellipsePts(cx - 12, 184, 20, 13, -12), true), skin, ink, SW_THIN);
+      out += circle(cx + 37, 172, 4.5, skin, null, 0);
+      out += path('M ' + (cx - 16) + ' 214 L ' + (cx - 20) + ' 230 M ' + (cx + 6) + ' 214 L ' + (cx + 10) + ' 230', null, ink, SW_THIN);
+    } else if (v === 'plant') {
+      // 叶片用椭圆采样点，避免尖叶形收口处出现硬折角
+      out += path(crPath(ellipsePts(cx - 30, 168, 24, 13, -28), true), ac, ink, SW);
+      out += path(crPath(ellipsePts(cx + 30, 168, 24, 13, 28), true), ac, ink, SW);
+      out += path(crPath(ellipsePts(cx, 146, 15, 27, 0), true), ac, ink, SW);
+      out += path('M 256 196 L 344 196 L 334 226 L 266 226 Z', C.cloth, ink, SW);
+    } else if (v === 'cap') {
+      out += path('M 222 196 C 224 138 258 108 300 108 C 342 108 376 138 378 196 Z', ac, ink, SW);
+      // 帽檐：扁平透镜形。原来是「上沿 → 右端 → 下沿 → 左端」四段手写 C，
+      // 在右端会拐出 42°，改成闭合样条后两端自然过渡。
+      // 宽度收到 ±96：帽身最宽只到 ±78，原来 ±82 只宽 4px，帽檐基本看不见。
+      out += path(crPath([
+        [cx + 96, 188], [cx + 76, 204], [cx + 30, 212], [cx - 30, 212],
+        [cx - 76, 204], [cx - 96, 188], [cx - 84, 180], [cx - 30, 176],
+        [cx + 30, 176], [cx + 84, 180]
+      ], true), ac, ink, SW);
+      out += path('M 300 110 L 300 194', null, ink, SW_THIN);
+    } else if (v === 'bow') {
+      out += path('M 300 176 C 268 148 238 150 240 172 C 242 196 270 196 300 180 Z', C.cloth, ink, SW);
+      out += path('M 300 176 C 332 148 362 150 360 172 C 358 196 330 196 300 180 Z', C.cloth, ink, SW);
+      out += circle(300, 178, 13, ac, ink, SW);
+    }
+    return out;
+  }
+
+  function render(state, override) {
+    override = override || {};
+    var st = {
+      seed: state.seed,
+      slots: Object.assign({}, state.slots),
+      params: state.params,
+      colors: state.colors,
+      view: state.view
+    };
+    if (override.slot) st.slots[override.slot] = override.value;
+    var C = st.colors;
+    var vb = override.viewBox !== undefined ? override.viewBox : VIEWS[state.view];
+    var layers = [
+      bgLayer(st, C), neck(st, C), bodyBack(st, C), hairBack(st, C), face(st, C),
+      hairMain(st, C), eyes(st, C), mouth(st, C), bodyFront(st, C), extra(st, C), topper(st, C)
+    ];
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb + '" width="600" height="600">' +
+      '<rect x="-300" y="-300" width="1200" height="1200" fill="' + C.bg + '"/>' +
+      layers.join('') + '</svg>';
+  }
+
+  function comboCount() {
+    var t = 1;
+    for (var i = 0; i < SLOTS.length; i++) t *= SLOTS[i].options.length;
+    return t;
+  }
+
+  return {
+    SLOTS: SLOTS, LABELS: LABELS, PALETTES: PALETTES, VIEWS: VIEWS, FOCUS: FOCUS,
+    defaultState: defaultState, render: render, fromSeed: fromSeed, paletteIndex: paletteIndex,
+    rngFor: rngFor, hash32: hash32, comboCount: comboCount
+  };
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
+
+/* ============================================================
+   UI
+   ============================================================ */
+if (typeof document !== 'undefined') (function () {
+
+  var $ = function (s) { return document.querySelector(s); };
+  var state = Engine.defaultState();
+  var E = Engine;
+
+  var PARAMS = [
+    { key:'volume',    name:'蓬松度', min:0.72, max:1.34, step:0.01 },
+    { key:'wave',      name:'卷曲度', min:0,    max:1,    step:0.01 },
+    { key:'length',    name:'发梢长度', min:0,  max:1,    step:0.01 },
+    { key:'fringe',    name:'刘海斜分', min:-1, max:1,   step:0.01 },
+    { key:'faceW',     name:'脸宽',   min:0.84, max:1.20, step:0.01 },
+    { key:'shoulders', name:'肩宽',   min:0.84, max:1.20, step:0.01 }
+  ];
+  var COLOR_KEYS = [
+    { key:'ink', name:'描边' }, { key:'skin', name:'肤色' }, { key:'hair', name:'发色' },
+    { key:'cloth', name:'衣色' }, { key:'accent', name:'点缀' }, { key:'bg', name:'背景' }
+  ];
+
+  /* ---------- URL 状态 ---------- */
+  var rejectedShare = false;
+  var MAX_SHARE_PARAM = 8000;
+  var MAX_SEED_LEN = 160;
+
+  function isPlainObject(v) {
+    return !!v && typeof v === 'object' && !Array.isArray(v);
+  }
+  function encodeState(s) {
+    try {
+      var bytes = new TextEncoder().encode(JSON.stringify(s));
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    } catch (e) { return ''; }
+  }
+  function decodeState(txt) {
+    try {
+      var s = String(txt).replace(/-/g, '+').replace(/_/g, '/');
+      while (s.length % 4) s += '=';
+      var bin = atob(s);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 255;
+      var json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      var o = JSON.parse(json);
+      return isPlainObject(o) ? o : null;
+    } catch (e) { return null; }
+  }
+  function sanitizeState(raw) {
+    if (!isPlainObject(raw)) return null;
+    if (raw.slots !== undefined && !isPlainObject(raw.slots)) return null;
+    if (raw.params !== undefined && !isPlainObject(raw.params)) return null;
+    if (raw.colors !== undefined && !isPlainObject(raw.colors)) return null;
+    if (raw.locks !== undefined && !isPlainObject(raw.locks)) return null;
+    var next = Engine.defaultState();
+    var slotsIn = isPlainObject(raw.slots) ? raw.slots : {};
+    E.SLOTS.forEach(function (slot) {
+      var value = slotsIn[slot.key];
+      if (typeof value === 'string' && slot.options.indexOf(value) !== -1) next.slots[slot.key] = value;
+    });
+    var paramsIn = isPlainObject(raw.params) ? raw.params : {};
+    PARAMS.forEach(function (p) {
+      if (typeof paramsIn[p.key] !== 'number' || !isFinite(paramsIn[p.key])) return;
+      var n = paramsIn[p.key];
+      n = Math.min(p.max, Math.max(p.min, n));
+      next.params[p.key] = Math.round(n * 100) / 100;
+    });
+    var colorsIn = isPlainObject(raw.colors) ? raw.colors : {};
+    COLOR_KEYS.forEach(function (c) {
+      var value = colorsIn[c.key];
+      if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) next.colors[c.key] = value.toLowerCase();
+    });
+    if (typeof raw.seed === 'string') {
+      var seed = raw.seed.replace(/[\u0000-\u001f]/g, '').trim();
+      if (seed.length > MAX_SEED_LEN) seed = seed.slice(0, MAX_SEED_LEN);
+      if (seed) next.seed = seed;
+    }
+    if (raw.view === 'half' || raw.view === 'bust' || raw.view === 'head') next.view = raw.view;
+    next.locks = {};
+    var locksIn = isPlainObject(raw.locks) ? raw.locks : {};
+    E.SLOTS.forEach(function (slot) {
+      if (locksIn[slot.key] === true) next.locks[slot.key] = true;
+    });
+    if (locksIn.params === true) next.locks.params = true;
+    if (locksIn.colors === true) next.locks.colors = true;
+    next.palette = null;
+    for (var pi = 0; pi < E.PALETTES.length; pi++) {
+      var pal = E.PALETTES[pi].colors, same = true;
+      COLOR_KEYS.forEach(function (c) {
+        if (next.colors[c.key] !== String(pal[c.key]).toLowerCase()) same = false;
+      });
+      if (same) next.palette = pi;
+    }
+    return next;
+  }
+  function loadFromUrl() {
+    var m = location.search.match(/[?&]s=([^&]*)/);
+    if (!m) return;
+    if (!m[1] || m[1].length > MAX_SHARE_PARAM) {
+      state = Engine.defaultState();
+      rejectedShare = true;
+      return;
+    }
+    var raw;
+    try { raw = decodeURIComponent(m[1]).replace(/ /g, '+'); }
+    catch (e) {
+      state = Engine.defaultState();
+      rejectedShare = true;
+      return;
+    }
+    var parsed = decodeState(raw);
+    var next = parsed ? sanitizeState(parsed) : null;
+    if (!next) {
+      state = Engine.defaultState();
+      rejectedShare = true;
+      return;
+    }
+    state = next;
+  }
+  function shareUrl() {
+    var token = encodeState(state);
+    if (!token) return '';
+    return location.href.split('?')[0] + '?s=' + encodeURIComponent(token);
+  }
+  function fileStem() {
+    var s = String(state.seed == null ? '' : state.seed);
+    s = s.replace(/[\\/]+/g, '-').replace(/\s+/g, '-');
+    s = s.replace(/[<>:"|?*\u0000-\u001f]/g, '');
+    s = s.replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+    if (!s) s = 'avatar';
+    if (s.length > 80) s = s.slice(0, 80);
+    return 'avatar-' + s;
+  }
+
+  /* ---------- 生成 ---------- */
+  function newSeed() {
+    var a = ['ink','cat','red','moss','dusk','haze','linen','plum','clay','fern','ochre','tide'];
+    return a[Math.floor(Math.random() * a.length)] + '-' + Math.floor(Math.random() * 9000 + 1000);
+  }
+  function randomize(seed) {
+    state.seed = seed || newSeed();
+    E.SLOTS.forEach(function (s) {
+      if (!state.locks[s.key]) state.slots[s.key] = E.fromSeed(state.seed, s.key);
+    });
+    if (!state.locks.params) {
+      var r = E.rngFor(state.seed, 'params');
+      PARAMS.forEach(function (p) {
+        var base = Engine.defaultState().params[p.key];
+        state.params[p.key] = Math.round((base + (r() - 0.5) * (p.max - p.min) * 0.55) * 100) / 100;
+        state.params[p.key] = Math.min(p.max, Math.max(p.min, state.params[p.key]));
+      });
+    }
+    if (!state.locks.colors) applyPalette(E.paletteIndex(state.seed), true);
+    $('#seed').value = state.seed;
+    buildThumbs();
+    syncControls();
+    refresh();
+  }
+  function applyPalette(i, silent) {
+    state.palette = i;
+    var c = E.PALETTES[i].colors;
+    for (var k in c) state.colors[k] = c[k];
+    if (!silent) { buildThumbs(); syncControls(); refresh(); }
+  }
+  function shuffleSlot(key) {
+    var def = null;
+    E.SLOTS.forEach(function (s) { if (s.key === key) def = s; });
+    var cur = state.slots[key], next = cur;
+    for (var i = 0; i < 12 && next === cur; i++) next = def.options[Math.floor(Math.random() * def.options.length)];
+    state.slots[key] = next;
+    refresh();
+  }
+
+  /* ---------- 面板构建 ---------- */
+  function buildSlots() {
+    var host = $('#slots');
+    host.innerHTML = E.SLOTS.map(function (s) {
+      return '<div class="slot" data-slot="' + s.key + '">' +
+        '<div class="slot-head"><span class="name">' + s.name + '</span>' +
+        '<span class="count">' + s.options.length + ' 款</span><span class="spacer"></span>' +
+        '<button class="mini lock" data-lock="' + s.key + '" title="锁定后，随机生成不会改变这一项">锁定</button>' +
+        '<button class="mini" data-shuffle="' + s.key + '" title="只更换这一项">换一个</button></div>' +
+        '<div class="opts" data-opts="' + s.key + '"></div></div>';
+    }).join('');
+    host.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.lock) {
+        var k = b.dataset.lock;
+        state.locks[k] = !state.locks[k];
+        syncLocks();
+      } else if (b.dataset.shuffle) {
+        shuffleSlot(b.dataset.shuffle);
+      } else if (b.dataset.value !== undefined) {
+        state.slots[b.dataset.slot] = b.dataset.value;
+        if (b.dataset.value !== 'none') state.locks[b.dataset.slot] = true;
+        syncLocks(); refresh();
+      }
+    });
+    buildThumbs();
+  }
+
+  function buildThumbs() {
+    E.SLOTS.forEach(function (s) {
+      var box = document.querySelector('[data-opts="' + s.key + '"]');
+      if (!box) return;
+      box.innerHTML = s.options.map(function (v) {
+        var svg = E.render(state, { slot:s.key, value:v, viewBox:E.FOCUS[s.focus] });
+        return '<button class="opt' + (state.slots[s.key] === v ? ' on' : '') +
+          '" data-slot="' + s.key + '" data-value="' + v + '" title="' + E.LABELS[v] + '">' +
+          '<span class="thumb">' + svg + '</span><span class="oname">' + E.LABELS[v] + '</span></button>';
+      }).join('');
+    });
+  }
+
+  function buildParams() {
+    $('#params').innerHTML = PARAMS.map(function (p) {
+      return '<div class="row"><label>' + p.name + '</label>' +
+        '<input type="range" data-param="' + p.key + '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '">' +
+        '<span class="val" data-val="' + p.key + '"></span></div>';
+    }).join('');
+    $('#params').addEventListener('input', function (e) {
+      var k = e.target.dataset.param; if (!k) return;
+      state.params[k] = parseFloat(e.target.value);
+      $('[data-val="' + k + '"]').textContent = state.params[k].toFixed(2);
+      refresh();
+    });
+  }
+
+  function buildColors() {
+    $('#palettes').innerHTML = E.PALETTES.map(function (p, i) {
+      var dots = ['hair','cloth','accent','bg'].map(function (k) {
+        return '<i style="background:' + p.colors[k] + '"></i>';
+      }).join('');
+      return '<button class="pal' + (i === state.palette ? ' on' : '') + '" data-pal="' + i + '">' +
+        '<span class="dots">' + dots + '</span>' + p.name + '</button>';
+    }).join('');
+    $('#palettes').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-pal]'); if (!b) return;
+      applyPalette(parseInt(b.dataset.pal, 10));
+    });
+    $('#colors').innerHTML = COLOR_KEYS.map(function (c) {
+      return '<label class="citem"><input type="color" data-color="' + c.key + '"><span>' + c.name + '</span></label>';
+    }).join('');
+    $('#colors').addEventListener('input', function (e) {
+      var k = e.target.dataset.color; if (!k) return;
+      state.colors[k] = e.target.value;
+      state.locks.colors = true;
+      syncLocks(); refresh();
+    });
+  }
+
+  function buildGallery() {
+    var seeds = ['sample-1000','sample-1001','sample-1025','sample-1073','sample-3453','sample-4091','sample-1050','sample-1013'];
+    $('#gallery').innerHTML = seeds.map(function (s) {
+      var st = Engine.defaultState();
+      st.seed = s;
+      E.SLOTS.forEach(function (d) { st.slots[d.key] = E.fromSeed(s, d.key); });
+      var pi = E.paletteIndex(s);
+      for (var k in E.PALETTES[pi].colors) st.colors[k] = E.PALETTES[pi].colors[k];
+      return '<button data-gseed="' + s + '" title="' + s + '">' + E.render(st, { viewBox:E.VIEWS.head }) + '</button>';
+    }).join('');
+    $('#gallery').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-gseed]'); if (!b) return;
+      randomize(b.dataset.gseed);
+    });
+  }
+
+  /* ---------- 同步 ---------- */
+  function syncLocks() {
+    document.querySelectorAll('[data-lock]').forEach(function (b) {
+      var on = !!state.locks[b.dataset.lock];
+      b.classList.toggle('on', on);
+      b.textContent = on ? '已锁定' : '锁定';
+    });
+    $('#lockParams').classList.toggle('on', !!state.locks.params);
+    $('#lockParams').textContent = state.locks.params ? '已锁定' : '锁定';
+    $('#lockColors').classList.toggle('on', !!state.locks.colors);
+    $('#lockColors').textContent = state.locks.colors ? '已锁定' : '锁定';
+  }
+  function syncControls() {
+    $('#seed').value = state.seed;
+    PARAMS.forEach(function (p) {
+      var el = document.querySelector('[data-param="' + p.key + '"]');
+      if (el) el.value = state.params[p.key];
+      var v = document.querySelector('[data-val="' + p.key + '"]');
+      if (v) v.textContent = Number(state.params[p.key]).toFixed(2);
+    });
+    COLOR_KEYS.forEach(function (c) {
+      var el = document.querySelector('[data-color="' + c.key + '"]');
+      if (el) el.value = state.colors[c.key];
+    });
+    document.querySelectorAll('[data-pal]').forEach(function (b) {
+      b.classList.toggle('on', parseInt(b.dataset.pal, 10) === state.palette);
+    });
+    document.querySelectorAll('[data-view]').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.view === state.view);
+    });
+  }
+  function refresh() {
+    $('#canvas').innerHTML = E.render(state);
+    document.querySelectorAll('.opt').forEach(function (b) {
+      b.classList.toggle('on', state.slots[b.dataset.slot] === b.dataset.value);
+    });
+    var c = E.comboCount();
+    $('#stat').innerHTML = '离散部件组合 <b>' + c.toLocaleString('zh-CN') + '</b> 种 × 6 个连续参数 × 任意配色 × 3 种裁切视图。' +
+      '渲染为自包含 SVG，无外部字体与图片，同一份配置永远得到同一张图。';
+  }
+
+  /* ---------- 工具 ---------- */
+  var toastTimer;
+  function toast(msg) {
+    var t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1900);
+  }
+  function copyText(txt, ok) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { toast(ok); }, function () { fallback(); });
+    } else fallback();
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast(ok); } catch (e) { toast('复制失败，请手动复制'); }
+      document.body.removeChild(ta);
+    }
+  }
+  function download(name, content, type) {
+    var blob = new Blob([content], { type: type });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+  function exportPng() {
+    var svg = E.render(state);
+    var url = URL.createObjectURL(new Blob([svg], { type:'image/svg+xml;charset=utf-8' }));
+    var img = new Image();
+    img.onload = function () {
+      var c = document.createElement('canvas'); c.width = 1024; c.height = 1024;
+      c.getContext('2d').drawImage(img, 0, 0, 1024, 1024);
+      URL.revokeObjectURL(url);
+      c.toBlob(function (blob) {
+        var u = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href = u;
+        a.download = fileStem() + '.png';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
+        toast('已导出 PNG · 1024×1024');
+      }, 'image/png');
+    };
+    img.onerror = function () { toast('PNG 导出失败，请改用 SVG'); URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+
+  /* ---------- 事件 ---------- */
+  $('#btnRandom').addEventListener('click', function () { randomize(); });
+  $('#seed').addEventListener('change', function () { randomize($('#seed').value.trim() || newSeed()); });
+  $('#btnShare').addEventListener('click', function () {
+    var url = shareUrl();
+    if (!url) { toast('分享链接生成失败'); return; }
+    try { history.replaceState(null, '', url); } catch (e) {}
+    copyText(url, '分享链接已复制');
+  });
+  $('#btnSvg').addEventListener('click', function () {
+    download(fileStem() + '.svg', E.render(state), 'image/svg+xml;charset=utf-8');
+    toast('已导出 SVG');
+  });
+  $('#btnPng').addEventListener('click', exportPng);
+  $('#btnJson').addEventListener('click', function () {
+    copyText(JSON.stringify({ seed:state.seed, slots:state.slots, params:state.params, colors:state.colors, view:state.view }, null, 2), '配置 JSON 已复制');
+  });
+  $('#viewSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-view]'); if (!b) return;
+    state.view = b.dataset.view; syncControls(); refresh();
+  });
+  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; syncLocks(); });
+  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; syncLocks(); });
+
+  /* ---------- 启动 ---------- */
+  loadFromUrl();
+  buildSlots();
+  buildParams();
+  buildColors();
+  buildGallery();
+  syncLocks();
+  syncControls();
+  refresh();
+  if (rejectedShare) toast('链接无效，已显示默认形象');
+
+})();
+</script>
+</body>
+</html>
