@@ -151,8 +151,8 @@
     <h1>半身像工坊</h1>
     <span>分层槽位 · 参数化部件 · 确定性种子</span>
   </div>
-  <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false"></div>
-  <button class="btn primary" id="btnRandom" title="按种子重抽未锁定的部件、参数和配色">随机生成</button>
+  <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false" maxlength="160" title="输入后按回车或离开输入框，按锁定状态生成"></div>
+  <button class="btn primary" id="btnRandom" title="生成新种子，重抽未锁定的部件、参数和配色">随机生成</button>
   <button class="btn" id="btnShare" title="复制能再次打开同一张图的链接">复制分享链接</button>
 </header>
 
@@ -170,7 +170,7 @@
       <button class="btn" id="btnPng" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
       <button class="btn" id="btnJson" title="复制当前的种子、部件、参数和配色">复制配置</button>
     </div>
-    <p class="plain" id="howto">「随机生成」按当前种子重抽未锁定的部件、参数和配色。「锁定」后，这一项在随机时保持不变。「换一个」只更换这一个槽位。「复制分享链接」得到能再次打开同一张图的地址。「导出 SVG」和「导出 PNG」把图下载到本机，「复制配置」复制当前参数。</p>
+    <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。「复制分享链接」保存完整绘图配置供再次打开；也可导出 SVG、PNG 或复制配置。</p>
     <div class="stat" id="stat"></div>
     <div class="gallery">
       <h3>不同部件的例子 · 点击载入</h3>
@@ -199,9 +199,9 @@
     <div class="card">
       <details>
         <summary>这套组合模型是怎么设计的</summary>
-        <p><b>11 个绘制层</b>：背景 → 衣服廓形 → 后层长发 → 脖子 → 脸 → 主发型 → 眼睛/眼镜 → 嘴巴 → 领口细节 → 配饰 → 头顶搭档。发型和领口各自拆成前后两层，才能正确表达「头发压在额头上、帽子压在脖子上」这类遮挡关系——这也是只做头像的工具最难补的部分。</p>
+        <p><b>11 个绘制层</b>：背景纹样 → 脖子 → 衣服廓形 → 后层长发 → 脸 → 主发型 → 眼睛/眼镜 → 嘴巴 → 衣服前景 → 配饰 → 头顶搭档。背景底色先于这些图层绘制；发型和衣服拆成前后层以表达遮挡关系。</p>
         <p><b>部件不是素材，是函数</b>：头发的轮廓由半径、扇贝数、鼓包幅度、发梢长度、刘海斜度实时算出来，所以 9 种发型 × 6 个滑块是连续空间，而不是 9 张固定图。想加新发型只要加一组参数，不用画新 SVG。</p>
-        <p><b>确定性</b>：<code>seed + 槽位名</code> 各自哈希，因此单独洗牌某个槽位不会连带改变其它槽位；锁定的槽位在随机生成中保持不变。配置可以序列化成 URL 或 JSON，同一份配置永远渲染同一张图。</p>
+        <p><b>确定性</b>：种子按槽位分别抽签，发型另存绘图种子。随机时保留已锁槽位及其随机细节输入，参数和配色由各自的锁控制。当前引擎下，相同完整绘图配置生成相同 SVG；部分锁定时，仅凭抽签种子不能还原保留的输入，请保存分享链接、配置或导出的图。</p>
         <p><b>一图三用</b>：同一份 SVG 换 viewBox 就得到半身 / 胸像 / 头像，不需要维护三套素材。</p>
         <p><b>颜色通道</b>：描边、肤色、发色、衣色、点缀色、背景色互相独立，换色不重绘结构。</p>
       </details>
@@ -805,10 +805,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
 /* ============================================================
    UI
    ============================================================ */
-if (typeof document !== 'undefined') (function () {
-
-  var $ = function (s) { return document.querySelector(s); };
-  var state = Engine.defaultState();
+var AvatarState = (function () {
   var E = Engine;
 
   var PARAMS = [
@@ -825,16 +822,26 @@ if (typeof document !== 'undefined') (function () {
   ];
 
   /* ---------- URL 状态 ---------- */
-  var rejectedShare = false;
   var MAX_SHARE_PARAM = 8000;
   var MAX_SEED_LEN = 160;
 
+  function defaultState() {
+    var next = E.defaultState();
+    next.drawingSeed = next.seed;
+    return next;
+  }
+  function cleanSeed(value, fallback) {
+    if (typeof value !== 'string') return fallback;
+    return value.replace(/[\u0000-\u001f]/g, '').trim().slice(0, MAX_SEED_LEN) || fallback;
+  }
   function isPlainObject(v) {
     return !!v && typeof v === 'object' && !Array.isArray(v);
   }
   function encodeState(s) {
     try {
-      var bytes = new TextEncoder().encode(JSON.stringify(s));
+      var next = sanitizeState(s);
+      if (!next) return '';
+      var bytes = new TextEncoder().encode(JSON.stringify(next));
       var bin = '';
       for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
@@ -842,6 +849,7 @@ if (typeof document !== 'undefined') (function () {
   }
   function decodeState(txt) {
     try {
+      if (typeof txt !== 'string' || !txt || txt.length > MAX_SHARE_PARAM) return null;
       var s = String(txt).replace(/-/g, '+').replace(/_/g, '/');
       while (s.length % 4) s += '=';
       var bin = atob(s);
@@ -858,7 +866,7 @@ if (typeof document !== 'undefined') (function () {
     if (raw.params !== undefined && !isPlainObject(raw.params)) return null;
     if (raw.colors !== undefined && !isPlainObject(raw.colors)) return null;
     if (raw.locks !== undefined && !isPlainObject(raw.locks)) return null;
-    var next = Engine.defaultState();
+    var next = defaultState();
     var slotsIn = isPlainObject(raw.slots) ? raw.slots : {};
     E.SLOTS.forEach(function (slot) {
       var value = slotsIn[slot.key];
@@ -876,11 +884,8 @@ if (typeof document !== 'undefined') (function () {
       var value = colorsIn[c.key];
       if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) next.colors[c.key] = value.toLowerCase();
     });
-    if (typeof raw.seed === 'string') {
-      var seed = raw.seed.replace(/[\u0000-\u001f]/g, '').trim();
-      if (seed.length > MAX_SEED_LEN) seed = seed.slice(0, MAX_SEED_LEN);
-      if (seed) next.seed = seed;
-    }
+    next.seed = cleanSeed(raw.seed, next.seed);
+    next.drawingSeed = cleanSeed(raw.drawingSeed, next.seed);
     if (raw.view === 'half' || raw.view === 'bust' || raw.view === 'head') next.view = raw.view;
     next.locks = {};
     var locksIn = isPlainObject(raw.locks) ? raw.locks : {};
@@ -889,42 +894,114 @@ if (typeof document !== 'undefined') (function () {
     });
     if (locksIn.params === true) next.locks.params = true;
     if (locksIn.colors === true) next.locks.colors = true;
-    next.palette = null;
+    next.palette = matchingPalette(next.colors);
+    return next;
+  }
+  function matchingPalette(colors) {
+    var matched = null;
     for (var pi = 0; pi < E.PALETTES.length; pi++) {
       var pal = E.PALETTES[pi].colors, same = true;
       COLOR_KEYS.forEach(function (c) {
-        if (next.colors[c.key] !== String(pal[c.key]).toLowerCase()) same = false;
+        if (colors[c.key] !== String(pal[c.key]).toLowerCase()) same = false;
       });
-      if (same) next.palette = pi;
+      if (same) matched = pi;
     }
+    return matched;
+  }
+  function render(current, override) {
+    var input = Object.assign({}, current, { seed:cleanSeed(current.drawingSeed, current.seed) });
+    return E.render(input, override);
+  }
+  function applyPalette(current, index) {
+    var next = sanitizeState(current);
+    if (!Number.isInteger(index) || !E.PALETTES[index]) return next;
+    next.colors = Object.assign({}, E.PALETTES[index].colors);
+    next.palette = index;
     return next;
   }
+  function randomize(current, seed) {
+    var next = sanitizeState(current);
+    next.seed = cleanSeed(seed, next.seed);
+    E.SLOTS.forEach(function (slot) {
+      if (!next.locks[slot.key]) next.slots[slot.key] = E.fromSeed(next.seed, slot.key);
+    });
+    if (!next.locks.hair) next.drawingSeed = next.seed;
+    if (!next.locks.params) {
+      var random = E.rngFor(next.seed, 'params');
+      var defaults = E.defaultState().params;
+      PARAMS.forEach(function (param) {
+        var value = Math.round((defaults[param.key] + (random() - 0.5) * (param.max - param.min) * 0.55) * 100) / 100;
+        next.params[param.key] = Math.min(param.max, Math.max(param.min, value));
+      });
+    }
+    if (!next.locks.colors) next = applyPalette(next, E.paletteIndex(next.seed));
+    return next;
+  }
+  function selectSlot(current, key, value) {
+    var next = sanitizeState(current);
+    var slot = E.SLOTS.find(function (item) { return item.key === key; });
+    if (!slot || slot.options.indexOf(value) === -1) return next;
+    next.slots[key] = value;
+    if (value !== 'none') next.locks[key] = true;
+    return next;
+  }
+  function shuffleSlot(current, key) {
+    var slot = E.SLOTS.find(function (item) { return item.key === key; });
+    var next = sanitizeState(current);
+    if (!slot) return next;
+    var choices = slot.options.filter(function (value) { return value !== next.slots[key]; });
+    next.slots[key] = choices[Math.floor(Math.random() * choices.length)];
+    return next;
+  }
+  function labelFor(key, value) {
+    if (key === 'bg' && value === 'dots') return '圆点';
+    if (key === 'mouth' && value === 'cat') return '猫嘴';
+    return E.LABELS[value];
+  }
+  return {
+    PARAMS:PARAMS, COLOR_KEYS:COLOR_KEYS, MAX_SHARE_PARAM:MAX_SHARE_PARAM,
+    defaultState:defaultState, sanitizeState:sanitizeState, encodeState:encodeState, decodeState:decodeState,
+    render:render, randomize:randomize, applyPalette:applyPalette,
+    selectSlot:selectSlot, shuffleSlot:shuffleSlot, labelFor:labelFor
+  };
+})();
+
+if (typeof document !== 'undefined') (function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var E = Engine;
+  var stateModel = AvatarState;
+  var state = stateModel.defaultState();
+  var PARAMS = stateModel.PARAMS;
+  var COLOR_KEYS = stateModel.COLOR_KEYS;
+  var rejectedShare = false;
+  var refreshFrame = null;
+
   function loadFromUrl() {
     var m = location.search.match(/[?&]s=([^&]*)/);
     if (!m) return;
-    if (!m[1] || m[1].length > MAX_SHARE_PARAM) {
-      state = Engine.defaultState();
+    if (!m[1] || m[1].length > stateModel.MAX_SHARE_PARAM) {
+      state = stateModel.defaultState();
       rejectedShare = true;
       return;
     }
     var raw;
     try { raw = decodeURIComponent(m[1]).replace(/ /g, '+'); }
     catch (e) {
-      state = Engine.defaultState();
+      state = stateModel.defaultState();
       rejectedShare = true;
       return;
     }
-    var parsed = decodeState(raw);
-    var next = parsed ? sanitizeState(parsed) : null;
+    var parsed = stateModel.decodeState(raw);
+    var next = parsed ? stateModel.sanitizeState(parsed) : null;
     if (!next) {
-      state = Engine.defaultState();
+      state = stateModel.defaultState();
       rejectedShare = true;
       return;
     }
     state = next;
   }
   function shareUrl() {
-    var token = encodeState(state);
+    var token = stateModel.encodeState(state);
     if (!token) return '';
     return location.href.split('?')[0] + '?s=' + encodeURIComponent(token);
   }
@@ -944,36 +1021,16 @@ if (typeof document !== 'undefined') (function () {
     return a[Math.floor(Math.random() * a.length)] + '-' + Math.floor(Math.random() * 9000 + 1000);
   }
   function randomize(seed) {
-    state.seed = seed || newSeed();
-    E.SLOTS.forEach(function (s) {
-      if (!state.locks[s.key]) state.slots[s.key] = E.fromSeed(state.seed, s.key);
-    });
-    if (!state.locks.params) {
-      var r = E.rngFor(state.seed, 'params');
-      PARAMS.forEach(function (p) {
-        var base = Engine.defaultState().params[p.key];
-        state.params[p.key] = Math.round((base + (r() - 0.5) * (p.max - p.min) * 0.55) * 100) / 100;
-        state.params[p.key] = Math.min(p.max, Math.max(p.min, state.params[p.key]));
-      });
-    }
-    if (!state.locks.colors) applyPalette(E.paletteIndex(state.seed), true);
+    state = stateModel.randomize(state, seed || newSeed());
     $('#seed').value = state.seed;
-    buildThumbs();
-    syncControls();
     refresh();
   }
-  function applyPalette(i, silent) {
-    state.palette = i;
-    var c = E.PALETTES[i].colors;
-    for (var k in c) state.colors[k] = c[k];
-    if (!silent) { buildThumbs(); syncControls(); refresh(); }
+  function applyPalette(i) {
+    state = stateModel.applyPalette(state, i);
+    refresh();
   }
   function shuffleSlot(key) {
-    var def = null;
-    E.SLOTS.forEach(function (s) { if (s.key === key) def = s; });
-    var cur = state.slots[key], next = cur;
-    for (var i = 0; i < 12 && next === cur; i++) next = def.options[Math.floor(Math.random() * def.options.length)];
-    state.slots[key] = next;
+    state = stateModel.shuffleSlot(state, key);
     refresh();
   }
 
@@ -984,7 +1041,7 @@ if (typeof document !== 'undefined') (function () {
       return '<div class="slot" data-slot="' + s.key + '">' +
         '<div class="slot-head"><span class="name">' + s.name + '</span>' +
         '<span class="count">' + s.options.length + ' 款</span><span class="spacer"></span>' +
-        '<button class="mini lock" data-lock="' + s.key + '" title="锁定后，随机生成不会改变这一项">锁定</button>' +
+        '<button class="mini lock" data-lock="' + s.key + '" title="整体随机时保留部件与随机细节；未锁参数和配色仍可改变外观">锁定</button>' +
         '<button class="mini" data-shuffle="' + s.key + '" title="只更换这一项">换一个</button></div>' +
         '<div class="opts" data-opts="' + s.key + '"></div></div>';
     }).join('');
@@ -993,13 +1050,12 @@ if (typeof document !== 'undefined') (function () {
       if (b.dataset.lock) {
         var k = b.dataset.lock;
         state.locks[k] = !state.locks[k];
-        syncLocks();
+        refresh();
       } else if (b.dataset.shuffle) {
         shuffleSlot(b.dataset.shuffle);
       } else if (b.dataset.value !== undefined) {
-        state.slots[b.dataset.slot] = b.dataset.value;
-        if (b.dataset.value !== 'none') state.locks[b.dataset.slot] = true;
-        syncLocks(); refresh();
+        state = stateModel.selectSlot(state, b.dataset.slot, b.dataset.value);
+        refresh();
       }
     });
     buildThumbs();
@@ -1009,12 +1065,19 @@ if (typeof document !== 'undefined') (function () {
     E.SLOTS.forEach(function (s) {
       var box = document.querySelector('[data-opts="' + s.key + '"]');
       if (!box) return;
-      box.innerHTML = s.options.map(function (v) {
-        var svg = E.render(state, { slot:s.key, value:v, viewBox:E.FOCUS[s.focus] });
-        return '<button class="opt' + (state.slots[s.key] === v ? ' on' : '') +
-          '" data-slot="' + s.key + '" data-value="' + v + '" title="' + E.LABELS[v] + '">' +
-          '<span class="thumb">' + svg + '</span><span class="oname">' + E.LABELS[v] + '</span></button>';
-      }).join('');
+      if (!box.children.length) {
+        box.innerHTML = s.options.map(function (v) {
+          var label = stateModel.labelFor(s.key, v);
+          return '<button class="opt" data-slot="' + s.key + '" data-value="' + v + '" title="' + label + '">' +
+            '<span class="thumb"></span><span class="oname">' + label + '</span></button>';
+        }).join('');
+      }
+      Array.from(box.children).forEach(function (button) {
+        var svg = stateModel.render(state, { slot:s.key, value:button.dataset.value, viewBox:E.FOCUS[s.focus] });
+        var thumb = button.querySelector('.thumb');
+        if (thumb.innerHTML !== svg) thumb.innerHTML = svg;
+        button.classList.toggle('on', state.slots[s.key] === button.dataset.value);
+      });
     });
   }
 
@@ -1027,8 +1090,7 @@ if (typeof document !== 'undefined') (function () {
     $('#params').addEventListener('input', function (e) {
       var k = e.target.dataset.param; if (!k) return;
       state.params[k] = parseFloat(e.target.value);
-      $('[data-val="' + k + '"]').textContent = state.params[k].toFixed(2);
-      refresh();
+      scheduleRefresh();
     });
   }
 
@@ -1051,13 +1113,14 @@ if (typeof document !== 'undefined') (function () {
       var k = e.target.dataset.color; if (!k) return;
       state.colors[k] = e.target.value;
       state.locks.colors = true;
-      syncLocks(); refresh();
+      scheduleRefresh();
     });
   }
 
   function exampleState(seed) {
-    var st = Engine.defaultState();
+    var st = stateModel.defaultState();
     st.seed = seed;
+    st.drawingSeed = seed;
     E.SLOTS.forEach(function (d) { st.slots[d.key] = E.fromSeed(seed, d.key); });
     var pi = E.paletteIndex(seed);
     st.palette = pi;
@@ -1068,16 +1131,13 @@ if (typeof document !== 'undefined') (function () {
   function buildGallery() {
     var seeds = ['sample-1000','sample-1001','sample-1025','sample-1073','sample-3453','sample-4091','sample-1050','sample-1013'];
     $('#gallery').innerHTML = seeds.map(function (s) {
-      return '<button data-gseed="' + s + '" title="' + s + '">' + E.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
+      return '<button data-gseed="' + s + '" title="' + s + '">' + stateModel.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
     }).join('');
     $('#gallery').addEventListener('click', function (e) {
       var b = e.target.closest('[data-gseed]'); if (!b) return;
       var view = state.view;
       state = exampleState(b.dataset.gseed);
       state.view = view;
-      buildThumbs();
-      syncLocks();
-      syncControls();
       refresh();
     });
   }
@@ -1095,16 +1155,16 @@ if (typeof document !== 'undefined') (function () {
     $('#lockColors').textContent = state.locks.colors ? '已锁定' : '锁定';
   }
   function syncControls() {
-    $('#seed').value = state.seed;
+    if (document.activeElement !== $('#seed')) $('#seed').value = state.seed;
     PARAMS.forEach(function (p) {
       var el = document.querySelector('[data-param="' + p.key + '"]');
-      if (el) el.value = state.params[p.key];
+      if (el && document.activeElement !== el) el.value = state.params[p.key];
       var v = document.querySelector('[data-val="' + p.key + '"]');
       if (v) v.textContent = Number(state.params[p.key]).toFixed(2);
     });
     COLOR_KEYS.forEach(function (c) {
       var el = document.querySelector('[data-color="' + c.key + '"]');
-      if (el) el.value = state.colors[c.key];
+      if (el && document.activeElement !== el) el.value = state.colors[c.key];
     });
     document.querySelectorAll('[data-pal]').forEach(function (b) {
       b.classList.toggle('on', parseInt(b.dataset.pal, 10) === state.palette);
@@ -1114,13 +1174,22 @@ if (typeof document !== 'undefined') (function () {
     });
   }
   function refresh() {
-    $('#canvas').innerHTML = E.render(state);
-    document.querySelectorAll('.opt').forEach(function (b) {
-      b.classList.toggle('on', state.slots[b.dataset.slot] === b.dataset.value);
-    });
+    if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
+    refreshFrame = null;
+    state = stateModel.sanitizeState(state);
+    $('#canvas').innerHTML = stateModel.render(state);
+    buildThumbs();
+    syncControls();
+    syncLocks();
     var c = E.comboCount();
     $('#stat').innerHTML = '离散部件组合 <b>' + c.toLocaleString('zh-CN') + '</b> 种 × 6 个连续参数 × 任意配色 × 3 种裁切视图。' +
-      '渲染为自包含 SVG，无外部字体与图片，同一份配置永远得到同一张图。';
+      '渲染为自包含 SVG，无外部字体与图片；当前引擎下，相同完整绘图配置得到相同图形。';
+  }
+  function scheduleRefresh() {
+    if (refreshFrame === null) refreshFrame = requestAnimationFrame(function () {
+      refreshFrame = null;
+      refresh();
+    });
   }
 
   /* ---------- 工具 ---------- */
@@ -1150,7 +1219,7 @@ if (typeof document !== 'undefined') (function () {
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
   function exportPng() {
-    var svg = E.render(state);
+    var svg = stateModel.render(state);
     var url = URL.createObjectURL(new Blob([svg], { type:'image/svg+xml;charset=utf-8' }));
     var img = new Image();
     img.onload = function () {
@@ -1180,19 +1249,19 @@ if (typeof document !== 'undefined') (function () {
     copyText(url, '分享链接已复制');
   });
   $('#btnSvg').addEventListener('click', function () {
-    download(fileStem() + '.svg', E.render(state), 'image/svg+xml;charset=utf-8');
+    download(fileStem() + '.svg', stateModel.render(state), 'image/svg+xml;charset=utf-8');
     toast('已导出 SVG');
   });
   $('#btnPng').addEventListener('click', exportPng);
   $('#btnJson').addEventListener('click', function () {
-    copyText(JSON.stringify({ seed:state.seed, slots:state.slots, params:state.params, colors:state.colors, view:state.view }, null, 2), '配置 JSON 已复制');
+    copyText(JSON.stringify({ seed:state.seed, drawingSeed:state.drawingSeed, slots:state.slots, params:state.params, colors:state.colors, view:state.view }, null, 2), '配置 JSON 已复制');
   });
   $('#viewSeg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-view]'); if (!b) return;
-    state.view = b.dataset.view; syncControls(); refresh();
+    state.view = b.dataset.view; refresh();
   });
-  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; syncLocks(); });
-  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; syncLocks(); });
+  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; refresh(); });
+  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; refresh(); });
 
   /* ---------- 启动 ---------- */
   loadFromUrl();
@@ -1200,8 +1269,6 @@ if (typeof document !== 'undefined') (function () {
   buildParams();
   buildColors();
   buildGallery();
-  syncLocks();
-  syncControls();
   refresh();
   if (rejectedShare) toast('链接无效，已显示默认形象');
 
