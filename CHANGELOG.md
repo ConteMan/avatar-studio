@@ -2,6 +2,11 @@
 
 ## 未发布
 
+### 工程与发布候选
+
+- 增加显式白名单 `dist/` 打包脚本、白名单与防泄露校验、本地静态预览服务与 `tests/dist.test.cjs` 回归用例（应用源码 `index.html` 无功能变更）。
+- 增加 `cloudflare.config.ts`（Workers Static Assets 纯静态候选配置，`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、锁定 `cf@1.0.0-rc.1`、PR CI 打包/dry-run 门禁与 `docs/RELEASING.md` 发布及回退指南；尚未正式上线。
+
 ### 页面
 
 - 窄屏（`<= 720px`）改为紧凑 144px 粘性预览停靠在页头下方，滚动编辑部件、参数和配色时可实时查看头像变化，并提升按钮与滑块触控区域；桌面端保留双栏布局。

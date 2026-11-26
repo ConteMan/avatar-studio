@@ -17,7 +17,17 @@
 git diff --check
 ```
 
-从其他目录调用时使用脚本的实际路径；脚本会自行定位仓库。成功时 Node 测试汇总的失败数为 0，任一断言失败时非零退出。自检覆盖固定 SVG 摘要、重复渲染、输入不可变、144 个部件与裁切用例、实际 11 层拼接顺序，以及随机锁定、手动换部件、新旧分享和非法输入回退；不替代浏览器视觉验收。参与开发前阅读 [贡献指南](CONTRIBUTING.md)。
+从其他目录调用时使用脚本的实际路径；脚本会自行定位仓库。成功时 Node 测试汇总的失败数为 0，任一断言失败时非零退出。自检覆盖固定 SVG 摘要、重复渲染、输入不可变、144 个部件与裁切用例、实际 11 层拼接顺序、随机锁定、手动换部件、新旧分享和非法输入回退，以及 `dist/` 显式白名单打包与本地预览 HTTP/404 行为；不替代浏览器视觉验收。参与开发前阅读 [贡献指南](CONTRIBUTING.md)。
+
+静态候选打包与本地预览（`0.1.0` 尚未正式上线）：
+
+```sh
+npm run build
+npm run verify:dist
+npm run preview
+```
+
+需要运行 Cloudflare `cf` 无上传干跑校验时，安装锁定依赖后执行 `npm run cf:dry-run` 与 `npm run cf:triggers:dry-run`，详见 [打包与发布指南](docs/RELEASING.md)。
 
 ## 随机与锁定
 
@@ -32,6 +42,7 @@ git diff --check
 - [实现评估](docs/implementation-review-2026-11-26.md)：优点、缺点、实际检查结果。
 - [开发与首发安排](docs/development-plan.md)：已批准的架构、维护流程、开发切片和发布验收；`0.1.0` 是首发计划，尚未发布。
 - [设计基线](docs/DESIGN.md)：当前 11 层、状态字段、分享格式与后续目标。
+- [打包与发布指南](docs/RELEASING.md)：显式白名单构建、本地预览、`cf` dry-run、授权后发布与回退撤下步骤。
 - [开发安排可视化](docs/development-overview.html)：可离线打开的流程与开发顺序。
 - [指挥者注意事项](docs/commander-notes.md)：继续开发前先读的约束与已定决策。
 
