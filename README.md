@@ -2,9 +2,30 @@
 
 用种子拼出半身头像，调五官、发型和配色，再导出矢量图或 PNG。同一份配置始终得到同一张图。
 
-这是独立项目。Idealand 只保留想法，不放这里的代码。
+代码与项目文档在本独立仓库维护。
 
-许可还没定。没有后端，不进 Dokploy。公开地址准备用 Cloudflare Pages 或 Workers，还没部署。
+产品方向已确定为轻量头像工坊。没有后端，不进 Dokploy。初版采用 Cloudflare Workers Static Assets 托管，还没部署。许可还没定。
+
+## 本地使用与自检
+
+用浏览器打开根目录的 `index.html` 即可使用，无需构建或安装运行时依赖。跨浏览器、真机及剪贴板权限的验证边界见实现评估。
+
+维护自检需要 Node.js 26 和 POSIX shell，不需要 `npm install`。在仓库根目录运行：
+
+```sh
+./scripts/selftest.sh
+git diff --check
+```
+
+从其他目录调用时使用脚本的实际路径；脚本会自行定位仓库。成功时 Node 测试汇总的失败数为 0，任一断言失败时非零退出。自检覆盖固定 SVG 摘要、重复渲染、输入不可变、144 个部件与裁切用例及实际 11 层拼接顺序；不替代浏览器视觉验收。参与开发前阅读 [贡献指南](CONTRIBUTING.md)。
+
+## 项目文档
+
+- [实现评估](docs/implementation-review-2026-11-26.md)：优点、缺点、实际检查结果。
+- [开发与首发安排](docs/development-plan.md)：已批准的架构、维护流程、开发切片和发布验收；`0.1.0` 是首发计划，尚未发布。
+- [设计基线](docs/DESIGN.md)：当前 11 层、状态字段、分享格式与后续目标。
+- [开发安排可视化](docs/development-overview.html)：可离线打开的流程与开发顺序。
+- [指挥者注意事项](docs/commander-notes.md)：继续开发前先读的约束与已定决策。
 
 ## 标志
 
