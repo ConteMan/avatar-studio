@@ -1,0 +1,23 @@
+{
+  "name": "avatar-studio",
+  "version": "0.1.0-candidate.0",
+  "private": true,
+  "type": "module",
+  "description": "半身像工坊（Avatar Studio）纯静态打包与 Cloudflare Workers Static Assets 候选配置",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "selftest": "./scripts/selftest.sh",
+    "build": "node scripts/build-dist.mjs",
+    "verify:dist": "node scripts/verify-dist.mjs",
+    "verify:release": "node scripts/verify-dist.mjs --mode release --require-clean",
+    "verify:ci": "node scripts/verify-manifest-gate.mjs",
+    "preview": "node scripts/preview-dist.mjs",
+    "cf:dry-run": "cf deploy ./dist --dry-run",
+    "cf:triggers:dry-run": "cf workers triggers deploy --prebuilt --dry-run"
+  },
+  "devDependencies": {
+    "cf": "1.0.0-rc.1"
+  }
+}

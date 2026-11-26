@@ -18,7 +18,7 @@
 git diff --check
 ```
 
-从其他 cwd 使用脚本的实际路径即可。脚本失败时非零退出；PR CI 仅调用同一入口。CI 不构建或发布网站。检查通过不等于已经配置分支保护，也不代表生产已更新。
+从其他 cwd 使用脚本的实际路径即可。脚本失败时非零退出；PR CI 调用 `selftest` 入口并额外执行按 `deploy/release.json` 阶段调度的静态打包门禁（`npm run verify:ci`）与 `cf` dry-run 校验，不自动发布网站。检查通过不等于已经配置分支保护，也不代表生产已更新。发布前准备、授权发布与回退撤下步骤见 [docs/RELEASING.md](docs/RELEASING.md)。
 
 自动检查覆盖固定输入 SVG 的 SHA-256、确定性、输入不可变、48 选项 × 3 裁切、实际 11 层输出顺序，以及复制失败与 PNG 异常的注入反例。基线来源与方法见 [tests/README.md](tests/README.md)。测试保护已有引擎，不将全锁定随机、草稿恢复等未实现目标伪装为已通过。
 

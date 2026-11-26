@@ -1,0 +1,22 @@
+# Cloudflare Workers Static Assets 响应头配置
+# 此文件仅由 Workers 静态资产运行时解析，不会被当作公开文件直接提供给客户端。
+# 注意：不要在多个重叠规则中重复声明 Cache-Control，避免指令拼接冲突。
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/build-meta.json
+  Cache-Control: no-cache, must-revalidate
+  X-Robots-Tag: noindex
