@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -95,6 +95,9 @@ function createIsolatedRepoFixture(overrides = {}) {
     "deploy/release.json",
     "cloudflare.config.ts",
     "package.json",
+    "scripts/build-dist.mjs",
+    "scripts/verify-dist.mjs",
+    "scripts/preview-dist.mjs",
   ]) {
     copyFile(rel);
   }
@@ -364,6 +367,60 @@ test("显式 release 模式与 verify:ci 清单门禁放行干净授权发布提
       () => runManifestGate({ projectRoot: releaseFixture.dir }),
       /do not match deploy\/release\.json allowedDomains/,
     );
+  } finally {
+    fs.rmSync(releaseFixture.dir, { recursive: true, force: true });
+  }
+});
+
+test("原始 CLI 入口 node scripts/verify-dist.mjs --mode release 默认强制干净树与 HEAD 一致", () => {
+  const releaseFixture = createIsolatedRepoFixture({
+    releaseJson: {
+      stage: "release",
+      plannedVersion: "0.1.0",
+      allowedDomains: ["avatar.conteman.com"],
+    },
+    cloudflareConfig: RELEASE_CF_CONFIG,
+  });
+
+  const runCli = (args) =>
+    spawnSync(process.execPath, args, {
+      cwd: releaseFixture.dir,
+      encoding: "utf8",
+    });
+
+  try {
+    const built = runCli(["scripts/build-dist.mjs"]);
+    assert.equal(built.status, 0, built.stderr);
+
+    const cleanRes = runCli(["scripts/verify-dist.mjs", "--mode", "release"]);
+    assert.equal(cleanRes.status, 0, cleanRes.stderr);
+    assert.match(cleanRes.stdout, /Verified dist\/ \[release\]/);
+
+    const cfgPath = path.join(releaseFixture.dir, "cloudflare.config.ts");
+    const origCfg = fs.readFileSync(cfgPath, "utf8");
+    fs.writeFileSync(cfgPath, `${origCfg}\n`, "utf8");
+
+    const dirtyAfterBuild = runCli(["scripts/verify-dist.mjs", "--mode", "release"]);
+    assert.notEqual(dirtyAfterBuild.status, 0);
+    assert.match(dirtyAfterBuild.stderr, /Current working tree is dirty/);
+
+    const dirtyRebuild = runCli(["scripts/build-dist.mjs"]);
+    assert.equal(dirtyRebuild.status, 0, dirtyRebuild.stderr);
+    const dirtyBuiltRes = runCli(["scripts/verify-dist.mjs", "--mode", "release"]);
+    assert.notEqual(dirtyBuiltRes.status, 0);
+    assert.match(dirtyBuiltRes.stderr, /Build artifact was generated from a dirty/);
+
+    fs.writeFileSync(cfgPath, origCfg, "utf8");
+    const cleanRebuild = runCli(["scripts/build-dist.mjs"]);
+    assert.equal(cleanRebuild.status, 0, cleanRebuild.stderr);
+
+    fs.writeFileSync(path.join(releaseFixture.dir, "README.md"), "head moved\n", "utf8");
+    runGit(releaseFixture.dir, ["add", "README.md"]);
+    runGit(releaseFixture.dir, ["commit", "-q", "-m", "test: 推进 HEAD 且不重建 dist"]);
+
+    const staleHeadRes = runCli(["scripts/verify-dist.mjs", "--mode", "release"]);
+    assert.notEqual(staleHeadRes.status, 0);
+    assert.match(staleHeadRes.stderr, /Stale build-meta\.json sourceCommit/);
   } finally {
     fs.rmSync(releaseFixture.dir, { recursive: true, force: true });
   }

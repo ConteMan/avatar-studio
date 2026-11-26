@@ -154,7 +154,7 @@ export function inspectCloudflareConfig(cfConfigText) {
 export function parseCliArgs(argv) {
   const opts = {
     mode: "candidate",
-    requireClean: false,
+    requireClean: undefined,
     expectCommit: null,
   };
   for (let i = 0; i < argv.length; i += 1) {

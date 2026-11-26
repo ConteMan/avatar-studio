@@ -198,7 +198,7 @@ npm run preview
 
 #### 影响范围与资源身份要求
 
-- **影响范围**：`cf workers delete <WORKER_NAME>` 调用 `DELETE /accounts/{account_id}/workers/workers/{worker_id}`，会永久删除该 Worker 及其关联的版本、部署记录与触发器/自定义域名绑定。本应用为纯静态无后端页面，用户草稿保存在各自浏览器的 `localStorage`，删除 Worker 不丢失服务端数据。
+- **影响范围**：`cf workers delete <WORKER_NAME>` 调用 `DELETE /accounts/{account_id}/workers/workers/{worker_id}`，按锁定 CLI 说明与官方文档范围删除该 Worker 及其关联资源（versions、deployments 等）；自定义域名绑定与 DNS 记录是否同步清理不得预设为已证明结果，必须以下方第 4 步现场复核及必要时的显式清理为准。本应用为纯静态无后端页面，用户草稿保存在各自浏览器的 `localStorage`，删除 Worker 不丢失服务端数据。
 - **身份与权限要求**：执行者需在当前 `cf` 认证上下文下对目标 Cloudflare 账号具备 Workers 管理/删除权限，且必须先核对账号与精确 Worker 名称，严禁跨账号或误删其他 Worker。
 
 #### 紧急撤下顺序
@@ -228,6 +228,6 @@ npm run preview
 
 #### 撤下后的恢复上线步骤
 
-故障修复并合入干净的目标提交后，按第 4 节完整流程重新执行发布（发布 PR 评审合并 → `npm run build` → `npm run verify:release -- --expect-commit "$TARGET_SHA"` → `npx cf deploy ./dist --dry-run` 检视 `worker.config.json` → `npx cf deploy ./dist`），即可重新创建 Worker、自动重建 Custom Domain DNS 与 TLS 证书，并在公开地址复测 `/build-meta.json` 与核心功能流程。
+故障修复并合入干净的目标提交后，按第 4 节完整流程重新执行发布（发布 PR 评审合并 → `npm run build` → `npm run verify:release -- --expect-commit "$TARGET_SHA"` → `npx cf deploy ./dist --dry-run` 检视 `worker.config.json` → `npx cf deploy ./dist`），重新创建 Worker 并发起 Custom Domain 绑定，其 DNS 与 TLS 证书的创建、生效情况以实际部署结果及公开地址对 `/build-meta.json` 与核心功能流程的复测为准。
 
 > **验证边界声明**：本候选阶段未执行真实远端删除或域名解绑。上述撤下命令与 API 路径仅基于锁定 `cf@1.0.0-rc.1` 的 `--help`、`cf schema workers delete`、`cf workers delete <name> --dry-run` 输出及包内源码静态核对；真实删除及自定义域名/DNS 自动清理行为须在实际授权撤下演练或操作时现场复核。
