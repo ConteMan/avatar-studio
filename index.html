@@ -170,7 +170,7 @@
       <button class="btn" id="btnPng" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
       <button class="btn" id="btnJson" title="复制当前的种子、部件、参数和配色">复制配置</button>
     </div>
-    <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。刷新会恢复本机草稿。打开分享链接时先显示分享内容，不会立刻改掉已有草稿，开始编辑后才保存。链接只在点击「复制分享链接」时更新；也可导出 SVG、PNG 或复制配置。</p>
+    <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。刷新会恢复本机草稿。打开分享链接时先显示分享内容，不会立刻改掉已有草稿。开始编辑并成功保存后，地址栏会去掉旧的分享参数，刷新恢复刚才的编辑。新的分享链接只在点击「复制分享链接」时生成；也可导出 SVG、PNG 或复制配置。</p>
     <div class="stat" id="stat"></div>
     <div class="gallery">
       <h3>不同部件的例子 · 点击载入</h3>
@@ -942,6 +942,43 @@ var AvatarState = (function () {
     }
     return { present:false };
   }
+  function isShareKey(part) {
+    if (!part) return false;
+    var eq = part.indexOf('=');
+    var key = eq === -1 ? part : part.slice(0, eq);
+    try { key = decodeURIComponent(key.replace(/\+/g, ' ')); }
+    catch (e) { return false; }
+    return key === 's';
+  }
+  function stripShareSearch(search) {
+    var query = String(search == null ? '' : search);
+    if (query.charAt(0) === '?') query = query.slice(1);
+    if (!query) return '';
+    var kept = [];
+    var parts = query.split('&');
+    for (var i = 0; i < parts.length; i++) {
+      if (!parts[i] || isShareKey(parts[i])) continue;
+      kept.push(parts[i]);
+    }
+    return kept.length ? '?' + kept.join('&') : '';
+  }
+  function locationWithoutShare(pathname, search, hash) {
+    var path = String(pathname == null ? '' : pathname);
+    var fragment = String(hash == null ? '' : hash);
+    if (fragment && fragment.charAt(0) !== '#') fragment = '#' + fragment;
+    return path + stripShareSearch(search) + fragment;
+  }
+  function searchAfterEdit(search, saveResult) {
+    var current = String(search == null ? '' : search);
+    if (!saveResult || !saveResult.ok) return current;
+    return stripShareSearch(current);
+  }
+  function historyClearNotice(previous, result) {
+    if (!result || result.ok) return { previous:'', notice:'' };
+    var notice = '草稿已保存，但地址栏仍保留旧分享。直接刷新会打开旧链接，而不是刚才的编辑。';
+    if (previous === notice) return { previous:previous, notice:'' };
+    return { previous:notice, notice:notice };
+  }
   function readDraft(storage) {
     try {
       if (!storage || typeof storage.getItem !== 'function') return { ok:false, reason:'unavailable' };
@@ -1091,7 +1128,9 @@ var AvatarState = (function () {
     PARAMS:PARAMS, COLOR_KEYS:COLOR_KEYS, MAX_SHARE_PARAM:MAX_SHARE_PARAM,
     FORMAT_VERSION:FORMAT_VERSION, DRAFT_KEY:DRAFT_KEY,
     defaultState:defaultState, sanitizeState:sanitizeState, encodeState:encodeState, decodeState:decodeState,
-    readEncoded:readEncoded, shareParam:shareParam, readDraft:readDraft, saveDraft:saveDraft,
+    readEncoded:readEncoded, shareParam:shareParam, stripShareSearch:stripShareSearch,
+    locationWithoutShare:locationWithoutShare, searchAfterEdit:searchAfterEdit,
+    historyClearNotice:historyClearNotice, readDraft:readDraft, saveDraft:saveDraft,
     storageWriteNotice:storageWriteNotice, resolveInitial:resolveInitial,
     render:render, randomize:randomize, applyPalette:applyPalette,
     selectSlot:selectSlot, shuffleSlot:shuffleSlot, labelFor:labelFor
@@ -1315,6 +1354,7 @@ if (typeof document !== 'undefined') (function () {
   /* ---------- 工具 ---------- */
   var toastTimer;
   var storageNotice = '';
+  var historyNotice = '';
   function noteEdit() {
     var storage = null;
     try { storage = window.localStorage; } catch (e) { storage = null; }
@@ -1322,6 +1362,16 @@ if (typeof document !== 'undefined') (function () {
     var announced = stateModel.storageWriteNotice(storageNotice, result);
     storageNotice = announced.previous;
     if (announced.notice) toast(announced.notice);
+    if (!result.ok || !stateModel.shareParam(location.search).present) return;
+    var cleared = { ok:false };
+    try {
+      if (!history || typeof history.replaceState !== 'function') throw new Error('history');
+      history.replaceState(history.state, '', stateModel.locationWithoutShare(location.pathname, location.search, location.hash));
+      cleared = { ok:!stateModel.shareParam(location.search).present };
+    } catch (e) { cleared = { ok:false }; }
+    var historyAnnounced = stateModel.historyClearNotice(historyNotice, cleared);
+    historyNotice = historyAnnounced.previous;
+    if (historyAnnounced.notice) toast(historyAnnounced.notice);
   }
   function toast(msg) {
     var t = $('#toast'); t.textContent = msg; t.classList.add('show');

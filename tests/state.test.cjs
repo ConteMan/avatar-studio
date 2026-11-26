@@ -334,6 +334,118 @@ test('损坏、不可用和满额存储不阻断规范化、分享或渲染', ()
   assert.doesNotMatch(app.render(unavailable.state), /NaN|Infinity|undefined/);
 });
 
+test('成功保存后去掉旧分享参数，刷新恢复最新草稿；失败时保留分享', () => {
+  const shared = app.defaultState();
+  shared.seed = '旧分享🎨';
+  shared.drawingSeed = '旧发型🐱';
+  shared.locks.hair = true;
+  const normalized = app.sanitizeState(shared);
+  const versioned = app.encodeState(normalized);
+  const legacy = Buffer.from(JSON.stringify(plain(normalized)), 'utf8').toString('base64url');
+  const edited = app.sanitizeState(normalized);
+  edited.view = 'head';
+  edited.slots.hair = 'bun';
+  edited.drawingSeed = '新发型🌱';
+  edited.locks.hair = true;
+  const storage = memoryStorage();
+  assert.equal(app.saveDraft(storage, edited).ok, true);
+
+  for (const token of [versioned, legacy]) {
+    const search = '?from=mail&s=' + encodeURIComponent(token) + '&s=' + encodeURIComponent(token) + '&tab=1';
+    const held = app.searchAfterEdit(search, { ok:false, reason:'quota' });
+    assert.equal(held, search);
+    const stillShared = app.resolveInitial(held, storage);
+    assert.notEqual(stillShared.source, 'draft');
+    assert.equal(stillShared.state.drawingSeed, '旧发型🐱');
+    assert.equal(storage.calls.remove, 0);
+    const cleared = app.searchAfterEdit(search, { ok:true });
+    assert.equal(cleared, '?from=mail&tab=1');
+    assert.equal(app.shareParam(cleared).present, false);
+    const restored = app.resolveInitial(cleared, storage);
+    assert.equal(restored.source, 'draft');
+    assert.equal(restored.state.seed, normalized.seed);
+    assert.equal(restored.state.drawingSeed, '新发型🌱');
+    assert.equal(restored.state.view, 'head');
+    assert.equal(restored.state.slots.hair, 'bun');
+    assert.equal(restored.state.locks.hair, true);
+    assert.equal(app.render(restored.state), app.render(edited));
+    assert.deepEqual(plain(restored.state), plain(app.sanitizeState(edited)));
+  }
+  assert.equal(app.locationWithoutShare('/index.html', '?s=one&keep=1&s=two', '#panel'), '/index.html?keep=1#panel');
+  assert.equal(app.locationWithoutShare('/index.html', '?s=only', ''), '/index.html');
+  assert.equal(app.locationWithoutShare('/', '?%73=abc&ok=1', ''), '/?ok=1');
+  assert.equal(storage.calls.set, 1);
+});
+
+test('无分享编辑、显式分享后再编辑，直接刷新读到第二次；复制本身不改链接', () => {
+  const storage = memoryStorage();
+  const first = app.randomize(app.defaultState(), '第一次🐱');
+  assert.equal(app.saveDraft(storage, first).ok, true);
+  let search = app.searchAfterEdit('', { ok:true });
+  assert.equal(search, '');
+  const token = app.encodeState(first);
+  search = '?s=' + encodeURIComponent(token) + '&s=' + encodeURIComponent(token);
+  assert.equal(app.readDraft(storage).state.seed, '第一次🐱');
+  assert.equal(app.searchAfterEdit(search, null), search);
+  const second = app.sanitizeState(first);
+  second.view = 'bust';
+  second.seed = '第二次🌱';
+  second.drawingSeed = '第二次绘图🐱';
+  assert.equal(app.saveDraft(storage, second).ok, true);
+  search = app.searchAfterEdit(search, { ok:true });
+  assert.equal(search, '');
+  const restored = app.resolveInitial(search, storage);
+  assert.equal(restored.source, 'draft');
+  assert.equal(restored.state.seed, '第二次🌱');
+  assert.equal(restored.state.drawingSeed, '第二次绘图🐱');
+  assert.equal(restored.state.view, 'bust');
+  assert.equal(app.render(restored.state), app.render(second));
+});
+
+test('首次打开分享不清理参数也不改草稿；存储失败保留全部 s', () => {
+  const edited = app.defaultState();
+  edited.seed = '页面编辑';
+  const older = app.defaultState();
+  older.seed = '更旧草稿';
+  const storage = memoryStorage(JSON.stringify({ v:1, state:app.sanitizeState(older) }));
+  const token = app.encodeState(app.defaultState());
+  const search = '?s=' + encodeURIComponent(token) + '&s=second&keep=1';
+  const opened = app.resolveInitial(search, storage);
+  assert.equal(opened.source, 'share');
+  assert.equal(app.shareParam(search).present, true);
+  assert.deepEqual(storage.calls, { get:0, set:0, remove:0 });
+  assert.equal(app.searchAfterEdit(search, { ok:false, reason:'unavailable' }), search);
+  const quota = {
+    getItem(key) { return storage.getItem(key); },
+    setItem() {
+      const error = new Error('full');
+      error.name = 'QuotaExceededError';
+      error.code = 22;
+      throw error;
+    },
+    removeItem() { throw new Error('should not clear'); },
+  };
+  const failed = app.saveDraft(quota, edited);
+  assert.equal(failed.reason, 'quota');
+  assert.equal(app.searchAfterEdit(search, failed), search);
+  const reloaded = app.resolveInitial(app.searchAfterEdit(search, failed), quota);
+  assert.equal(reloaded.source, 'share');
+  assert.notEqual(reloaded.state.seed, '更旧草稿');
+  const denied = app.saveDraft({
+    getItem() { throw new Error('denied'); },
+    setItem() { throw new Error('denied'); },
+  }, edited);
+  assert.equal(denied.reason, 'unavailable');
+  assert.equal(app.searchAfterEdit('?s=a&s=b', denied), '?s=a&s=b');
+  const firstNotice = app.historyClearNotice('', { ok:false });
+  const secondNotice = app.historyClearNotice(firstNotice.previous, { ok:false });
+  assert.match(firstNotice.notice, /草稿已保存/);
+  assert.match(firstNotice.notice, /旧分享/);
+  assert.match(firstNotice.notice, /刷新/);
+  assert.equal(secondNotice.notice, '');
+  assert.equal(app.historyClearNotice(secondNotice.previous, { ok:true }).previous, '');
+});
+
 test('UI 标签按槽位区分 dots 和 cat，Engine 接口原值保持', () => {
   assert.equal(app.labelFor('bg', 'dots'), '圆点');
   assert.equal(app.labelFor('eyes', 'dots'), '点眼');
