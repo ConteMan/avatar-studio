@@ -21,6 +21,8 @@ export const ASSET_WHITELIST = Object.freeze([
   { src: "deploy/_headers", dest: "_headers", publicAsset: false },
 ]);
 
+export const RELEASE_MANIFEST_REL = "deploy/release.json";
+export const VALID_STAGES = Object.freeze(["candidate", "release"]);
 export const META_FILENAME = "build-meta.json";
 
 export const EXPECTED_DIST_FILES = Object.freeze(
@@ -31,7 +33,40 @@ function sha256Buffer(buf) {
   return createHash("sha256").update(buf).digest("hex");
 }
 
-function readGitInfo(cwd) {
+export function readReleaseManifest(projectRoot = PROJECT_ROOT) {
+  const manifestPath = path.join(path.resolve(projectRoot), RELEASE_MANIFEST_REL);
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`Missing release manifest: ${RELEASE_MANIFEST_REL}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  } catch (err) {
+    throw new Error(`Invalid JSON in ${RELEASE_MANIFEST_REL}: ${err.message}`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${RELEASE_MANIFEST_REL} must be a JSON object`);
+  }
+  if (!VALID_STAGES.includes(parsed.stage)) {
+    throw new Error(`${RELEASE_MANIFEST_REL} stage must be one of ${VALID_STAGES.join(", ")}`);
+  }
+  if (typeof parsed.plannedVersion !== "string" || !parsed.plannedVersion.trim()) {
+    throw new Error(`${RELEASE_MANIFEST_REL} plannedVersion must be a non-empty string`);
+  }
+  if (
+    !Array.isArray(parsed.allowedDomains) ||
+    !parsed.allowedDomains.every((d) => typeof d === "string" && d.trim().length > 0)
+  ) {
+    throw new Error(`${RELEASE_MANIFEST_REL} allowedDomains must be an array of non-empty strings`);
+  }
+  return {
+    stage: parsed.stage,
+    plannedVersion: parsed.plannedVersion.trim(),
+    allowedDomains: parsed.allowedDomains.map((d) => d.trim()),
+  };
+}
+
+export function readGitInfo(cwd) {
   const runGit = (args) => {
     try {
       return execFileSync("git", args, {
@@ -62,7 +97,7 @@ function assertSafeTargetDir(projectRoot, distDir) {
   }
   const rel = path.relative(resolvedRoot, resolvedDist);
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
-    // Allow explicit temporary test directories outside the repo only if named with dist prefix/leaf
+    // Allow explicit temporary test directories outside the repo only if named with dist leaf
     if (path.basename(resolvedDist) !== "dist") {
       throw new Error(`Refusing to clean unexpected directory: ${resolvedDist}`);
     }
@@ -83,6 +118,7 @@ export function buildDist(options = {}) {
   const distDir = path.resolve(options.distDir || path.join(projectRoot, "dist"));
 
   assertSafeTargetDir(projectRoot, distDir);
+  const releaseManifest = readReleaseManifest(projectRoot);
 
   // 清除本脚本拥有的旧 dist 产物，保证重复构建幂等无残留
   fs.rmSync(distDir, { recursive: true, force: true });
@@ -116,23 +152,25 @@ export function buildDist(options = {}) {
 
   const gitInfo = readGitInfo(projectRoot);
   const pkgPath = path.join(projectRoot, "package.json");
-  let candidateVersion = "0.1.0-candidate.0";
+  let packageVersion = "0.1.0-candidate.0";
   if (fs.existsSync(pkgPath)) {
     try {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
       if (typeof pkg.version === "string" && pkg.version) {
-        candidateVersion = pkg.version;
+        packageVersion = pkg.version;
       }
     } catch {
-      // Keep default candidate version if package.json is unavailable
+      // Keep default version if package.json is unavailable
     }
   }
 
+  // 静态预发布产物始终保持 released=false：是否上线只能在实际部署并复测公开地址后确认，
+  // 绝不在静态构建阶段提前宣称已发布。
   const meta = {
     app: "avatar-studio",
-    stage: "candidate",
-    plannedVersion: "0.1.0",
-    candidateVersion,
+    stage: releaseManifest.stage,
+    plannedVersion: releaseManifest.plannedVersion,
+    packageVersion,
     released: false,
     sourceCommit: gitInfo.sourceCommit,
     sourceShortCommit: gitInfo.sourceShortCommit,

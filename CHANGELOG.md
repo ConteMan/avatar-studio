@@ -4,7 +4,7 @@
 
 ### 工程与发布候选
 
-- 增加显式白名单 `dist/` 打包脚本、白名单与防泄露校验、本地静态预览服务与 `tests/dist.test.cjs` 回归用例（应用源码 `index.html` 无功能变更）。
+- 增加显式白名单 `dist/` 打包脚本、`deploy/release.json` 阶段与域名清单、候选/正式双模式校验、本地静态预览服务与 `tests/dist.test.cjs` 回归用例（应用源码 `index.html` 无功能变更）。
 - 增加 `cloudflare.config.ts`（Workers Static Assets 纯静态候选配置，`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、锁定 `cf@1.0.0-rc.1`、PR CI 打包/dry-run 门禁与 `docs/RELEASING.md` 发布及回退指南；尚未正式上线。
 
 ### 页面

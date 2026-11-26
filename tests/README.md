@@ -28,7 +28,7 @@
 
 `export.test.cjs` 用注入的剪贴板、文本框和画布覆盖复制与 PNG。它检查异步写入成功、Promise 拒绝后再回退、同步抛错、回退返回 false、回退抛错、焦点归还和文本框移除；以及 context 为空、`drawImage` 抛错、`toBlob` 抛错、`toBlob` 得到 null、图片解码失败。成功的 PNG 用例核对 1024 绘制、点击时的 SVG 与文件名，以及两次导出各自释放自己的对象 URL。这些用例不操作操作系统剪贴板，也不解码真实 PNG。
 
-`dist.test.cjs` 覆盖显式白名单打包的幂等性与旧残留清理、白名单外文件拦截、无敏感路径泄露，以及本地 `dist/` 预览服务器的首页、查询分享、`/index.html` 307 重定向、静态资源 `Content-Type` 与缓存头、ETag/304、`/_headers` 隐藏和未知路径/缺失资产真实 404（不走 SPA 回退）。
+`dist.test.cjs` 覆盖显式白名单打包的幂等性与旧残留清理、白名单外文件拦截、无敏感路径泄露、候选模式默认拒绝生产 `domains` 与非 `candidate` 状态、显式 `release` 模式校验（放行干净授权发布配置并拦截脏树、提交 SHA 不符、域名不匹配与伪造 `released: true`），以及本地 `dist/` 预览服务器的首页、查询分享、`/index.html` 307 重定向、静态资源 `Content-Type` 与缓存头、ETag/304、`/_headers` 隐藏和未知路径/缺失资产真实 404（不走 SPA 回退）。
 
 ## 未覆盖
 

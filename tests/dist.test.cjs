@@ -2,6 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -36,7 +37,61 @@ function httpRequest(port, reqPath, options = {}) {
   });
 }
 
-test("显式白名单构建 dist 可重复执行、清除旧产物并通过白名单校验", async () => {
+function runGit(cwd, args) {
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+/**
+ * 在隔离临时目录创建最小可提交项目副本，用于安全验证候选/正式模式、脏树、SHA 不符与域名一致性门禁。
+ */
+function createIsolatedRepoFixture(overrides = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "avatar-studio-release-sim-"));
+  const copyFile = (rel) => {
+    const src = path.join(PROJECT_ROOT, rel);
+    const dest = path.join(dir, rel);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(src, dest);
+  };
+
+  for (const rel of [
+    ".gitignore",
+    "index.html",
+    "assets/mark.svg",
+    "assets/favicon-32.png",
+    "deploy/_headers",
+    "deploy/release.json",
+    "cloudflare.config.ts",
+    "package.json",
+  ]) {
+    copyFile(rel);
+  }
+
+  if (overrides.releaseJson !== undefined) {
+    fs.writeFileSync(
+      path.join(dir, "deploy/release.json"),
+      `${JSON.stringify(overrides.releaseJson, null, 2)}\n`,
+      "utf8",
+    );
+  }
+  if (overrides.cloudflareConfig !== undefined) {
+    fs.writeFileSync(path.join(dir, "cloudflare.config.ts"), overrides.cloudflareConfig, "utf8");
+  }
+
+  runGit(dir, ["init", "-q"]);
+  runGit(dir, ["config", "user.name", "Test Runner"]);
+  runGit(dir, ["config", "user.email", "test@example.invalid"]);
+  runGit(dir, ["add", "."]);
+  runGit(dir, ["commit", "-q", "-m", "chore: 初始化隔离发布演练副本"]);
+  const head = runGit(dir, ["rev-parse", "HEAD"]);
+
+  return { dir, head };
+}
+
+test("显式白名单构建 dist 可重复执行、清除旧产物并通过默认候选白名单校验", async () => {
   const { buildDist, EXPECTED_DIST_FILES } = await import("../scripts/build-dist.mjs");
   const { verifyDist } = await import("../scripts/verify-dist.mjs");
 
@@ -55,6 +110,7 @@ test("显式白名单构建 dist 可重复执行、清除旧产物并通过白�
     assert.equal(fs.existsSync(path.join(distDir, "docs")), false);
 
     const verified = verifyDist({ projectRoot: PROJECT_ROOT, distDir });
+    assert.equal(verified.mode, "candidate");
     assert.deepEqual(verified.files, [...EXPECTED_DIST_FILES]);
     assert.equal(verified.meta.stage, "candidate");
     assert.equal(verified.meta.released, false);
@@ -70,6 +126,160 @@ test("显式白名单构建 dist 可重复执行、清除旧产物并通过白�
     assert.throws(() => verifyDist({ projectRoot: PROJECT_ROOT, distDir }), /Unexpected files/);
   } finally {
     fs.rmSync(tmpParent, { recursive: true, force: true });
+  }
+});
+
+test("默认候选模式拒绝生产 domains 或 release 阶段配置", async () => {
+  const { buildDist } = await import("../scripts/build-dist.mjs");
+  const { verifyDist } = await import("../scripts/verify-dist.mjs");
+
+  const withDomains = createIsolatedRepoFixture({
+    cloudflareConfig: `import { defineConfig } from "cf/config";
+export default defineConfig({
+  worker: {
+    name: "avatar-studio",
+    compatibilityDate: "2026-11-26",
+    workersDev: false,
+    domains: ["avatar.conteman.com"],
+    assets: {
+      htmlHandling: "auto-trailing-slash",
+      notFoundHandling: "none",
+    },
+  },
+});
+`,
+  });
+
+  const withReleaseStage = createIsolatedRepoFixture({
+    releaseJson: {
+      stage: "release",
+      plannedVersion: "0.1.0",
+      allowedDomains: ["avatar.conteman.com"],
+    },
+  });
+
+  try {
+    buildDist({ projectRoot: withDomains.dir });
+    assert.throws(
+      () => verifyDist({ projectRoot: withDomains.dir }),
+      /Candidate cloudflare\.config\.ts must not apply production domains/,
+    );
+
+    buildDist({ projectRoot: withReleaseStage.dir });
+    assert.throws(
+      () => verifyDist({ projectRoot: withReleaseStage.dir }),
+      /does not match verification mode="candidate"/,
+    );
+  } finally {
+    fs.rmSync(withDomains.dir, { recursive: true, force: true });
+    fs.rmSync(withReleaseStage.dir, { recursive: true, force: true });
+  }
+});
+
+test("显式 release 模式放行经授权的干净发布配置，并拦截脏树、SHA 不符、域名不匹配与伪造 released", async () => {
+  const { buildDist } = await import("../scripts/build-dist.mjs");
+  const { verifyDist } = await import("../scripts/verify-dist.mjs");
+
+  const releaseFixture = createIsolatedRepoFixture({
+    releaseJson: {
+      stage: "release",
+      plannedVersion: "0.1.0",
+      allowedDomains: ["avatar.conteman.com"],
+    },
+    cloudflareConfig: `import { defineConfig } from "cf/config";
+export default defineConfig({
+  worker: {
+    name: "avatar-studio",
+    compatibilityDate: "2026-11-26",
+    workersDev: false,
+    domains: ["avatar.conteman.com"],
+    assets: {
+      htmlHandling: "auto-trailing-slash",
+      notFoundHandling: "none",
+    },
+  },
+});
+`,
+  });
+
+  try {
+    const built = buildDist({ projectRoot: releaseFixture.dir });
+    assert.equal(built.meta.stage, "release");
+    assert.equal(built.meta.released, false);
+    assert.equal(built.meta.sourceDirty, false);
+    assert.equal(built.meta.sourceCommit, releaseFixture.head);
+
+    // 1. 干净提交 + 域名与清单一致 + 精确 SHA -> release 模式通过
+    const ok = verifyDist({
+      projectRoot: releaseFixture.dir,
+      mode: "release",
+      expectCommit: releaseFixture.head,
+    });
+    assert.equal(ok.mode, "release");
+    assert.equal(ok.meta.sourceCommit, releaseFixture.head);
+    assert.equal(ok.meta.released, false);
+
+    // 2. 同副本下默认 candidate 模式必须仍然拒绝
+    assert.throws(
+      () => verifyDist({ projectRoot: releaseFixture.dir }),
+      /Candidate cloudflare\.config\.ts must not apply production domains/,
+    );
+
+    // 3. 预期 SHA 不符必须失败
+    assert.throws(
+      () =>
+        verifyDist({
+          projectRoot: releaseFixture.dir,
+          mode: "release",
+          expectCommit: "0000000000000000000000000000000000000000",
+        }),
+      /does not match expected commit/,
+    );
+
+    // 4. 伪造 released=true 必须失败（预发布产物不得提前宣称已发布）
+    const metaPath = path.join(releaseFixture.dir, "dist/build-meta.json");
+    const origMeta = fs.readFileSync(metaPath, "utf8");
+    const tampered = JSON.parse(origMeta);
+    tampered.released = true;
+    fs.writeFileSync(metaPath, `${JSON.stringify(tampered, null, 2)}\n`, "utf8");
+    assert.throws(
+      () => verifyDist({ projectRoot: releaseFixture.dir, mode: "release" }),
+      /Pre-deploy build-meta\.json must keep released=false/,
+    );
+    fs.writeFileSync(metaPath, origMeta, "utf8");
+
+    // 5. 构建后工作区变脏（未提交修改）必须失败
+    const cfgPath = path.join(releaseFixture.dir, "cloudflare.config.ts");
+    const origCfg = fs.readFileSync(cfgPath, "utf8");
+    fs.writeFileSync(cfgPath, `${origCfg}// uncommitted edit\n`, "utf8");
+    assert.throws(
+      () => verifyDist({ projectRoot: releaseFixture.dir, mode: "release" }),
+      /Current working tree is dirty/,
+    );
+
+    // 6. 在脏工作区上直接重新构建（sourceDirty=true）也必须失败
+    const dirtyBuilt = buildDist({ projectRoot: releaseFixture.dir });
+    assert.equal(dirtyBuilt.meta.sourceDirty, true);
+    assert.throws(
+      () => verifyDist({ projectRoot: releaseFixture.dir, mode: "release" }),
+      /Build artifact was generated from a dirty/,
+    );
+
+    // 7. cloudflare.config.ts 域名与 deploy/release.json 不一致必须失败
+    fs.writeFileSync(
+      cfgPath,
+      origCfg.replace("avatar.conteman.com", "wrong.conteman.com"),
+      "utf8",
+    );
+    runGit(releaseFixture.dir, ["add", "cloudflare.config.ts"]);
+    runGit(releaseFixture.dir, ["commit", "-q", "-m", "test: 制造未授权域名偏差"]);
+    buildDist({ projectRoot: releaseFixture.dir });
+    assert.throws(
+      () => verifyDist({ projectRoot: releaseFixture.dir, mode: "release" }),
+      /do not match deploy\/release\.json allowedDomains/,
+    );
+  } finally {
+    fs.rmSync(releaseFixture.dir, { recursive: true, force: true });
   }
 });
 
