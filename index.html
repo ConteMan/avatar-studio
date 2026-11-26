@@ -1049,19 +1049,30 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
+  function exampleState(seed) {
+    var st = Engine.defaultState();
+    st.seed = seed;
+    E.SLOTS.forEach(function (d) { st.slots[d.key] = E.fromSeed(seed, d.key); });
+    var pi = E.paletteIndex(seed);
+    st.palette = pi;
+    var colors = E.PALETTES[pi].colors;
+    for (var k in colors) st.colors[k] = colors[k];
+    return st;
+  }
   function buildGallery() {
     var seeds = ['sample-1000','sample-1001','sample-1025','sample-1073','sample-3453','sample-4091','sample-1050','sample-1013'];
     $('#gallery').innerHTML = seeds.map(function (s) {
-      var st = Engine.defaultState();
-      st.seed = s;
-      E.SLOTS.forEach(function (d) { st.slots[d.key] = E.fromSeed(s, d.key); });
-      var pi = E.paletteIndex(s);
-      for (var k in E.PALETTES[pi].colors) st.colors[k] = E.PALETTES[pi].colors[k];
-      return '<button data-gseed="' + s + '" title="' + s + '">' + E.render(st, { viewBox:E.VIEWS.head }) + '</button>';
+      return '<button data-gseed="' + s + '" title="' + s + '">' + E.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
     }).join('');
     $('#gallery').addEventListener('click', function (e) {
       var b = e.target.closest('[data-gseed]'); if (!b) return;
-      randomize(b.dataset.gseed);
+      var view = state.view;
+      state = exampleState(b.dataset.gseed);
+      state.view = view;
+      buildThumbs();
+      syncLocks();
+      syncControls();
+      refresh();
     });
   }
 
