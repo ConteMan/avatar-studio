@@ -20,7 +20,7 @@ jobs:
           package-manager-cache: false
       - run: ./scripts/selftest.sh
 
-  workers-candidate-gate:
+  workers-assets-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -33,6 +33,6 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build
-      - run: npm run verify:dist
+      - run: npm run verify:ci
       - run: npm run cf:dry-run
       - run: npm run cf:triggers:dry-run

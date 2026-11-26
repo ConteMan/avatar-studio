@@ -12,6 +12,7 @@
     "build": "node scripts/build-dist.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:release": "node scripts/verify-dist.mjs --mode release --require-clean",
+    "verify:ci": "node scripts/verify-manifest-gate.mjs",
     "preview": "node scripts/preview-dist.mjs",
     "cf:dry-run": "cf deploy ./dist --dry-run",
     "cf:triggers:dry-run": "cf workers triggers deploy --prebuilt --dry-run"

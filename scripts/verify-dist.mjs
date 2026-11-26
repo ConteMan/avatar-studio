@@ -185,7 +185,8 @@ export function verifyDist(options = {}) {
   if (!VALID_STAGES.includes(mode)) {
     throw new Error(`Invalid verification mode "${mode}". Expected one of: ${VALID_STAGES.join(", ")}`);
   }
-  const requireClean = Boolean(options.requireClean || mode === "release");
+  const requireClean =
+    options.requireClean !== undefined ? Boolean(options.requireClean) : mode === "release";
   const expectCommit = options.expectCommit ? String(options.expectCommit).trim() : null;
 
   const errors = [];

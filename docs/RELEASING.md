@@ -1,6 +1,6 @@
 # 半身像工坊 · 打包、候选验证与发布指南
 
-记录日期：2026-11-26（2026-11-27 修正发布与撤下流程）。本指南对应 Issue #4，说明纯静态产物 `dist/` 的显式白名单构建、本地预览、双模式校验、`cf` CLI 授权后发布以及回退/撤下流程。当前仅完成首发候选打包与本地/dry-run 校验，`0.1.0` 尚未正式上线。
+记录日期：2026-11-26（2026-11-27 修正发布 CI 闭环与撤下方案）。本指南对应 Issue #4，说明纯静态产物 `dist/` 的显式白名单构建、本地预览、双模式校验与 PR CI 门禁、`cf` CLI 授权后发布以及回退/撤下流程。当前仅完成首发候选打包与本地/dry-run 校验，`0.1.0` 尚未正式上线。
 
 ## 1. 架构决策与官方依据
 
@@ -42,20 +42,27 @@
 - **重要约束**：静态构建生成的 `dist/build-meta.json` 始终保持 `"released": false`。预发布产物不得在真正部署并完成公开地址验收前宣称已成功发布；`stage` 仅区分经评审的构建目标（`"candidate"` 或 `"release"`），是否上线以实际部署记录与公开地址复测为准。
 - 明确排除：`docs/`、`rounds/`、`tests/`、`scripts/`、`.git/`、`.github/`、`node_modules/`、配置文件与任何本机/凭据文件。
 
-## 3. 候选构建、校验与本地预览
+## 3. 候选构建、校验、PR CI 门禁与本地预览
 
 前置环境：Node.js 26、POSIX shell。仅执行自检与本地预览不需要 `npm install`；执行 `cf` dry-run 或发布前运行 `npm ci --ignore-scripts --no-audit --no-fund` 安装锁定的 `cf@1.0.0-rc.1`。
+
+### 三个校验入口的职责划分
+
+- `npm run verify:dist`（默认候选模式）：强制要求 `stage === "candidate"`、`allowedDomains` 为空且 `cloudflare.config.ts` 不含 `domains`；在任何带有生产 `domains` 或 `stage: "release"` 的树上均非零退出。
+- `npm run verify:release -- --expect-commit "$TARGET_SHA"`（显式正式发布模式）：保留全部白名单、哈希、`_headers`、`notFoundHandling: "none"`、`workersDev: false` 与防 Wrangler 冲突检查，并强制核对 `stage === "release"`、`released === false`、`cloudflare.config.ts` 的 `domains` 与 `deploy/release.json` 的 `allowedDomains` 完全一致、工作区干净（`sourceDirty === false` 且当前 `git status --porcelain` 为空）以及 `sourceCommit === HEAD === TARGET_SHA`。
+- `npm run verify:ci`（PR CI 清单驱动门禁，`scripts/verify-manifest-gate.mjs`）：依据受版本控制的 `deploy/release.json` 中的 `stage` 严格选择 `candidate` 或 `release` 校验器（`stage` 缺失、未知或与配置不一致时立即非零退出），并始终以当前实际检出提交 `git rev-parse HEAD` 绑定 `requireClean: true` 与 `expectCommit`（适配 GitHub PR 合并提交检出，绝不混用 PR head SHA）。PR CI 仅执行只读检查与 dry-run，不自动部署。
 
 ```sh
 # 1. 原回归自检（含引擎、状态、导出、Logo 与 dist 打包/双模式校验/预览单测）
 ./scripts/selftest.sh
 
-# 2. 显式构建 dist/ 并运行默认候选门禁（拒绝任何生产 domains 与非 candidate 配置）
+# 2. 显式构建 dist/ 并运行默认候选门禁
 npm run build
 npm run verify:dist
 
-# 3. 安装锁定 CLI（首次或依赖变更后）并执行 cf 无上传校验
+# 3. 运行与 PR CI 相同的清单驱动门禁与 cf 无上传干跑
 npm ci --ignore-scripts --no-audit --no-fund
+npm run verify:ci
 npm run cf:dry-run
 cat .cloudflare/output/v1/workers/default/worker.config.json
 npm run cf:triggers:dry-run
@@ -76,16 +83,16 @@ npm run preview
 - 含中文与 emoji 的新版（`v: 1`）与旧版无 `v` 分享链接还原及同图一致；
 - 实际下载并打开 SVG 与 1024×1024 PNG；
 - `/docs/`、`/rounds/`、`/assets/missing.svg`、`/_headers` 与未知路径均返回 `404`；
-- 如未覆盖真机、Safari 或微信内置浏览器，必须如实记录为未验证项。
+- 如未覆盖真机、Safari、微信内置浏览器或系统剪贴板真实写入，必须如实记录为未验证项。
 
 ## 4. 授权后正式发布步骤（待所有者验收后执行）
 
 > 候选阶段不执行以下步骤，也不提前在 `cloudflare.config.ts` 或 `deploy/release.json` 中写入生产域名。
 
-### 关键规则：配置变更必须先进入目标提交，且任何配置变更后必须重生成 Build Output
+### 关键规则：配置变更先经 PR 进入目标提交，配置变更后必须重生成 Build Output
 
-1. **禁止在干净工作区上临时改配置后直接构建发布**：域名、版本与阶段配置变更必须先经过独立发布 PR 评审与合并，进入目标发布提交 `TARGET_SHA`；随后从干净的 `TARGET_SHA` 检出构建，确保 `dist/build-meta.json` 中的 `sourceCommit === TARGET_SHA` 且 `sourceDirty === false`。
-2. **禁止在修改 `cloudflare.config.ts` 后只跑 `npm run build` 就调用 `--prebuilt`**：`npm run build` 只重建 `dist/`，**不会**更新 `.cloudflare/output/v1/workers/default/worker.config.json`。每次 `cloudflare.config.ts` 变更后，必须先执行 `npx cf deploy ./dist --dry-run` 重新生成 `.cloudflare/output/v1/`，并实际检视 `worker.config.json` 内容确认生效，再进行后续 `--prebuilt` 或正式部署操作。
+1. **禁止在干净工作区上临时改配置后直接构建发布**：域名、版本与阶段配置变更必须先经过独立发布 PR（通过 `selftest` 与 `workers-assets-gate` 全部 CI 门禁、不同模型独立评审与所有者批准）合并进入目标发布提交 `TARGET_SHA`；随后从干净的 `TARGET_SHA` 检出构建，确保 `dist/build-meta.json` 中的 `sourceCommit === TARGET_SHA` 且 `sourceDirty === false`。
+2. **禁止在修改 `cloudflare.config.ts` 后只跑 `npm run build` 就调用 `--prebuilt`**：`npm run build` 只重建 `dist/`，**不会**更新 `.cloudflare/output/v1/workers/default/worker.config.json`。每次 `cloudflare.config.ts` 变更后，必须先执行 `npx cf deploy ./dist --dry-run` 重新生成 `.cloudflare/output/v1/` 并检视 `worker.config.json` 内容确认生效，再进行后续 `--prebuilt` 校验或正式部署。
 
 ### 发布前核对（待填项不得编造）
 
@@ -94,10 +101,10 @@ npm run preview
 - 目标公开域名：候选 `avatar.conteman.com`（`conteman.com` 子域名，待所有者确认；当前无 DNS 记录、未配置）
 - 认证状态：仅使用已授权的 `cf` 认证上下文，不在仓库写入 Token 或凭据。
 
-### 正式发布顺序（经锁定 `cf@1.0.0-rc.1` 验证）
+### 正式发布顺序（经锁定 `cf@1.0.0-rc.1` 静态与干跑验证）
 
 1. **提交并合并经批准的发布配置 PR**：
-   经所有者验收批准后，在独立发布 PR 中同步修改以下受版本控制的文件并合并至 `main`，得到目标发布提交 `TARGET_SHA`：
+   经所有者验收批准后，在独立发布 PR 中同步修改以下受版本控制的文件，通过 PR CI（`selftest` + `workers-assets-gate`）与评审后合并至 `main`，得到目标发布提交 `TARGET_SHA`：
    - `cloudflare.config.ts`：在 `worker` 中加入获批的自定义域名（保持 `workersDev: false`、`notFoundHandling: "none"`）：
      ```ts
      domains: ["avatar.conteman.com"],
@@ -110,7 +117,7 @@ npm run preview
        "allowedDomains": ["avatar.conteman.com"]
      }
      ```
-   - 如同步调整 `package.json` 版本号（例如正式发布前准备），亦在同一发布 PR 中提交并随锁文件一致。
+   - 如同步调整 `package.json` 版本号，亦在同一发布 PR 中提交并保持锁文件一致。
 2. **在干净的目标提交上构建并执行正式发布门禁**：
    ```sh
    git checkout main && git pull --ff-only
@@ -123,11 +130,7 @@ npm run preview
    npm run verify:release -- --expect-commit "$TARGET_SHA"
    cat dist/build-meta.json
    ```
-   `npm run verify:release`（等价于 `node scripts/verify-dist.mjs --mode release --require-clean`）在保留全部白名单、哈希、`_headers`、`notFoundHandling: "none"` 与 `workersDev: false` 安全检查的前提下，强制核验：
-   - `deploy/release.json` 为 `stage: "release"` 且 `allowedDomains` 非空；
-   - `cloudflare.config.ts` 的 `domains` 与 `deploy/release.json` 的 `allowedDomains` 完全一致；
-   - `dist/build-meta.json` 为 `stage: "release"`、`released: false`、`sourceDirty: false` 且 `sourceCommit === TARGET_SHA`；
-   - 当前工作区干净且 `HEAD === TARGET_SHA`。
+   确认 `dist/build-meta.json` 为 `stage: "release"`、`released: false`、`sourceDirty: false` 且 `sourceCommit === TARGET_SHA`。（注：此时若执行默认候选门禁 `npm run verify:dist`，预期非零拒绝，以防候选保护失效。）
 3. **重生成 Build Output、检视配置输出并执行两次 dry-run**：
    ```sh
    npx cf deploy ./dist --dry-run
@@ -142,7 +145,7 @@ npm run preview
      --tag "sha-$(git rev-parse --short=12 HEAD)" \
      --message "Release avatar-studio from ${TARGET_SHA}"
    ```
-   `cf deploy ./dist` 会基于当前 `cloudflare.config.ts` 与 `./dist` 重新生成 `.cloudflare/output/v1/` 并一次性上传静态资产版本及应用触发器（含 Custom Domain 与 `workersDev`）。Cloudflare Custom Domain 会自动创建所需 DNS 与证书，无需手工添加占位 CNAME。
+   `cf deploy ./dist` 会基于当前 `cloudflare.config.ts` 与 `./dist` 重新生成 `.cloudflare/output/v1/` 并上传静态资产版本与应用触发器（含非空 `domains` 的 Custom Domain 绑定与 `workersDev`）。Cloudflare Custom Domain 会自动创建所需 DNS 与证书，无需手工添加占位 CNAME。
 
 ### 线上公开地址复测（不能仅以 HTTP 200 替代）
 
@@ -161,9 +164,9 @@ npm run preview
 - 公开地址：`待填`
 - 检查时间（含时区）：`待填`
 - 线上核心流程复测结果：`待填`
-- 未验证项（如真机 Safari、微信内置浏览器）：`待填`
+- 未验证项（如真机、Safari、微信内置浏览器、系统剪贴板写入）：`待填`
 
-## 5. 回退与撤下步骤
+## 5. 回退与紧急撤下步骤
 
 ### 回退到上一可用版本（已有历史版本时）
 
@@ -186,34 +189,45 @@ npm run preview
    ```
 3. 在公开地址复测 `/build-meta.json` 与首页核心流程，确认已恢复至旧版本。
 
-### 首次发布故障撤下（尚无上一可用版本时）
+### 首次发布紧急撤下（尚无上一可用版本时）
 
-> 严禁在修改 `cloudflare.config.ts` 后仅执行 `npm run build` 就直接运行 `cf workers triggers deploy --prebuilt`：该做法会读取旧的 `.cloudflare/output/v1/workers/default/worker.config.json`，可能继续保留或重新应用旧的 `domains`。
+> **重要限制说明（基于锁定 `cf@1.0.0-rc.1` 源码与命令静态核对）**：
+> - `cf@1.0.0-rc.1` 在 `domains` 为空时跳过唯一的 `publishCustomDomains` 调用，因此**从 `cloudflare.config.ts` 移除 `domains` 后执行 `cf deploy ./dist` 或 `cf workers triggers deploy --prebuilt` 都不会解绑已部署的自定义域名**。
+> - `cf@1.0.0-rc.1` 亦无独立的 `cf workers domains` 解绑子命令。
+> - 因此，首次发布遇到故障且无可用旧版本时，**唯一经锁定 CLI 契约（`cf schema workers delete` 与 `--dry-run`）明确支持的紧急撤下路径为删除整个故障 Worker**。
 
-- **方式 A（仅摘除对外自定义域名，保留 Worker 排查）**：
-  1. 在 `cloudflare.config.ts` 移除 `domains` 并保持 `workersDev: false`，同时将 `deploy/release.json` 恢复为 `stage: "candidate"`、`allowedDomains: []`；提交撤下变更进入干净提交 `TAKEDOWN_SHA`（紧急故障如需先现场止血，也必须严格执行下方第 2–4 步重生成并检视输出后再应用，随后补交记录）。
-  2. 重建 `dist/` 并运行候选校验（确认不含生产域名且提交绑定干净）：
-     ```sh
-     TAKEDOWN_SHA="$(git rev-parse HEAD)"
-     npm run build
-     npm run verify:dist -- --require-clean --expect-commit "$TAKEDOWN_SHA"
-     ```
-  3. **用 `cf deploy ./dist --dry-run` 重生成 `.cloudflare/output/v1/`，并检视新输出确认 `domains` 已清除**：
-     ```sh
-     npx cf deploy ./dist --dry-run
-     cat .cloudflare/output/v1/workers/default/worker.config.json
-     ```
-     必须确认输出的 JSON 中不再包含 `domains` 字段且 `"workersDev":false`。
-  4. **基于刚重生成并核对过的 Build Output 干跑并应用触发器**（仅更新触发器，不上传新代码版本）：
-     ```sh
-     npx cf workers triggers deploy --prebuilt --dry-run
-     npx cf workers triggers deploy --prebuilt
-     ```
-     如需连同静态产物一起更新为撤下提交，也可直接执行 `npx cf deploy ./dist`（其本身也会从当前 `cloudflare.config.ts` 与 `./dist` 重新生成 Build Output）。
-- **方式 B（彻底删除故障 Worker 及其关联部署/触发器）**：
-  先 dry-run 核对，再执行删除（交互终端会提示二次确认；非交互脚本另有 `--force` 可跳过确认）：
-  ```sh
-  npx cf workers delete <WORKER_NAME> --dry-run
-  npx cf workers delete <WORKER_NAME>
-  ```
-- 撤下后确认公开地址不再提供故障页面，并在 Issue #4 记录撤下时间、原因与受影响版本 ID。
+#### 影响范围与资源身份要求
+
+- **影响范围**：`cf workers delete <WORKER_NAME>` 调用 `DELETE /accounts/{account_id}/workers/workers/{worker_id}`，会永久删除该 Worker 及其关联的版本、部署记录与触发器/自定义域名绑定。本应用为纯静态无后端页面，用户草稿保存在各自浏览器的 `localStorage`，删除 Worker 不丢失服务端数据。
+- **身份与权限要求**：执行者需在当前 `cf` 认证上下文下对目标 Cloudflare 账号具备 Workers 管理/删除权限，且必须先核对账号与精确 Worker 名称，严禁跨账号或误删其他 Worker。
+
+#### 紧急撤下顺序
+
+1. **核对认证身份与精确目标 Worker**：
+   ```sh
+   npx cf auth whoami
+   npx cf workers get <WORKER_NAME>
+   ```
+   对照 Issue #4 登记的账号、Worker 名称与公开域名，确认目标完全一致。
+2. **无副作用干跑核对删除请求**：
+   ```sh
+   npx cf workers delete <WORKER_NAME> --dry-run
+   ```
+   核对输出 JSON 中的 `method: "DELETE"`、`url` 路径以及 `pathParams.worker` 精确等于 `<WORKER_NAME>`。
+3. **执行删除**：
+   ```sh
+   npx cf workers delete <WORKER_NAME>
+   ```
+   交互终端会提示二次确认；非交互应急脚本另有 `--force` 可跳过确认（谨慎使用）。
+4. **撤下后入口与 DNS 复核**：
+   - Worker 核对：`npx cf workers get <WORKER_NAME>`（预期返回不存在）或 `npx cf workers list` 确认已移除。
+   - 公开入口复核：访问 `https://<公开域名>/` 与 `https://<公开域名>/build-meta.json`，确认不再返回故障应用页面。
+   - DNS 只读核对：执行 `npx cf dns records list --zone <ZONE_DOMAIN> --name <PUBLIC_HOSTNAME>` 核查是否残留该子域名的 DNS 记录；若平台存在残留记录或控制台仍可见孤立域名绑定，立即在 Cloudflare 控制台清理后再次复测公开入口。
+5. **同步仓库状态与事故记录**：
+   - 通过 PR 将 `cloudflare.config.ts` 移除 `domains`、将 `deploy/release.json` 恢复为 `stage: "candidate"` 与 `allowedDomains: []`（确保候选门禁重新生效），并在 Issue #4 记录撤下时间、原因、受影响 Version ID 与复核结果。
+
+#### 撤下后的恢复上线步骤
+
+故障修复并合入干净的目标提交后，按第 4 节完整流程重新执行发布（发布 PR 评审合并 → `npm run build` → `npm run verify:release -- --expect-commit "$TARGET_SHA"` → `npx cf deploy ./dist --dry-run` 检视 `worker.config.json` → `npx cf deploy ./dist`），即可重新创建 Worker、自动重建 Custom Domain DNS 与 TLS 证书，并在公开地址复测 `/build-meta.json` 与核心功能流程。
+
+> **验证边界声明**：本候选阶段未执行真实远端删除或域名解绑。上述撤下命令与 API 路径仅基于锁定 `cf@1.0.0-rc.1` 的 `--help`、`cf schema workers delete`、`cf workers delete <name> --dry-run` 输出及包内源码静态核对；真实删除及自定义域名/DNS 自动清理行为须在实际授权撤下演练或操作时现场复核。
