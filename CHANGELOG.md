@@ -1,10 +1,12 @@
 # 更新记录
 
-## 未发布
+## 0.1.0（2026-11-27 +08:00）
+
+- 已于 `2026-11-27 06:35 +08:00` 经 Cloudflare Workers Static Assets 正式上线，公开入口 <https://avatar.conteman.com/>（Worker `avatar-studio`，部署源码 `main` SHA `97fe0c9577403f4913fbad9db4ac840b0b3ce5b1`，Version `11e3a3c8-f04f-443b-83c4-42cf5e32210b`，Deployment `d2aa156d-e7ca-4e0d-8c6a-9b6f9cc92864`，100% 流量），并于 `2026-11-27 06:39–06:40 +08:00` 完成公开地址核心流程验收（详见 `docs/RELEASING.md`）。
 
 ### 工程与发布配置
 
-- 2026-11-27 经所有者正式授权，完成 `0.1.0` 发布配置：在 `cloudflare.config.ts` 启用自定义域名 `avatar.conteman.com`（Worker `avatar-studio`，保持 `workersDev: false`），将 `deploy/release.json` 切换为 `stage: "release"` 与 `allowedDomains: ["avatar.conteman.com"]`，并同步 `package.json` / `package-lock.json` 版本为 `0.1.0`（待合并、部署并在公开地址复测后确认上线）。
+- 2026-11-27 经所有者正式授权，完成 `0.1.0` 发布配置：在 `cloudflare.config.ts` 启用自定义域名 `avatar.conteman.com`（Worker `avatar-studio`，保持 `workersDev: false`），将 `deploy/release.json` 切换为 `stage: "release"` 与 `allowedDomains: ["avatar.conteman.com"]`，并同步 `package.json` / `package-lock.json` 版本为 `0.1.0`。
 - 增加显式白名单 `dist/` 打包脚本、`deploy/release.json` 阶段与域名清单、候选/正式双模式校验、清单驱动 PR CI 门禁（`verify:ci`）、本地静态预览服务与 `tests/dist.test.cjs` 回归用例（应用源码 `index.html` 无功能变更）。
 - 增加 `cloudflare.config.ts`（Workers Static Assets 纯静态配置，`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、锁定 `cf@1.0.0-rc.1`、PR CI 打包/dry-run 门禁与 `docs/RELEASING.md` 发布及紧急撤下指南。
 

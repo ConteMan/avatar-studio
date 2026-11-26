@@ -5,17 +5,17 @@
 - 产品名是半身像工坊。仓库名是 `avatar-studio`。
 - 代码与项目文档在本独立仓库维护。
 - 产品方向是轻量头像工坊，服务普通用户生成、微调、下载和分享头像。2026-11-26 由所有者确认。
-- 没有后端。不进 Dokploy。公开地址用 Cloudflare Workers Static Assets，2026-11-26 由所有者确认；2026-11-27 所有者正式授权 `0.1.0` 发布上线，目标 Worker `avatar-studio`、公开域名 `avatar.conteman.com`（保持 `workersDev: false`）；当前发布配置待合并、部署并完成公开地址复测。
+- 没有后端。不进 Dokploy。公开地址用 Cloudflare Workers Static Assets，2026-11-26 由所有者确认；2026-11-27 所有者正式授权 `0.1.0` 发布上线，已于 `2026-11-27 06:35 +08:00` 部署至 <https://avatar.conteman.com/>（Worker `avatar-studio`，保持 `workersDev: false`），并于 `2026-11-27 06:39–06:40 +08:00` 完成公开地址核心流程验收（记录见 [发布指南](RELEASING.md)）。
 - 许可还没定。不要自行添加 LICENSE。
 - 绘制引擎、发型公式和 11 层顺序先不动。
 - 2026-11-26 所有者批准 [开发与首发安排](development-plan.md) 的全部开发安排，按六个切片推进；维护与回归基线由 Issue #5 承接，发布由 Issue #4 跟踪。
 - 已批准建立 `scripts/selftest.sh` 统一自检和只在 PR 调用该入口的最小 CI；没有自动发布。
-- 2026-11-26 所有者验收手机布局方向（窄屏 144px 紧凑粘性预览、保留桌面双栏）并批准迁入生产页；2026-11-27 所有者明确授权 `0.1.0` 直接发布上线（目标 `avatar.conteman.com` / Worker `avatar-studio`），正式部署与公开地址复测由指挥按 [发布指南](RELEASING.md) 推进。
+- 2026-11-26 所有者验收手机布局方向（窄屏 144px 紧凑粘性预览、保留桌面双栏）并批准迁入生产页；`0.1.0` 已于 `2026-11-27 06:35 +08:00` 正式发布上线（部署源码 `main` SHA `97fe0c9577403f4913fbad9db4ac840b0b3ce5b1`，Worker `avatar-studio`，Version `11e3a3c8-f04f-443b-83c4-42cf5e32210b`，Deployment `d2aa156d-e7ca-4e0d-8c6a-9b6f9cc92864`，100% 流量）。
 
 ## 还没定
 
 - 源码许可与导出图用途说明。
-- 正式部署与公开地址核心流程复测尚未执行完成（上线结果以实际部署与公开地址复测记录为准）。
+- 真机（iOS / Android）、Safari、微信内置浏览器与系统剪贴板真实写入尚未实测。
 
 ## 开发入口
 

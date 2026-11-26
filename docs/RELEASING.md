@@ -1,6 +1,6 @@
 # 半身像工坊 · 打包、候选验证与发布指南
 
-记录日期：2026-11-26（2026-11-27 经所有者正式授权启用 `0.1.0` 发布配置）。本指南对应 Issue #4，说明纯静态产物 `dist/` 的显式白名单构建、本地预览、双模式校验与 PR CI 门禁、`cf` CLI 授权后发布以及回退/撤下流程。当前已完成 `0.1.0` 正式发布配置（目标 Worker `avatar-studio`、域名 `avatar.conteman.com`），尚未执行正式部署与公开地址复测。
+记录日期：2026-11-26（2026-11-27 +08:00 完成 `0.1.0` 正式发布与公开地址验收）。本指南对应 Issue #4，说明纯静态产物 `dist/` 的显式白名单构建、本地预览、双模式校验与 PR CI 门禁、`cf` CLI 授权后发布、已发布版本记录以及回退/撤下流程。`0.1.0` 已于 `2026-11-27 06:35 +08:00` 正式上线至 <https://avatar.conteman.com/>（Worker `avatar-studio`）。
 
 ## 1. 架构决策与官方依据
 
@@ -87,20 +87,20 @@ npm run preview
 - `/docs/`、`/rounds/`、`/assets/missing.svg`、`/_headers` 与未知路径均返回 `404`；
 - 如未覆盖真机、Safari、微信内置浏览器或系统剪贴板真实写入，必须如实记录为未验证项。
 
-## 4. 授权后正式发布步骤（2026-11-27 已获所有者授权，待合并后执行部署）
+## 4. 授权后正式发布步骤与 `0.1.0` 发布记录
 
-> 候选阶段不启用生产域名；2026-11-27 所有者已明确授权 `0.1.0` 正式发布（目标 Worker `avatar-studio`、域名 `avatar.conteman.com`），本发布配置仍须经评审、CI 通过与合并进入干净目标提交后，再执行真实部署与公开地址复测。
+> 候选阶段不启用生产域名；2026-11-27 所有者正式授权 `0.1.0` 发布，`0.1.0` 已于 `2026-11-27 06:35 +08:00` 部署上线并完成公开地址核心流程验收（详见本节末发布记录）。后续任何版本迭代发布仍须严格按本节流程执行。
 
 ### 关键规则：配置变更先经 PR 进入目标提交，配置变更后必须重生成 Build Output
 
 1. **禁止在干净工作区上临时改配置后直接构建发布**：域名、版本与阶段配置变更必须先经过独立发布 PR（通过 `selftest` 与 `workers-assets-gate` 全部 CI 门禁、不同模型独立评审与所有者批准）合并进入目标发布提交 `TARGET_SHA`；随后从干净的 `TARGET_SHA` 检出构建，确保 `dist/build-meta.json` 中的 `sourceCommit === TARGET_SHA` 且 `sourceDirty === false`。
 2. **禁止在修改 `cloudflare.config.ts` 后只跑 `npm run build` 就调用 `--prebuilt`**：`npm run build` 只重建 `dist/`，**不会**更新 `.cloudflare/output/v1/workers/default/worker.config.json`。每次 `cloudflare.config.ts` 变更后，必须先执行 `npx cf deploy ./dist --dry-run` 重新生成 `.cloudflare/output/v1/` 并检视 `worker.config.json` 内容确认生效，再进行后续 `--prebuilt` 校验或正式部署。
 
-### 发布前核对（待填项不得编造）
+### 发布前核对（不得编造或写入私密凭据）
 
-- 目标 Cloudflare 账号：发布前执行 `cf auth whoami` 核对当前授权账号（不在仓库写入账号 ID、Token 或凭据）
-- 目标 Worker 名称：`avatar-studio`（2026-11-27 所有者确认；只读核对尚未创建）
-- 目标公开域名：`avatar.conteman.com`（`conteman.com` 子域名，2026-11-27 所有者确认；只读核对尚未占用 DNS/Custom Domain，尚未上线）
+- 目标 Cloudflare 账号：发布前执行 `cf auth whoami` 核对当前授权账号（不在仓库写入账号 ID、邮箱、Token 或凭据）
+- 目标 Worker 名称：`avatar-studio`（2026-11-27 所有者确认；`0.1.0` 已创建并部署）
+- 目标公开域名：`avatar.conteman.com`（`conteman.com` 子域名，2026-11-27 所有者确认；`0.1.0` 已上线，入口 <https://avatar.conteman.com/>）
 - 认证状态：仅使用已授权的 `cf` 认证上下文，不在仓库写入 Token 或凭据。
 
 ### 正式发布顺序（经锁定 `cf@1.0.0-rc.1` 静态与干跑验证）
@@ -156,17 +156,20 @@ npm run preview
 3. 核对非发布路径返回真实 `404`：`/docs/`、`/rounds/R05-2026-11-26/shu.svg`、`/assets/missing.svg`、`/_headers`、`/unknown-path`。
 4. 在公开地址实际执行完整核心流程：Logo/图标、生成/锁定随机、手机编辑同步、刷新草稿恢复、中文/emoji 新旧分享、下载并实际打开 SVG 与 1024×1024 PNG。
 
-### 发布记录模板
+### `0.1.0` 正式发布与线上验收记录
 
-正式发布后在对应 Issue / PR 留存：
-
-- 源提交 SHA：`待填`
-- Worker 名称：`待填`
-- Worker Version ID / Deployment ID：`待填`
-- 公开地址：`待填`
-- 检查时间（含时区）：`待填`
-- 线上核心流程复测结果：`待填`
-- 未验证项（如真机、Safari、微信内置浏览器、系统剪贴板写入）：`待填`
+- 发布版本：`0.1.0`
+- 公开地址：<https://avatar.conteman.com/>
+- 部署源码 `main` SHA：`97fe0c9577403f4913fbad9db4ac840b0b3ce5b1`
+- Worker 名称：`avatar-studio`（`workersDev: false`，`notFoundHandling: "none"`）
+- Worker Version ID：`11e3a3c8-f04f-443b-83c4-42cf5e32210b`
+- Deployment ID：`d2aa156d-e7ca-4e0d-8c6a-9b6f9cc92864`（100% 流量）
+- 部署完成时间：`2026-11-27 06:35 +08:00`（`Asia/Shanghai`）
+- 公开地址检查时间：`2026-11-27 06:39–06:40 +08:00`（`Asia/Shanghai`）
+- 线上核心流程与边缘复测结果：
+  - 边缘 HTTP/2 与响应头核验通过：`/`、`/?s=demo`、`/build-meta.json`、`/assets/mark.svg`、`/assets/favicon-32.png` 均返回 `200`（`cf-cache-status: HIT`、`_headers` 安全头与缓存策略生效，内容 SHA-256 与源码逐字节一致）；`/build-meta.json` 精确匹配 `sourceCommit: 97fe0c9577403f4913fbad9db4ac840b0b3ce5b1`、`sourceDirty: false`、`stage: release`、`released: false`（设计合同不变）并带 `X-Robots-Tag: noindex`；`/index.html?s=demo` 返回 `307 -> /?s=demo`；`/_headers`、`/docs/`、`/rounds/R05-2026-11-26/shu.svg`、`/assets/missing.svg`、`/unknown-path` 返回真实 `404`。
+  - 浏览器核心流程（Chromium，桌面 `1440×1000` 与手机 `390×844`）通过：零横向溢出、32×32 Logo 与 SVG/PNG 图标加载正常（200）、随机生成/单项发型锁/全锁随机（全锁 SVG 逐字节不变）、滑块与自定义配色（预设取消选中）及缩略图同步、编辑后刷新恢复本地草稿、中文与 emoji 新版 `v1` 与旧版无 `v` 分享还原且同图逐字节一致、手机窄屏滚动时 144×144 粘性预览同步、实际下载并在浏览器直接打开 600×600 SVG 与 1024×1024 RGBA PNG 图像正常。
+- 未验证项：真机（iOS / Android）、Safari、微信内置浏览器、操作系统剪贴板真实写入，以及真实 `cf workers delete` 紧急撤下行为均未实测。
 
 ## 5. 回退与紧急撤下步骤
 
