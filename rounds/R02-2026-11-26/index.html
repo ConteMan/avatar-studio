@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>半身像工坊 · Logo R02</title>
+<style>
+  :root { --bg:#f6f5f1; --ink:#1b1a18; --muted:#6f6a62; --line:#e4e1da; --brand:#a9322b; --card:#fff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f5f6; color: var(--ink); font: 15px/1.55 "PingFang SC", "Hiragino Sans GB", sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 24px 72px; }
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 8px; letter-spacing: .01em; }
+  .lead { color: var(--muted); margin: 0 0 24px; max-width: 40rem; }
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  article { background: var(--bg); border: 1px solid var(--line); padding: 16px 16px 18px; }
+  h2 { font-size: 16px; margin: 0 0 12px; font-weight: 650; }
+  figure { margin: 0; }
+  figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  svg, canvas { display: block; }
+  .plate { width: 100%; height: auto; background: #fff; border: 1px solid var(--line); }
+  .sizes { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; margin-top: 22px; }
+  .swatch { background: #fff; border: 1px solid var(--line); }
+  .tab { background: #dee1e6; }
+  .dark { background: var(--ink); }
+  .ink { fill: var(--ink); }
+  .on-dark .ink { fill: var(--bg); }
+  h3 { font-size: 13px; margin: 28px 0 10px; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  .bars { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .bar { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 12px 16px; border: 1px solid var(--line); }
+  .bar.light { background: rgba(255,255,255,.72); }
+  .bar.dark { background: #1b1a18; color: var(--bg); border-color: #1b1a18; }
+  .bar b { font-weight: 650; font-size: 17px; letter-spacing: .02em; }
+  table { border-collapse: collapse; width: 100%; background: #fff; border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 14px; font-variant-numeric: tabular-nums; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: .04em; }
+  .note { font-size: 13px; color: var(--muted); max-width: 42rem; }
+  .mask { width: 160px; height: 160px; background: var(--bg); position: relative; border: 1px solid var(--line); margin-top: 8px; }
+  .mask svg { position: absolute; left: 15%; top: 10%; width: 70%; height: 70%; }
+  .mask i { position: absolute; inset: 10%; border: 1px dashed var(--brand); border-radius: 50%; pointer-events: none; }
+  @media (max-width: 800px) { .stage, .bars { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>半身像工坊 · Logo 第二轮</h1>
+  <p class="lead">一个半身。轮廓是圆和直线，相切处标了圆心和半径。这一轮没有裁切、叠层和头发。</p>
+
+  <div class="stage">
+    <article>
+      <h2>实心</h2>
+      <svg class="plate" viewBox="0 0 1024 1024" role="img">
+        <path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/>
+      </svg>
+    </article>
+    <article>
+      <h2>构造</h2>
+      <svg class="plate" viewBox="0 0 1024 1024" role="img">
+        <g fill="none" stroke="#a9322b" stroke-width="3">
+          <circle cx="512" cy="318" r="168"/>
+          <circle cx="662.24" cy="456" r="36"/>
+          <circle cx="361.76" cy="456" r="36"/>
+          <circle cx="756" cy="540" r="48"/>
+          <circle cx="268" cy="540" r="48"/>
+          <circle cx="756" cy="736" r="48"/>
+          <circle cx="268" cy="736" r="48"/>
+        </g>
+        <g fill="none" stroke="#a9322b" stroke-width="2">
+          <line x1="512" y1="318" x2="512" y2="150"/>
+          <line x1="662.24" y1="456" x2="698.24" y2="456"/>
+          <line x1="756" y1="540" x2="804" y2="540"/>
+        </g>
+        <g fill="#a9322b">
+          <circle cx="512" cy="318" r="5"/>
+          <circle cx="662.24" cy="456" r="5"/>
+          <circle cx="361.76" cy="456" r="5"/>
+          <circle cx="756" cy="540" r="5"/>
+          <circle cx="268" cy="540" r="5"/>
+          <circle cx="756" cy="736" r="5"/>
+          <circle cx="268" cy="736" r="5"/>
+        </g>
+        <path fill="none" stroke="#1b1a18" stroke-width="8" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/>
+      </svg>
+    </article>
+  </div>
+
+  <div class="sizes">
+    <figure>
+      <canvas id="px16" class="swatch" width="160" height="160"></canvas>
+      <figcaption>16 格放大</figcaption>
+    </figure>
+    <figure>
+      <canvas id="px32" class="swatch" width="128" height="128"></canvas>
+      <figcaption>32 放大</figcaption>
+    </figure>
+    <figure>
+      <svg class="swatch" width="128" height="128" viewBox="0 0 1024 1024"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></svg>
+      <figcaption>128</figcaption>
+    </figure>
+    <figure>
+      <svg class="tab" width="32" height="32" viewBox="0 0 1024 1024"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></svg>
+      <figcaption>32</figcaption>
+    </figure>
+    <figure>
+      <svg class="tab" width="16" height="16" viewBox="0 0 1024 1024"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></svg>
+      <figcaption>16</figcaption>
+    </figure>
+    <figure>
+      <svg class="dark" width="32" height="32" viewBox="0 0 1024 1024"><g class="on-dark"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></g></svg>
+      <figcaption>深色 32</figcaption>
+    </figure>
+  </div>
+
+  <h3>页头</h3>
+  <div class="bars">
+    <div class="bar light"><svg width="32" height="32" viewBox="0 0 1024 1024"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></svg><b>半身像工坊</b></div>
+    <div class="bar dark"><svg width="32" height="32" viewBox="0 0 1024 1024"><g class="on-dark"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></g></svg><b>半身像工坊</b></div>
+  </div>
+  <p class="note">字标是页面现在的活字，17px、字重 650，还没有转成曲线。符号高 32px。</p>
+
+  <h3>圆心和半径</h3>
+  <table>
+    <thead><tr><th>零件</th><th>圆心</th><th>半径</th></tr></thead>
+    <tbody>
+      <tr><td>头</td><td>512, 318</td><td>168</td></tr>
+      <tr><td>下颌过渡，左右各一</td><td>662.24, 456 与 361.76, 456</td><td>36</td></tr>
+      <tr><td>肩块四角</td><td>756, 540；268, 540；756, 736；268, 736</td><td>48</td></tr>
+    </tbody>
+  </table>
+  <p class="note">肩块外沿 x=220 与 x=804，顶 y=492，底 y=784。下颌圆与头外切，并切在肩块顶边上。三条红线是头、下颌和肩角的半径。</p>
+
+  <h3>安装图标安全区（示意）</h3>
+  <div class="mask" aria-hidden="true">
+    <svg viewBox="0 0 1024 1024"><path class="ink" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></svg>
+    <i></i>
+  </div>
+  <p class="note">虚线是边长 80% 的圆。符号现在铺在 1024 画布上，放进安装图标时要再收进这圈。</p>
+  <p class="note">16 格和 32 放大是先画到该像素再就近放大。半径 36 在 16px 下大约半像素，会并进剪影。它仍是一个几何人像。</p>
+</main>
+<script>
+const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="#1b1a18" d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/></svg>`;
+function raster(id, size) {
+  const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml" }));
+  const img = new Image();
+  img.onload = () => {
+    const small = document.createElement("canvas");
+    small.width = size;
+    small.height = size;
+    small.getContext("2d").drawImage(img, 0, 0, size, size);
+    const big = document.getElementById(id);
+    const ctx = big.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(small, 0, 0, big.width, big.height);
+    big.dataset.ready = "1";
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+raster("px16", 16);
+raster("px32", 32);
+</script>
+</body>
+</html>

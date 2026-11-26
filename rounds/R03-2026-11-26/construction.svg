@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img">
+  <title>不对称肩的构造圆</title>
+  <g id="guides" fill="none" stroke="#a9322b" stroke-width="3">
+    <circle id="head" cx="512" cy="318" r="168"/>
+    <circle id="jaw-right" cx="662.24" cy="456" r="36"/>
+    <circle id="jaw-left" cx="361.76" cy="456" r="36"/>
+    <circle id="shoulder-left" cx="361.76" cy="633.76" r="141.76"/>
+    <circle id="corner-top-right" cx="756" cy="540" r="48"/>
+    <circle id="corner-bottom-right" cx="756" cy="736" r="48"/>
+    <circle id="corner-bottom-left" cx="268" cy="736" r="48"/>
+  </g>
+  <g id="radii" fill="none" stroke="#a9322b" stroke-width="2">
+    <line id="radius-head" x1="512" y1="318" x2="512" y2="150"/>
+    <line id="radius-jaw" x1="662.24" y1="456" x2="698.24" y2="456"/>
+    <line id="radius-shoulder-left" x1="361.76" y1="633.76" x2="220" y2="633.76"/>
+    <line id="radius-corner" x1="756" y1="540" x2="804" y2="540"/>
+  </g>
+  <g id="centers" fill="#a9322b">
+    <circle cx="512" cy="318" r="5"/>
+    <circle cx="662.24" cy="456" r="5"/>
+    <circle cx="361.76" cy="456" r="5"/>
+    <circle cx="361.76" cy="633.76" r="5"/>
+    <circle cx="756" cy="540" r="5"/>
+    <circle cx="756" cy="736" r="5"/>
+    <circle cx="268" cy="736" r="5"/>
+  </g>
+  <g id="outline" fill="none" stroke="#1b1a18" stroke-width="8">
+    <path d="M 512 150 A 168 168 0 0 1 635.73 431.65 A 36 36 0 0 0 662.24 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 633.76 A 141.76 141.76 0 0 1 361.76 492 A 36 36 0 0 0 388.27 431.65 A 168 168 0 0 1 512 150 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,590 @@
+{
+  "version": "2.25",
+  "children": [
+    {
+      "type": "frame",
+      "id": "KjTje",
+      "x": 0,
+      "y": 0,
+      "name": "R04",
+      "clip": true,
+      "width": 3264,
+      "height": 2260,
+      "fill": "#f4f5f6",
+      "layout": "none",
+      "children": [
+        {
+          "type": "text",
+          "id": "ClT9F",
+          "x": 48,
+          "y": 28,
+          "name": "Title",
+          "fill": "#1b1a18",
+          "content": "R04",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "b7MiTJ",
+          "x": 48,
+          "y": 78,
+          "name": "切",
+          "fill": "#1b1a18",
+          "content": "切",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "g7gtP",
+          "x": 1120,
+          "y": 78,
+          "name": "像",
+          "fill": "#1b1a18",
+          "content": "像",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "VmCeK",
+          "x": 2192,
+          "y": 78,
+          "name": "坊",
+          "fill": "#1b1a18",
+          "content": "坊",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "tJ1xV",
+          "x": 48,
+          "y": 120,
+          "name": "切 mark",
+          "clip": true,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "path",
+              "id": "DeMYS",
+              "x": 0,
+              "y": 0,
+              "name": "silhouette",
+              "geometry": "M512 150a168 168 0 0 1 123.73 281.65 36 36 0 0 0 26.51 60.35l37.76 0-180 292-252 0a48 48 0 0 1-48-48l0-196a48 48 0 0 1 48-48l93.76 0a36 36 0 0 0 26.51-60.35 168 168 0 0 1 123.73-281.65z",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#1b1a18",
+              "width": 1024,
+              "height": 1024
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "J0xtfJ",
+          "x": 1120,
+          "y": 120,
+          "name": "像 mark",
+          "clip": true,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "path",
+              "id": "QXNXD",
+              "x": 0,
+              "y": 0,
+              "name": "silhouette",
+              "geometry": "M424.09 444.27a110 240 0 1 1 175.82 0 36 36 0 0 1 34.03 47.73l122.06 0a48 48 0 0 1 48 48l0 196a48 48 0 0 1-48 48l-488 0a48 48 0 0 1-48-48l0-196a48 48 0 0 1 48-48l122.06 0a36 36 0 0 0 34.03-47.73z",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#1b1a18",
+              "width": 1024,
+              "height": 1024
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Wpaoz",
+          "x": 2192,
+          "y": 120,
+          "name": "坊 mark",
+          "clip": true,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "path",
+              "id": "HPfR7",
+              "x": 0,
+              "y": 0,
+              "name": "silhouette",
+              "geometry": "M512 150a168 168 0 0 1 123.73 281.65 36 36 0 0 0 26.51 60.35l93.76 0a48 48 0 0 1 48 48l0 196a48 48 0 0 1-48 48l-488 0a48 48 0 0 1-48-48l0-196a48 48 0 0 1 48-48l93.76 0a36 36 0 0 0 26.51-60.35 168 168 0 0 1 123.73-281.65z m-172 425h220v130h-220z",
+              "fillRule": "evenodd",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#1b1a18",
+              "width": 1024,
+              "height": 1024
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "O04b5n",
+          "x": 48,
+          "y": 1180,
+          "name": "切 construction",
+          "clip": true,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "RoBPT",
+              "x": 344,
+              "y": 150,
+              "name": "head",
+              "fill": "#00000000",
+              "width": 336,
+              "height": 336,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "QUujI",
+              "x": 626.24,
+              "y": 420,
+              "name": "jaw-right",
+              "fill": "#00000000",
+              "width": 72,
+              "height": 72,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "wQsuF",
+              "x": 325.76,
+              "y": 420,
+              "name": "jaw-left",
+              "fill": "#00000000",
+              "width": 72,
+              "height": 72,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "kzZm6",
+              "x": 220,
+              "y": 492,
+              "name": "corner-top-left",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "maOeJ",
+              "x": 220,
+              "y": 688,
+              "name": "corner-bottom-left",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "path",
+              "id": "t0CiNS",
+              "x": 0,
+              "y": 0,
+              "name": "cut",
+              "geometry": "M700 492l-180 292",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "VPTEP",
+              "x": 507,
+              "y": 313,
+              "name": "head-center",
+              "fill": "#a9322b",
+              "width": 10,
+              "height": 10
+            },
+            {
+              "type": "ellipse",
+              "id": "sdyDB",
+              "x": 695,
+              "y": 487,
+              "name": "cut-start",
+              "fill": "#a9322b",
+              "width": 10,
+              "height": 10
+            },
+            {
+              "type": "ellipse",
+              "id": "AxGbN",
+              "x": 515,
+              "y": 779,
+              "name": "cut-end",
+              "fill": "#a9322b",
+              "width": 10,
+              "height": 10
+            },
+            {
+              "type": "path",
+              "id": "BItFY",
+              "x": 0,
+              "y": 0,
+              "name": "outline",
+              "geometry": "M512 150a168 168 0 0 1 123.73 281.65 36 36 0 0 0 26.51 60.35l37.76 0-180 292-252 0a48 48 0 0 1-48-48l0-196a48 48 0 0 1 48-48l93.76 0a36 36 0 0 0 26.51-60.35 168 168 0 0 1 123.73-281.65z",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#1b1a18",
+              "strokeWidth": 8
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "C49m0",
+          "x": 1120,
+          "y": 1180,
+          "name": "像 construction",
+          "clip": true,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "A1jR7",
+              "x": 402,
+              "y": 60,
+              "name": "head",
+              "fill": "#00000000",
+              "width": 220,
+              "height": 480,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "lNCJX",
+              "x": 597.94,
+              "y": 420,
+              "name": "fillet-right",
+              "fill": "#00000000",
+              "width": 72,
+              "height": 72,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "uAxC8",
+              "x": 354.06,
+              "y": 420,
+              "name": "fillet-left",
+              "fill": "#00000000",
+              "width": 72,
+              "height": 72,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "A6VeJR",
+              "x": 708,
+              "y": 492,
+              "name": "corner-top-right",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "rIE1Y",
+              "x": 708,
+              "y": 688,
+              "name": "corner-bottom-right",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "V7PZG",
+              "x": 220,
+              "y": 492,
+              "name": "corner-top-left",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "x38686",
+              "x": 220,
+              "y": 688,
+              "name": "corner-bottom-left",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "path",
+              "id": "BlSap",
+              "x": 0,
+              "y": 0,
+              "name": "radius",
+              "geometry": "M512 300l0-240",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "TLJoc",
+              "x": 507,
+              "y": 295,
+              "name": "head-center",
+              "fill": "#a9322b",
+              "width": 10,
+              "height": 10
+            },
+            {
+              "type": "path",
+              "id": "uroxf",
+              "x": 0,
+              "y": 0,
+              "name": "outline",
+              "geometry": "M424.09 444.27a110 240 0 1 1 175.82 0 36 36 0 0 1 34.03 47.73l122.06 0a48 48 0 0 1 48 48l0 196a48 48 0 0 1-48 48l-488 0a48 48 0 0 1-48-48l0-196a48 48 0 0 1 48-48l122.06 0a36 36 0 0 0 34.03-47.73z",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#1b1a18",
+              "strokeWidth": 8
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "z0OI1t",
+          "x": 2192,
+          "y": 1180,
+          "name": "坊 construction",
+          "clip": true,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "qVHGX",
+              "x": 344,
+              "y": 150,
+              "name": "head",
+              "fill": "#00000000",
+              "width": 336,
+              "height": 336,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "l1kxZ3",
+              "x": 626.24,
+              "y": 420,
+              "name": "jaw-right",
+              "fill": "#00000000",
+              "width": 72,
+              "height": 72,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "r9lSA",
+              "x": 325.76,
+              "y": 420,
+              "name": "jaw-left",
+              "fill": "#00000000",
+              "width": 72,
+              "height": 72,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "KQ2TL",
+              "x": 708,
+              "y": 492,
+              "name": "corner-top-right",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "z1hWi",
+              "x": 708,
+              "y": 688,
+              "name": "corner-bottom-right",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "DtXP4",
+              "x": 220,
+              "y": 492,
+              "name": "corner-top-left",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "g4H96V",
+              "x": 220,
+              "y": 688,
+              "name": "corner-bottom-left",
+              "fill": "#00000000",
+              "width": 96,
+              "height": 96,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "rectangle",
+              "id": "uhDZ0",
+              "x": 340,
+              "y": 575,
+              "name": "hole",
+              "fill": "#00000000",
+              "width": 220,
+              "height": 130,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "q7ClJ",
+              "x": 445,
+              "y": 635,
+              "name": "hole-center",
+              "fill": "#a9322b",
+              "width": 10,
+              "height": 10
+            },
+            {
+              "type": "path",
+              "id": "JcpHG",
+              "x": 0,
+              "y": 0,
+              "name": "outline",
+              "geometry": "M512 150a168 168 0 0 1 123.73 281.65 36 36 0 0 0 26.51 60.35l93.76 0a48 48 0 0 1 48 48l0 196a48 48 0 0 1-48 48l-488 0a48 48 0 0 1-48-48l0-196a48 48 0 0 1 48-48l93.76 0a36 36 0 0 0 26.51-60.35 168 168 0 0 1 123.73-281.65z m-172 425h220v130h-220z",
+              "fillRule": "evenodd",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#1b1a18",
+              "strokeWidth": 8
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fileToken": "45f42802-be4c-4cfb-89a6-a80cc0b3bc0e"
+}

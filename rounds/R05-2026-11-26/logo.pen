@@ -1,0 +1,791 @@
+{
+  "version": "2.25",
+  "children": [
+    {
+      "type": "frame",
+      "id": "Bdohn",
+      "x": 0,
+      "y": 0,
+      "name": "R05",
+      "width": 2240,
+      "height": 2280,
+      "fill": "#f4f5f6",
+      "layout": "none",
+      "children": [
+        {
+          "type": "text",
+          "id": "euMZT",
+          "x": 48,
+          "y": 28,
+          "name": "标题",
+          "fill": "#1b1a18",
+          "content": "R05",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "600"
+        },
+        {
+          "type": "text",
+          "id": "b6ndT",
+          "x": 48,
+          "y": 84,
+          "name": "疏标签",
+          "fill": "#1b1a18",
+          "content": "0.66",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "600"
+        },
+        {
+          "type": "text",
+          "id": "XZ4cC",
+          "x": 1168,
+          "y": 84,
+          "name": "满标签",
+          "fill": "#1b1a18",
+          "content": "0.70",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "hwjD9",
+          "x": 48,
+          "y": 128,
+          "name": "疏",
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "path",
+              "id": "TflME",
+              "x": 0,
+              "y": 0,
+              "name": "挖空",
+              "geometry": "M877.36 572l-130.72 226.41a120 120 0 0 1-103.92 60l-261.44 0a120 120 0 0 1-103.92-60l-130.72-226.41a120 120 0 0 1 0-120l130.72-226.41a120 120 0 0 1 103.92-60l261.44 0a120 120 0 0 1 103.92 60l130.72 226.41a120 120 0 0 1 0 120z m-365.36-308.63a110.88 110.88 0 0 1 81.66 185.89 23.76 23.76 0 0 0 17.5 39.83l61.88 0a31.68 31.68 0 0 1 31.68 31.68l0 129.36a31.68 31.68 0 0 1-31.68 31.68l-322.08 0a31.68 31.68 0 0 1-31.68-31.68l0-129.36a31.68 31.68 0 0 1 31.68-31.68l61.88 0a23.76 23.76 0 0 0 17.5-39.83 110.88 110.88 0 0 1 81.66-185.89z",
+              "fillRule": "evenodd",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#1b1a18",
+              "width": 1024,
+              "height": 1024
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "w3H7Y",
+          "x": 48,
+          "y": 1208,
+          "name": "疏 构造",
+          "width": 1024,
+          "height": 1024,
+          "fill": "#ffffff",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "VqQky",
+              "x": 401.12,
+              "y": 263.37,
+              "name": "疏 头",
+              "fill": "#00000000",
+              "width": 221.76,
+              "height": 221.76,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "rfmk5",
+              "x": 508,
+              "y": 370.25,
+              "name": "疏 头 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "bFVFZ",
+              "x": 587.4,
+              "y": 441.57,
+              "name": "疏 下颌右",
+              "fill": "#00000000",
+              "width": 47.52,
+              "height": 47.52,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "MyXg5",
+              "x": 607.16,
+              "y": 461.33,
+              "name": "疏 下颌右 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "OYD6u",
+              "x": 389.08,
+              "y": 441.57,
+              "name": "疏 下颌左",
+              "fill": "#00000000",
+              "width": 47.52,
+              "height": 47.52,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "RamOD",
+              "x": 408.84,
+              "y": 461.33,
+              "name": "疏 下颌左 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "jEHlR",
+              "x": 641.36,
+              "y": 489.09,
+              "name": "疏 肩右上",
+              "fill": "#00000000",
+              "width": 63.36,
+              "height": 63.36,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "oqirY",
+              "x": 669.04,
+              "y": 516.77,
+              "name": "疏 肩右上 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "VoKIm",
+              "x": 319.28,
+              "y": 489.09,
+              "name": "疏 肩左上",
+              "fill": "#00000000",
+              "width": 63.36,
+              "height": 63.36,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "CwiAk",
+              "x": 346.96,
+              "y": 516.77,
+              "name": "疏 肩左上 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "EKdFS",
+              "x": 641.36,
+              "y": 618.45,
+              "name": "疏 肩右下",
+              "fill": "#00000000",
+              "width": 63.36,
+              "height": 63.36,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "r3E5P",
+              "x": 669.04,
+              "y": 646.13,
+              "name": "疏 肩右下 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "RVydx",
+              "x": 319.28,
+              "y": 618.45,
+              "name": "疏 肩左下",
+              "fill": "#00000000",
+              "width": 63.36,
+              "height": 63.36,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "L35YI",
+              "x": 346.96,
+              "y": 646.13,
+              "name": "疏 肩左下 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "cYl6h",
+              "x": 653.44,
+              "y": 392,
+              "name": "疏 角0",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "nWX3p",
+              "x": 769.44,
+              "y": 508,
+              "name": "疏 角0 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "jt76Q",
+              "x": 522.72,
+              "y": 618.41,
+              "name": "疏 角1",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "gN1e5",
+              "x": 638.72,
+              "y": 734.41,
+              "name": "疏 角1 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "fJYQF",
+              "x": 261.28,
+              "y": 618.41,
+              "name": "疏 角2",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "uZUt6",
+              "x": 377.28,
+              "y": 734.41,
+              "name": "疏 角2 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "Efxwn",
+              "x": 130.56,
+              "y": 392,
+              "name": "疏 角3",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "qt1Jb",
+              "x": 246.56,
+              "y": 508,
+              "name": "疏 角3 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "CcATN",
+              "x": 261.28,
+              "y": 165.59,
+              "name": "疏 角4",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "XB77Z",
+              "x": 377.28,
+              "y": 281.59,
+              "name": "疏 角4 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "s1KIg",
+              "x": 522.72,
+              "y": 165.59,
+              "name": "疏 角5",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "u64YJN",
+              "x": 638.72,
+              "y": 281.59,
+              "name": "疏 角5 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "path",
+              "id": "QuM7x",
+              "x": 0,
+              "y": 0,
+              "name": "疏 视觉中心",
+              "geometry": "M512 488v48m-24-24h48",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "path",
+              "id": "EvRQm",
+              "x": 0,
+              "y": 0,
+              "name": "疏 轮廓",
+              "geometry": "M877.36 572l-130.72 226.41a120 120 0 0 1-103.92 60l-261.44 0a120 120 0 0 1-103.92-60l-130.72-226.41a120 120 0 0 1 0-120l130.72-226.41a120 120 0 0 1 103.92-60l261.44 0a120 120 0 0 1 103.92 60l130.72 226.41a120 120 0 0 1 0 120z m-365.36-308.63a110.88 110.88 0 0 1 81.66 185.89 23.76 23.76 0 0 0 17.5 39.83l61.88 0a31.68 31.68 0 0 1 31.68 31.68l0 129.36a31.68 31.68 0 0 1-31.68 31.68l-322.08 0a31.68 31.68 0 0 1-31.68-31.68l0-129.36a31.68 31.68 0 0 1 31.68-31.68l61.88 0a23.76 23.76 0 0 0 17.5-39.83 110.88 110.88 0 0 1 81.66-185.89z",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#1b1a18",
+              "strokeWidth": 8
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fEqiz",
+          "x": 1168,
+          "y": 128,
+          "name": "满",
+          "width": 1024,
+          "height": 1024,
+          "fill": "#f6f5f1",
+          "layout": "none",
+          "children": [
+            {
+              "type": "path",
+              "id": "SK6Gq",
+              "x": 0,
+              "y": 0,
+              "name": "挖空",
+              "geometry": "M877.36 572l-130.72 226.41a120 120 0 0 1-103.92 60l-261.44 0a120 120 0 0 1-103.92-60l-130.72-226.41a120 120 0 0 1 0-120l130.72-226.41a120 120 0 0 1 103.92-60l261.44 0a120 120 0 0 1 103.92 60l130.72 226.41a120 120 0 0 1 0 120z m-365.36-323.7a117.6 117.6 0 0 1 86.61 197.16 25.2 25.2 0 0 0 18.56 42.24l65.63 0a33.6 33.6 0 0 1 33.6 33.6l0 137.2a33.6 33.6 0 0 1-33.6 33.6l-341.6 0a33.6 33.6 0 0 1-33.6-33.6l0-137.2a33.6 33.6 0 0 1 33.6-33.6l65.63 0a25.2 25.2 0 0 0 18.56-42.24 117.6 117.6 0 0 1 86.61-197.16z",
+              "fillRule": "evenodd",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#1b1a18",
+              "width": 1024,
+              "height": 1024
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "PwKla",
+          "x": 1168,
+          "y": 1208,
+          "name": "满 构造",
+          "width": 1024,
+          "height": 1024,
+          "fill": "#ffffff",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "DbglG",
+              "x": 394.4,
+              "y": 248.3,
+              "name": "满 头",
+              "fill": "#00000000",
+              "width": 235.2,
+              "height": 235.2,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "Wzt1I",
+              "x": 508,
+              "y": 361.9,
+              "name": "满 头 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "FH2oo",
+              "x": 591.97,
+              "y": 437.3,
+              "name": "满 下颌右",
+              "fill": "#00000000",
+              "width": 50.4,
+              "height": 50.4,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "RpfIF",
+              "x": 613.17,
+              "y": 458.5,
+              "name": "满 下颌右 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "PglRt",
+              "x": 381.63,
+              "y": 437.3,
+              "name": "满 下颌左",
+              "fill": "#00000000",
+              "width": 50.4,
+              "height": 50.4,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "jgdvN",
+              "x": 402.83,
+              "y": 458.5,
+              "name": "满 下颌左 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "M2h8B",
+              "x": 649.2,
+              "y": 487.7,
+              "name": "满 肩右上",
+              "fill": "#00000000",
+              "width": 67.2,
+              "height": 67.2,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "i1ATg",
+              "x": 678.8,
+              "y": 517.3,
+              "name": "满 肩右上 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "MupTi",
+              "x": 307.6,
+              "y": 487.7,
+              "name": "满 肩左上",
+              "fill": "#00000000",
+              "width": 67.2,
+              "height": 67.2,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "ylxOK",
+              "x": 337.2,
+              "y": 517.3,
+              "name": "满 肩左上 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "QtRfC",
+              "x": 649.2,
+              "y": 624.9,
+              "name": "满 肩右下",
+              "fill": "#00000000",
+              "width": 67.2,
+              "height": 67.2,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "mgWk7",
+              "x": 678.8,
+              "y": 654.5,
+              "name": "满 肩右下 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "UA4PZ",
+              "x": 307.6,
+              "y": 624.9,
+              "name": "满 肩左下",
+              "fill": "#00000000",
+              "width": 67.2,
+              "height": 67.2,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "n5VvY4",
+              "x": 337.2,
+              "y": 654.5,
+              "name": "满 肩左下 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "tR8d6",
+              "x": 653.44,
+              "y": 392,
+              "name": "满 角0",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "JANxl",
+              "x": 769.44,
+              "y": 508,
+              "name": "满 角0 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "A0lZv",
+              "x": 522.72,
+              "y": 618.41,
+              "name": "满 角1",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "o4qEG5",
+              "x": 638.72,
+              "y": 734.41,
+              "name": "满 角1 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "dMmVi",
+              "x": 261.28,
+              "y": 618.41,
+              "name": "满 角2",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "qYyL5",
+              "x": 377.28,
+              "y": 734.41,
+              "name": "满 角2 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "k7jBu",
+              "x": 130.56,
+              "y": 392,
+              "name": "满 角3",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "hnc2E",
+              "x": 246.56,
+              "y": 508,
+              "name": "满 角3 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "ynBDn",
+              "x": 261.28,
+              "y": 165.59,
+              "name": "满 角4",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "sOoOX",
+              "x": 377.28,
+              "y": 281.59,
+              "name": "满 角4 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "ellipse",
+              "id": "o1257",
+              "x": 522.72,
+              "y": 165.59,
+              "name": "满 角5",
+              "fill": "#00000000",
+              "width": 240,
+              "height": 240,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "ellipse",
+              "id": "ty7xO",
+              "x": 638.72,
+              "y": 281.59,
+              "name": "满 角5 心",
+              "fill": "#a9322b",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "path",
+              "id": "OQgBU",
+              "x": 0,
+              "y": 0,
+              "name": "满 视觉中心",
+              "geometry": "M512 488v48m-24-24h48",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#a9322b",
+              "strokeWidth": 3
+            },
+            {
+              "type": "path",
+              "id": "ZpDX4",
+              "x": 0,
+              "y": 0,
+              "name": "满 轮廓",
+              "geometry": "M877.36 572l-130.72 226.41a120 120 0 0 1-103.92 60l-261.44 0a120 120 0 0 1-103.92-60l-130.72-226.41a120 120 0 0 1 0-120l130.72-226.41a120 120 0 0 1 103.92-60l261.44 0a120 120 0 0 1 103.92 60l130.72 226.41a120 120 0 0 1 0 120z m-365.36-323.7a117.6 117.6 0 0 1 86.61 197.16 25.2 25.2 0 0 0 18.56 42.24l65.63 0a33.6 33.6 0 0 1 33.6 33.6l0 137.2a33.6 33.6 0 0 1-33.6 33.6l-341.6 0a33.6 33.6 0 0 1-33.6-33.6l0-137.2a33.6 33.6 0 0 1 33.6-33.6l65.63 0a25.2 25.2 0 0 0 18.56-42.24 117.6 117.6 0 0 1 86.61-197.16z",
+              "viewBox": [
+                0,
+                0,
+                1024,
+                1024
+              ],
+              "fill": "#00000000",
+              "width": 1024,
+              "height": 1024,
+              "stroke": "#1b1a18",
+              "strokeWidth": 8
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fileToken": "eaa67806-695b-4c65-a2dc-708026558b44"
+}

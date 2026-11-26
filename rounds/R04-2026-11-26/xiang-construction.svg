@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <ellipse cx="512" cy="300" rx="110" ry="240" fill="none" stroke="#a9322b" stroke-width="3"/>
+  <g fill="none" stroke="#a9322b" stroke-width="3">
+    <circle cx="633.94" cy="456" r="36"/>
+    <circle cx="390.06" cy="456" r="36"/>
+    <circle cx="756" cy="540" r="48"/>
+    <circle cx="756" cy="736" r="48"/>
+    <circle cx="268" cy="540" r="48"/>
+    <circle cx="268" cy="736" r="48"/>
+  </g>
+  <path d="M 512 300 L 512 60" fill="none" stroke="#a9322b" stroke-width="2"/>
+  <circle cx="512" cy="300" r="5" fill="#a9322b"/>
+  <path id="xiang" fill="none" stroke="#1b1a18" stroke-width="8" d="M 424.09 444.27 A 110 240 0 1 1 599.91 444.27 A 36 36 0 0 1 633.94 492 L 756 492 A 48 48 0 0 1 804 540 L 804 736 A 48 48 0 0 1 756 784 L 268 784 A 48 48 0 0 1 220 736 L 220 540 A 48 48 0 0 1 268 492 L 390.06 492 A 36 36 0 0 0 424.09 444.27 Z"/>
+</svg>
