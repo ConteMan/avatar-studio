@@ -170,7 +170,7 @@
       <button class="btn" id="btnPng" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
       <button class="btn" id="btnJson" title="复制当前的种子、部件、参数和配色">复制配置</button>
     </div>
-    <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。「复制分享链接」保存完整绘图配置供再次打开；也可导出 SVG、PNG 或复制配置。</p>
+    <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。刷新会恢复本机草稿。打开分享链接时先显示分享内容，不会立刻改掉已有草稿，开始编辑后才保存。链接只在点击「复制分享链接」时更新；也可导出 SVG、PNG 或复制配置。</p>
     <div class="stat" id="stat"></div>
     <div class="gallery">
       <h3>不同部件的例子 · 点击载入</h3>
@@ -201,7 +201,7 @@
         <summary>这套组合模型是怎么设计的</summary>
         <p><b>11 个绘制层</b>：背景纹样 → 脖子 → 衣服廓形 → 后层长发 → 脸 → 主发型 → 眼睛/眼镜 → 嘴巴 → 衣服前景 → 配饰 → 头顶搭档。背景底色先于这些图层绘制；发型和衣服拆成前后层以表达遮挡关系。</p>
         <p><b>部件不是素材，是函数</b>：头发的轮廓由半径、扇贝数、鼓包幅度、发梢长度、刘海斜度实时算出来，所以 9 种发型 × 6 个滑块是连续空间，而不是 9 张固定图。想加新发型只要加一组参数，不用画新 SVG。</p>
-        <p><b>确定性</b>：种子按槽位分别抽签，发型另存绘图种子。随机时保留已锁槽位及其随机细节输入，参数和配色由各自的锁控制。当前引擎下，相同完整绘图配置生成相同 SVG；部分锁定时，仅凭抽签种子不能还原保留的输入，请保存分享链接、配置或导出的图。</p>
+        <p><b>确定性</b>：种子按槽位分别抽签，发型另存绘图种子。随机时保留已锁槽位及其随机细节输入，参数和配色由各自的锁控制。当前引擎下，相同完整绘图配置生成相同 SVG；部分锁定时，仅凭抽签种子不能还原保留的输入，请保存分享链接、配置或导出的图。分享和草稿使用格式版本 1。无法识别的更新版本会提示并回到默认形象，不保证将来的绘图引擎仍能还原今天的链接。</p>
         <p><b>一图三用</b>：同一份 SVG 换 viewBox 就得到半身 / 胸像 / 头像，不需要维护三套素材。</p>
         <p><b>颜色通道</b>：描边、肤色、发色、衣色、点缀色、背景色互相独立，换色不重绘结构。</p>
       </details>
@@ -821,9 +821,11 @@ var AvatarState = (function () {
     { key:'cloth', name:'衣色' }, { key:'accent', name:'点缀' }, { key:'bg', name:'背景' }
   ];
 
-  /* ---------- URL 状态 ---------- */
+  /* ---------- URL 状态与本地草稿 ---------- */
   var MAX_SHARE_PARAM = 8000;
   var MAX_SEED_LEN = 160;
+  var FORMAT_VERSION = 1;
+  var DRAFT_KEY = 'avatar-studio.draft';
 
   function defaultState() {
     var next = E.defaultState();
@@ -837,28 +839,155 @@ var AvatarState = (function () {
   function isPlainObject(v) {
     return !!v && typeof v === 'object' && !Array.isArray(v);
   }
+  function persistableState(next) {
+    return {
+      seed: next.seed,
+      drawingSeed: next.drawingSeed,
+      slots: next.slots,
+      params: next.params,
+      colors: next.colors,
+      view: next.view,
+      locks: next.locks
+    };
+  }
+  function encodeJson(value) {
+    var bytes = new TextEncoder().encode(JSON.stringify(value));
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
   function encodeState(s) {
     try {
       var next = sanitizeState(s);
       if (!next) return '';
-      var bytes = new TextEncoder().encode(JSON.stringify(next));
-      var bin = '';
-      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      return encodeJson({ v: FORMAT_VERSION, state: persistableState(next) });
     } catch (e) { return ''; }
   }
-  function decodeState(txt) {
+  function decodePayload(txt) {
+    if (typeof txt !== 'string' || !txt) return { ok:false, reason:'empty' };
+    if (txt.length > MAX_SHARE_PARAM) return { ok:false, reason:'oversize' };
+    var s = String(txt).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 255;
+    var json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    var value = JSON.parse(json);
+    if (!isPlainObject(value)) return { ok:false, reason:'invalid' };
+    return { ok:true, value:value };
+  }
+  function classifyDocument(value) {
+    if (!isPlainObject(value)) return { ok:false, reason:'invalid' };
+    if (Object.prototype.hasOwnProperty.call(value, 'v')) {
+      if (typeof value.v === 'number' && isFinite(value.v) && value.v !== FORMAT_VERSION) {
+        return { ok:false, reason:'future' };
+      }
+      if (value.v !== FORMAT_VERSION || !isPlainObject(value.state)) return { ok:false, reason:'invalid' };
+      var versioned = sanitizeState(value.state);
+      if (!versioned) return { ok:false, reason:'invalid' };
+      return { ok:true, state:versioned, raw:value.state, format:'v1' };
+    }
+    var legacy = sanitizeState(value);
+    if (!legacy) return { ok:false, reason:'invalid' };
+    return { ok:true, state:legacy, raw:value, format:'legacy' };
+  }
+  function readEncoded(txt) {
     try {
-      if (typeof txt !== 'string' || !txt || txt.length > MAX_SHARE_PARAM) return null;
-      var s = String(txt).replace(/-/g, '+').replace(/_/g, '/');
-      while (s.length % 4) s += '=';
-      var bin = atob(s);
-      var bytes = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 255;
-      var json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      var o = JSON.parse(json);
-      return isPlainObject(o) ? o : null;
-    } catch (e) { return null; }
+      var payload = decodePayload(txt);
+      if (!payload.ok) return payload;
+      return classifyDocument(payload.value);
+    } catch (e) {
+      return { ok:false, reason:'invalid' };
+    }
+  }
+  function decodeState(txt) {
+    var read = readEncoded(txt);
+    return read.ok ? read.raw : null;
+  }
+  function shareNotice(reason) {
+    if (reason === 'future') return '分享版本无法识别，已显示默认形象。当前页面不能还原更新的格式。';
+    return '链接无效，已显示默认形象';
+  }
+  function draftReadNotice(reason) {
+    if (reason === 'corrupt') return '本地草稿已损坏，已显示默认形象';
+    if (reason === 'future') return '本地草稿版本无法识别，已显示默认形象';
+    if (reason === 'quota') return '存储空间不足，未恢复草稿';
+    return '本地存储不可用，未恢复草稿';
+  }
+  function storageReason(error) {
+    var name = error && error.name;
+    var code = error && error.code;
+    if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014) return 'quota';
+    return 'unavailable';
+  }
+  function shareParam(search) {
+    var query = String(search == null ? '' : search);
+    if (query.charAt(0) === '?') query = query.slice(1);
+    if (!query) return { present:false };
+    var parts = query.split('&');
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
+      if (!part) continue;
+      var eq = part.indexOf('=');
+      var key = eq === -1 ? part : part.slice(0, eq);
+      try { key = decodeURIComponent(key.replace(/\+/g, ' ')); }
+      catch (e) { continue; }
+      if (key !== 's') continue;
+      if (eq === -1) return { present:true, token:'' };
+      try {
+        return { present:true, token:decodeURIComponent(part.slice(eq + 1).replace(/\+/g, ' ')).replace(/ /g, '+') };
+      } catch (e) {
+        return { present:true, token:'', reason:'invalid' };
+      }
+    }
+    return { present:false };
+  }
+  function readDraft(storage) {
+    try {
+      if (!storage || typeof storage.getItem !== 'function') return { ok:false, reason:'unavailable' };
+      var raw = storage.getItem(DRAFT_KEY);
+      if (raw == null || raw === '') return { ok:true, state:null };
+      var value;
+      try { value = JSON.parse(raw); }
+      catch (e) { return { ok:false, reason:'corrupt' }; }
+      var read = classifyDocument(value);
+      if (!read.ok) return { ok:false, reason: read.reason === 'future' ? 'future' : 'corrupt' };
+      return { ok:true, state:read.state, format:read.format };
+    } catch (e) {
+      return { ok:false, reason:storageReason(e) };
+    }
+  }
+  function saveDraft(storage, state) {
+    try {
+      if (!storage || typeof storage.setItem !== 'function') return { ok:false, reason:'unavailable' };
+      var next = sanitizeState(state);
+      if (!next) return { ok:false, reason:'invalid' };
+      storage.setItem(DRAFT_KEY, JSON.stringify({ v:FORMAT_VERSION, state:persistableState(next) }));
+      return { ok:true };
+    } catch (e) {
+      return { ok:false, reason:storageReason(e) };
+    }
+  }
+  function storageWriteNotice(previous, result) {
+    if (!result || result.ok) return { previous:'', notice:'' };
+    var notice = result.reason === 'quota' ? '草稿未能保存：存储空间不足' : '草稿未能保存：本地存储不可用';
+    if (previous === notice) return { previous:previous, notice:'' };
+    return { previous:notice, notice:notice };
+  }
+  function resolveInitial(search, storage) {
+    var found = shareParam(search);
+    if (found.present) {
+      var read = found.reason ? { ok:false, reason:found.reason } : readEncoded(found.token);
+      if (!read.ok) return { source:'default', state:defaultState(), notice:shareNotice(read.reason) };
+      return { source: read.format === 'legacy' ? 'legacy-share' : 'share', state:read.state };
+    }
+    if (!storage || typeof storage.getItem !== 'function') {
+      return { source:'default', state:defaultState(), notice:draftReadNotice('unavailable') };
+    }
+    var draft = readDraft(storage);
+    if (!draft.ok) return { source:'default', state:defaultState(), notice:draftReadNotice(draft.reason) };
+    if (!draft.state) return { source:'default', state:defaultState() };
+    return { source:'draft', state:draft.state };
   }
   function sanitizeState(raw) {
     if (!isPlainObject(raw)) return null;
@@ -960,7 +1089,10 @@ var AvatarState = (function () {
   }
   return {
     PARAMS:PARAMS, COLOR_KEYS:COLOR_KEYS, MAX_SHARE_PARAM:MAX_SHARE_PARAM,
+    FORMAT_VERSION:FORMAT_VERSION, DRAFT_KEY:DRAFT_KEY,
     defaultState:defaultState, sanitizeState:sanitizeState, encodeState:encodeState, decodeState:decodeState,
+    readEncoded:readEncoded, shareParam:shareParam, readDraft:readDraft, saveDraft:saveDraft,
+    storageWriteNotice:storageWriteNotice, resolveInitial:resolveInitial,
     render:render, randomize:randomize, applyPalette:applyPalette,
     selectSlot:selectSlot, shuffleSlot:shuffleSlot, labelFor:labelFor
   };
@@ -970,36 +1102,16 @@ if (typeof document !== 'undefined') (function () {
   var $ = function (s) { return document.querySelector(s); };
   var E = Engine;
   var stateModel = AvatarState;
-  var state = stateModel.defaultState();
   var PARAMS = stateModel.PARAMS;
   var COLOR_KEYS = stateModel.COLOR_KEYS;
-  var rejectedShare = false;
   var refreshFrame = null;
-
-  function loadFromUrl() {
-    var m = location.search.match(/[?&]s=([^&]*)/);
-    if (!m) return;
-    if (!m[1] || m[1].length > stateModel.MAX_SHARE_PARAM) {
-      state = stateModel.defaultState();
-      rejectedShare = true;
-      return;
-    }
-    var raw;
-    try { raw = decodeURIComponent(m[1]).replace(/ /g, '+'); }
-    catch (e) {
-      state = stateModel.defaultState();
-      rejectedShare = true;
-      return;
-    }
-    var parsed = stateModel.decodeState(raw);
-    var next = parsed ? stateModel.sanitizeState(parsed) : null;
-    if (!next) {
-      state = stateModel.defaultState();
-      rejectedShare = true;
-      return;
-    }
-    state = next;
+  var bootStorage;
+  if (stateModel.shareParam(location.search).present) bootStorage = undefined;
+  else {
+    try { bootStorage = window.localStorage; } catch (e) { bootStorage = null; }
   }
+  var boot = stateModel.resolveInitial(location.search, bootStorage);
+  var state = boot.state;
   function shareUrl() {
     var token = stateModel.encodeState(state);
     if (!token) return '';
@@ -1023,14 +1135,17 @@ if (typeof document !== 'undefined') (function () {
   function randomize(seed) {
     state = stateModel.randomize(state, seed || newSeed());
     $('#seed').value = state.seed;
+    noteEdit();
     refresh();
   }
   function applyPalette(i) {
     state = stateModel.applyPalette(state, i);
+    noteEdit();
     refresh();
   }
   function shuffleSlot(key) {
     state = stateModel.shuffleSlot(state, key);
+    noteEdit();
     refresh();
   }
 
@@ -1050,11 +1165,13 @@ if (typeof document !== 'undefined') (function () {
       if (b.dataset.lock) {
         var k = b.dataset.lock;
         state.locks[k] = !state.locks[k];
+        noteEdit();
         refresh();
       } else if (b.dataset.shuffle) {
         shuffleSlot(b.dataset.shuffle);
       } else if (b.dataset.value !== undefined) {
         state = stateModel.selectSlot(state, b.dataset.slot, b.dataset.value);
+        noteEdit();
         refresh();
       }
     });
@@ -1090,6 +1207,7 @@ if (typeof document !== 'undefined') (function () {
     $('#params').addEventListener('input', function (e) {
       var k = e.target.dataset.param; if (!k) return;
       state.params[k] = parseFloat(e.target.value);
+      noteEdit();
       scheduleRefresh();
     });
   }
@@ -1113,6 +1231,7 @@ if (typeof document !== 'undefined') (function () {
       var k = e.target.dataset.color; if (!k) return;
       state.colors[k] = e.target.value;
       state.locks.colors = true;
+      noteEdit();
       scheduleRefresh();
     });
   }
@@ -1138,6 +1257,7 @@ if (typeof document !== 'undefined') (function () {
       var view = state.view;
       state = exampleState(b.dataset.gseed);
       state.view = view;
+      noteEdit();
       refresh();
     });
   }
@@ -1194,6 +1314,15 @@ if (typeof document !== 'undefined') (function () {
 
   /* ---------- 工具 ---------- */
   var toastTimer;
+  var storageNotice = '';
+  function noteEdit() {
+    var storage = null;
+    try { storage = window.localStorage; } catch (e) { storage = null; }
+    var result = stateModel.saveDraft(storage, state);
+    var announced = stateModel.storageWriteNotice(storageNotice, result);
+    storageNotice = announced.previous;
+    if (announced.notice) toast(announced.notice);
+  }
   function toast(msg) {
     var t = $('#toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1900);
@@ -1258,19 +1387,21 @@ if (typeof document !== 'undefined') (function () {
   });
   $('#viewSeg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-view]'); if (!b) return;
-    state.view = b.dataset.view; refresh();
+    state.view = b.dataset.view;
+    noteEdit();
+    refresh();
   });
-  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; refresh(); });
-  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; refresh(); });
+  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; noteEdit(); refresh(); });
+  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; noteEdit(); refresh(); });
 
   /* ---------- 启动 ---------- */
-  loadFromUrl();
+  document.documentElement.setAttribute('data-avatar-source', boot.source);
   buildSlots();
   buildParams();
   buildColors();
   buildGallery();
   refresh();
-  if (rejectedShare) toast('链接无效，已显示默认形象');
+  if (boot.notice) toast(boot.notice);
 
 })();
 </script>

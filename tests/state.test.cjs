@@ -185,6 +185,155 @@ test('配色匹配依据全部最终颜色，手调离开预设再恢复会重�
   }
 });
 
+function memoryStorage(initial) {
+  const calls = { get:0, set:0, remove:0 };
+  const data = new Map();
+  if (initial !== undefined) data.set(app.DRAFT_KEY, initial);
+  return {
+    calls,
+    getItem(key) { calls.get += 1; return data.has(key) ? data.get(key) : null; },
+    setItem(key, value) { calls.set += 1; data.set(key, String(value)); },
+    removeItem(key) { calls.remove += 1; data.delete(key); },
+  };
+}
+
+function tokenFor(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+test('分享优先于草稿，首次打开不读写本地存储', () => {
+  const draft = app.defaultState();
+  draft.seed = '草稿🐱';
+  draft.drawingSeed = '线稿🌱';
+  draft.view = 'bust';
+  draft.locks.params = true;
+  draft.slots.hair = 'bob';
+  const stored = app.sanitizeState(draft);
+  const storage = memoryStorage(JSON.stringify({ v:1, state:stored }));
+  const share = app.defaultState();
+  share.seed = '分享🎨';
+  share.drawingSeed = '分享发型🐱';
+  const search = '?s=' + encodeURIComponent(app.encodeState(share));
+  const opened = app.resolveInitial(search, storage);
+  assert.equal(opened.source, 'share');
+  assert.equal(opened.state.seed, '分享🎨');
+  assert.equal(opened.state.drawingSeed, '分享发型🐱');
+  assert.equal(app.render(opened.state), app.render(app.sanitizeState(share)));
+  assert.notEqual(app.render(opened.state), app.render(stored));
+  assert.deepEqual(storage.calls, { get:0, set:0, remove:0 });
+  const saved = app.saveDraft(storage, opened.state);
+  assert.equal(saved.ok, true);
+  assert.equal(storage.calls.set, 1);
+  assert.equal(app.readDraft(storage).state.seed, '分享🎨');
+  assert.equal(app.readDraft(storage).state.drawingSeed, '分享发型🐱');
+});
+
+test('无分享时恢复草稿，没有草稿时用默认，编辑后保存最终值', () => {
+  const empty = memoryStorage();
+  const fresh = app.resolveInitial('', empty);
+  assert.equal(fresh.source, 'default');
+  assert.equal(fresh.notice, undefined);
+  assert.equal(empty.calls.set, 0);
+  assert.equal(app.render(fresh.state), app.render(app.defaultState()));
+  const edited = app.randomize(fresh.state, '编辑后🐱');
+  edited.drawingSeed = '单独绘图🌱';
+  edited.view = 'head';
+  edited.locks.hair = true;
+  edited.slots.eyes = 'wink';
+  edited.colors.hair = '#123456';
+  edited.params.wave = 0.25;
+  const saved = app.saveDraft(empty, edited);
+  assert.equal(saved.ok, true);
+  const again = app.resolveInitial('?kept=1', empty);
+  assert.equal(again.source, 'draft');
+  assert.equal(again.state.seed, '编辑后🐱');
+  assert.equal(again.state.drawingSeed, '单独绘图🌱');
+  assert.equal(again.state.view, 'head');
+  assert.equal(again.state.locks.hair, true);
+  assert.equal(again.state.slots.eyes, 'wink');
+  assert.equal(again.state.colors.hair, '#123456');
+  assert.equal(again.state.params.wave, 0.25);
+  assert.equal(app.render(again.state), app.render(app.sanitizeState(edited)));
+  const wire = JSON.parse(empty.getItem(app.DRAFT_KEY));
+  assert.equal(wire.v, app.FORMAT_VERSION);
+});
+
+test('旧分享、新分享、未来版本和非法分享的优先级与同一 SVG', () => {
+  const picture = app.defaultState();
+  picture.seed = '抽签中文🎨';
+  picture.drawingSeed = '保留发型🐱';
+  picture.locks.hair = true;
+  picture.colors.hair = '#123456';
+  const normalized = app.sanitizeState(picture);
+  const storage = memoryStorage(JSON.stringify({ v:1, state:{ seed:'不应读到的草稿' } }));
+  const versioned = app.resolveInitial('?s=' + encodeURIComponent(app.encodeState(normalized)), storage);
+  const legacyToken = Buffer.from(JSON.stringify(plain(normalized)), 'utf8').toString('base64');
+  const legacy = app.resolveInitial('?s=' + encodeURIComponent(legacyToken), storage);
+  assert.equal(versioned.source, 'share');
+  assert.equal(legacy.source, 'legacy-share');
+  assert.equal(app.render(versioned.state), app.render(normalized));
+  assert.equal(app.render(legacy.state), app.render(normalized));
+  assert.equal(app.render(legacy.state), app.render(versioned.state));
+  assert.equal(versioned.state.drawingSeed, '保留发型🐱');
+  assert.equal(legacy.state.drawingSeed, '保留发型🐱');
+  const payload = JSON.parse(Buffer.from(app.encodeState(normalized), 'base64url').toString('utf8'));
+  assert.equal(payload.v, 1);
+  assert.equal(payload.state.seed, normalized.seed);
+  const future = app.resolveInitial('?s=' + tokenFor({ v:2, state:plain(normalized) }), storage);
+  assert.equal(future.source, 'default');
+  assert.match(future.notice, /分享版本无法识别/);
+  assert.equal(app.render(future.state), app.render(app.defaultState()));
+  for (const search of ['?s=', '?s', '?s=&other=1', '?s=%', '?s=' + tokenFor({ v:1 }), '?s=' + 'a'.repeat(8001)]) {
+    const rejected = app.resolveInitial(search, storage);
+    assert.equal(rejected.source, 'default', search);
+    assert.match(rejected.notice, /链接无效/, search);
+    assert.equal(app.render(rejected.state), app.render(app.defaultState()));
+  }
+  assert.deepEqual(storage.calls, { get:0, set:0, remove:0 });
+});
+
+test('损坏、不可用和满额存储不阻断规范化、分享或渲染', () => {
+  const broken = memoryStorage('{');
+  const corrupt = app.resolveInitial('', broken);
+  assert.equal(corrupt.source, 'default');
+  assert.match(corrupt.notice, /草稿已损坏/);
+  const futureDraft = memoryStorage(JSON.stringify({ v:9, state:app.defaultState() }));
+  const unknown = app.resolveInitial('?', futureDraft);
+  assert.equal(unknown.source, 'default');
+  assert.match(unknown.notice, /草稿版本无法识别/);
+  const disabled = {
+    getItem() { throw new Error('denied'); },
+    setItem() { throw new Error('denied'); },
+  };
+  const unavailable = app.resolveInitial('', disabled);
+  assert.equal(unavailable.source, 'default');
+  assert.match(unavailable.notice, /本地存储不可用/);
+  const quota = {
+    getItem() { return null; },
+    setItem() {
+      const error = new Error('full');
+      error.name = 'QuotaExceededError';
+      error.code = 22;
+      throw error;
+    },
+  };
+  const edited = app.randomize(app.defaultState(), '仍可导出🐱');
+  const failed = app.saveDraft(quota, edited);
+  assert.equal(failed.reason, 'quota');
+  const first = app.storageWriteNotice('', failed);
+  const second = app.storageWriteNotice(first.previous, failed);
+  assert.match(first.notice, /存储空间不足/);
+  assert.equal(second.notice, '');
+  const denied = app.saveDraft(disabled, edited);
+  const switched = app.storageWriteNotice(first.previous, denied);
+  assert.match(switched.notice, /本地存储不可用/);
+  const cleared = app.storageWriteNotice(switched.previous, { ok:true });
+  assert.equal(cleared.notice, '');
+  assert.equal(cleared.previous, '');
+  assert.equal(app.render(edited), app.render(app.sanitizeState(app.decodeState(app.encodeState(edited)))));
+  assert.doesNotMatch(app.render(unavailable.state), /NaN|Infinity|undefined/);
+});
+
 test('UI 标签按槽位区分 dots 和 cat，Engine 接口原值保持', () => {
   assert.equal(app.labelFor('bg', 'dots'), '圆点');
   assert.equal(app.labelFor('eyes', 'dots'), '点眼');
