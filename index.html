@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>半身像工坊 · Avatar Studio</title>
+<meta name="description" content="用种子拼出半身头像，调整五官、发型和配色，再导出 SVG 或 PNG。同一份配置得到同一张图。">
+<meta name="theme-color" content="#f6f5f1">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
 <style>
   :root{
     --bg:#f6f5f1; --card:#ffffff; --line:#e4e1da; --ink:#1b1a18; --muted:#8a857c;
@@ -23,8 +27,9 @@
     padding:18px 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.72);
     position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
   }
-  .brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
-  .brand h1{font-size:17px;margin:0;letter-spacing:.02em;font-weight:650}
+  .brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+  .brand .mark{width:32px;height:32px;flex:none;display:block}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.02em;font-weight:650;line-height:1.2;white-space:nowrap}
   .brand span{font-size:12px;color:var(--muted)}
   .brand a{font-size:12px;color:var(--muted);text-decoration:none;margin-left:8px}
   .brand a:hover{color:var(--brand)}
@@ -142,6 +147,7 @@
 
 <header>
   <div class="brand">
+    <img class="mark" src="assets/mark.svg" width="32" height="32" alt="">
     <h1>半身像工坊</h1>
     <span>分层槽位 · 参数化部件 · 确定性种子</span>
   </div>
