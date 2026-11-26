@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>半身像工坊 · Avatar Studio</title>
 <meta name="description" content="用种子拼出半身头像，调整五官、发型和配色，再导出 SVG 或 PNG。同一份配置得到同一张图。">
 <meta name="theme-color" content="#f6f5f1">
@@ -10,8 +10,9 @@
 <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
 <style>
   :root{
-    --bg:#f6f5f1; --card:#ffffff; --line:#e4e1da; --ink:#1b1a18; --muted:#8a857c;
-    --brand:#a9322b; --brand-soft:#f6e9e7; --radius:14px;
+    --bg:#f6f5f1; --card:#ffffff; --line:#e4e1da; --ink:#1b1a18; --muted:#757068;
+    --label:#5c574f; --brand:#a9322b; --brand-soft:#f6e9e7; --radius:14px;
+    --header-h:72px; --dock-h:600px;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -22,20 +23,25 @@
   }
   button,input,select{font-family:inherit}
   button{cursor:pointer}
+  ::selection{background:#f0d2ce;color:var(--ink)}
+  button:focus-visible,input:focus-visible,summary:focus-visible{
+    outline:2px solid var(--brand);outline-offset:2px;
+  }
   header{
     display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-    padding:18px 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.72);
+    padding:18px 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.92);
     position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
   }
   .brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
   .brand .mark{width:32px;height:32px;flex:none;display:block}
+  .brand-text{display:flex;align-items:baseline;gap:10px;min-width:0}
   .brand h1{font-size:17px;margin:0;letter-spacing:.02em;font-weight:650;line-height:1.2;white-space:nowrap}
-  .brand span{font-size:12px;color:var(--muted)}
+  .brand span{font-size:12px;color:var(--label)}
   .brand a{font-size:12px;color:var(--muted);text-decoration:none;margin-left:8px}
   .brand a:hover{color:var(--brand)}
   .brand a:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
   .seedbox{display:flex;align-items:center;gap:6px}
-  .seedbox label{font-size:12px;color:var(--muted)}
+  .seedbox label{font-size:12px;color:var(--muted);white-space:nowrap}
   input[type=text]{
     width:132px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
     background:#fff;color:var(--ink);font-size:13px;outline:none;
@@ -49,8 +55,13 @@
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn.primary:hover{background:#932a24}
   .btn.sm{padding:5px 9px;font-size:11px;border-radius:7px}
-  main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;padding:24px 28px 48px;max-width:1500px;margin:0 auto}
-  .stage{position:sticky;top:88px;align-self:start;width:100%;max-width:600px;margin:0 auto}
+  main{
+    display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start;
+    padding:24px 28px 48px;max-width:1500px;margin:0 auto;
+  }
+  .left{position:sticky;top:calc(var(--header-h) + 16px);align-self:start;min-width:0;width:100%;max-width:600px;margin:0 auto}
+  .live-dock{width:100%;background:var(--bg)}
+  .stage{width:100%;min-width:0}
   .canvas{
     background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;
     aspect-ratio:1/1;box-shadow:0 12px 40px rgba(30,25,20,.05);position:relative;
@@ -65,7 +76,7 @@
   .plain{margin-top:12px;font-size:12px;color:#5c574f;line-height:1.7;max-width:40rem}
   .stat b{color:var(--ink);font-weight:600}
   .gallery{margin-top:22px}
-  .gallery h3{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px;letter-spacing:.04em}
+  .gallery h2{font-size:12px;font-weight:600;color:var(--label);margin:0 0 10px;letter-spacing:.04em}
   .ggrid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
   .ggrid button{
     aspect-ratio:1/1;padding:0;border:1px solid var(--line);border-radius:10px;
@@ -75,14 +86,18 @@
   .ggrid svg{width:100%;height:100%;display:block}
   .panel{display:flex;flex-direction:column;gap:14px;min-width:0}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
-  .card > h2{font-size:12px;font-weight:650;letter-spacing:.06em;color:var(--muted);margin:0 0 14px;text-transform:uppercase}
+  .card > h2{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-size:12px;font-weight:650;letter-spacing:.06em;color:var(--label);margin:0 0 14px;text-transform:uppercase;
+  }
+  .card > h2 .mini{float:none;margin:0}
   .slot{padding:12px 0;border-top:1px dashed var(--line)}
   .slot:first-of-type{border-top:0;padding-top:0}
-  .slot-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .slot-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
   .slot-head .name{font-size:13px;font-weight:600}
   .slot-head .count{font-size:11px;color:var(--muted);font-weight:400}
   .slot-head .spacer{flex:1}
-  .mini{font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted)}
+  .mini{font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);white-space:nowrap}
   .mini:hover{color:var(--ink)}
   .mini.on{background:var(--brand-soft);border-color:#e8c9c5;color:var(--brand)}
   .opts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
@@ -98,9 +113,9 @@
   .opt.on .oname{color:var(--brand);font-weight:600}
   .row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
   .row:last-child{margin-bottom:0}
-  .row label{font-size:12px;color:var(--muted);width:76px;flex:none}
+  .row label{font-size:12px;color:var(--label);width:76px;flex:none}
   .row input[type=range]{flex:1;accent-color:var(--brand);height:4px;min-width:0}
-  .row .val{font-size:11px;color:var(--muted);width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .row .val{font-size:11px;color:var(--label);width:42px;text-align:right;font-variant-numeric:tabular-nums}
   .palettes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
   .pal{
     display:flex;align-items:center;gap:6px;padding:6px 9px 6px 6px;border:1px solid var(--line);
@@ -124,14 +139,13 @@
   details p{margin:12px 0 0}
   details code{background:#f2f0eb;padding:1px 5px;border-radius:4px;font-size:11px;color:var(--ink)}
   .toast{
-    position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);opacity:0;pointer-events:none;
+    position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translate(-50%,16px);opacity:0;pointer-events:none;
     background:#1b1a18;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:99;transition:.22s
   }
   .toast.show{opacity:1;transform:translate(-50%,0)}
   @media(max-width:1080px){
     main{grid-template-columns:1fr}
-    .stage{position:static}
-    .canvas{max-width:560px}
+    .left{position:static;max-width:560px}
     .opts{grid-template-columns:repeat(6,1fr)}
   }
   @media(max-width:620px){
@@ -141,6 +155,35 @@
     .ggrid{grid-template-columns:repeat(4,1fr)}
     .brand span{display:none}
   }
+  /* 窄屏：144px 预览贴在页头下。main 用块级而不是格子，预览才能在整页滚动时留住；控件排在预览下面。 */
+  @media(max-width:720px){
+    header{
+      gap:8px 10px;
+      padding-top:max(10px,env(safe-area-inset-top));
+      padding-right:16px;padding-bottom:10px;padding-left:16px;
+    }
+    main{
+      display:block;max-width:none;gap:0;
+      padding:0 16px max(32px,env(safe-area-inset-bottom));
+    }
+    .left{display:contents;max-width:none;margin:0}
+    .live-dock{
+      position:sticky;top:var(--header-h);z-index:15;max-width:none;width:auto;
+      margin:0 -16px;padding:10px 16px 12px;border-bottom:1px solid var(--line);
+    }
+    .canvas{width:144px;height:144px;max-width:144px;aspect-ratio:auto;margin:0 auto;box-shadow:0 8px 24px rgba(30,25,20,.06)}
+    .stage{padding-top:14px}
+    html{scroll-padding-top:calc(var(--header-h) + var(--dock-h) + 12px)}
+    .btn,.seg button,.pal{min-height:44px}
+    .mini{min-height:40px;padding:8px 10px}
+    .row{min-height:44px}
+    .row input[type=range]{height:28px}
+    .brand,.seedbox{flex:1 1 100%;margin-right:0}
+    .seedbox input[type=text]{flex:1 1 auto;width:0;min-width:0}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition:none !important;scroll-behavior:auto !important}
+  }
 </style>
 </head>
 <body>
@@ -148,36 +191,42 @@
 <header>
   <div class="brand">
     <img class="mark" src="assets/mark.svg" width="32" height="32" alt="">
-    <h1>半身像工坊</h1>
-    <span>分层槽位 · 参数化部件 · 确定性种子</span>
+    <div class="brand-text">
+      <h1>半身像工坊</h1>
+      <span>分层槽位 · 参数化部件 · 确定性种子</span>
+    </div>
   </div>
-  <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false" maxlength="160" title="输入后按回车或离开输入框，按锁定状态生成"></div>
-  <button class="btn primary" id="btnRandom" title="生成新种子，重抽未锁定的部件、参数和配色">随机生成</button>
-  <button class="btn" id="btnShare" title="复制能再次打开同一张图的链接">复制分享链接</button>
+  <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false" autocomplete="off" maxlength="160" title="输入后按回车或离开输入框，按锁定状态生成"></div>
+  <button class="btn primary" id="btnRandom" type="button" title="生成新种子，重抽未锁定的部件、参数和配色">随机生成</button>
+  <button class="btn" id="btnShare" type="button" title="复制能再次打开同一张图的链接">复制分享链接</button>
 </header>
 
 <main>
-  <section class="stage">
-    <div class="canvas" id="canvas"></div>
-    <div class="toolbar">
-      <div class="seg" id="viewSeg">
-        <button data-view="half" class="on">半身</button>
-        <button data-view="bust">胸像</button>
-        <button data-view="head">头像</button>
+  <div class="left">
+    <div class="live-dock">
+      <div class="canvas" id="canvas" role="img" aria-label="当前半身像预览"></div>
+    </div>
+    <section class="stage">
+      <div class="toolbar">
+        <div class="seg" id="viewSeg" role="group" aria-label="裁切视图">
+          <button type="button" data-view="half" class="on" aria-pressed="true">半身</button>
+          <button type="button" data-view="bust" aria-pressed="false">胸像</button>
+          <button type="button" data-view="head" aria-pressed="false">头像</button>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn" id="btnSvg" type="button" title="把当前这张图下载成自包含的矢量文件">导出 SVG</button>
+        <button class="btn" id="btnPng" type="button" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
+        <button class="btn" id="btnJson" type="button" title="复制当前的种子、部件、参数和配色">复制配置</button>
       </div>
-      <div class="spacer"></div>
-      <button class="btn" id="btnSvg" title="把当前这张图下载成自包含的矢量文件">导出 SVG</button>
-      <button class="btn" id="btnPng" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
-      <button class="btn" id="btnJson" title="复制当前的种子、部件、参数和配色">复制配置</button>
-    </div>
-    <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。刷新会恢复本机草稿。打开分享链接时先显示分享内容，不会立刻改掉已有草稿。开始编辑并成功保存后，地址栏会去掉旧的分享参数，刷新恢复刚才的编辑。新的分享链接只在点击「复制分享链接」时生成；也可导出 SVG、PNG 或复制配置。</p>
-    <div class="stat" id="stat"></div>
-    <div class="gallery">
-      <h3>不同部件的例子 · 点击载入</h3>
-      <div class="ggrid" id="gallery"></div>
-    </div>
-    <p class="plain" id="boundary">打开后即可生成、调整、导出。这里不收集账号。导出的图由使用者自己保存。</p>
-  </section>
+      <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。刷新会恢复本机草稿。打开分享链接时先显示分享内容，不会立刻改掉已有草稿。开始编辑并成功保存后，地址栏会去掉旧的分享参数，刷新恢复刚才的编辑。新的分享链接只在点击「复制分享链接」时生成；也可导出 SVG、PNG 或复制配置。</p>
+      <div class="stat" id="stat"></div>
+      <div class="gallery">
+        <h2>不同部件的例子 · 点击载入</h2>
+        <div class="ggrid" id="gallery"></div>
+      </div>
+      <p class="plain" id="boundary">打开后即可生成、调整、导出。这里不收集账号。导出的图由使用者自己保存。</p>
+    </section>
+  </div>
 
   <aside class="panel">
     <div class="card">
@@ -186,12 +235,12 @@
     </div>
 
     <div class="card">
-      <h2>连续参数 <button class="mini" id="lockParams" title="锁定后，随机生成不会改变这些滑块" style="float:right;margin-top:-4px">锁定</button></h2>
+      <h2><span>连续参数</span><button class="mini" id="lockParams" type="button" aria-pressed="false" title="锁定后，随机生成不会改变这些滑块">锁定</button></h2>
       <div id="params"></div>
     </div>
 
     <div class="card">
-      <h2>配色 <button class="mini" id="lockColors" title="锁定后，随机生成不会改变配色" style="float:right;margin-top:-4px">锁定</button></h2>
+      <h2><span>配色</span><button class="mini" id="lockColors" type="button" aria-pressed="false" title="锁定后，随机生成不会改变配色">锁定</button></h2>
       <div class="palettes" id="palettes"></div>
       <div class="colorrow" id="colors"></div>
     </div>
@@ -209,7 +258,7 @@
   </aside>
 </main>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 'use strict';
@@ -1368,6 +1417,23 @@ if (typeof document !== 'undefined') (function () {
   var PARAMS = stateModel.PARAMS;
   var COLOR_KEYS = stateModel.COLOR_KEYS;
   var refreshFrame = null;
+
+  function syncChrome() {
+    var header = document.querySelector('header');
+    var dock = document.querySelector('.live-dock');
+    if (header) document.documentElement.style.setProperty('--header-h', Math.ceil(header.getBoundingClientRect().height) + 'px');
+    if (dock) document.documentElement.style.setProperty('--dock-h', Math.ceil(dock.getBoundingClientRect().height) + 'px');
+  }
+  syncChrome();
+  if (typeof ResizeObserver === 'function') {
+    var chromeObserver = new ResizeObserver(syncChrome);
+    var headerEl = document.querySelector('header');
+    var dockEl = document.querySelector('.live-dock');
+    if (headerEl) chromeObserver.observe(headerEl);
+    if (dockEl) chromeObserver.observe(dockEl);
+  } else {
+    window.addEventListener('resize', syncChrome);
+  }
   var bootStorage;
   if (stateModel.shareParam(location.search).present) bootStorage = undefined;
   else {
@@ -1422,8 +1488,8 @@ if (typeof document !== 'undefined') (function () {
       return '<div class="slot" data-slot="' + s.key + '">' +
         '<div class="slot-head"><span class="name">' + s.name + '</span>' +
         '<span class="count">' + s.options.length + ' 款</span><span class="spacer"></span>' +
-        '<button class="mini lock" data-lock="' + s.key + '" title="整体随机时保留部件与随机细节；未锁参数和配色仍可改变外观">锁定</button>' +
-        '<button class="mini" data-shuffle="' + s.key + '" title="只更换这一项">换一个</button></div>' +
+        '<button type="button" class="mini lock" data-lock="' + s.key + '" aria-pressed="false" title="整体随机时保留部件与随机细节；未锁参数和配色仍可改变外观">锁定</button>' +
+        '<button type="button" class="mini" data-shuffle="' + s.key + '" aria-label="换一个' + s.name + '" title="只更换这一项">换一个</button></div>' +
         '<div class="opts" data-opts="' + s.key + '"></div></div>';
     }).join('');
     host.addEventListener('click', function (e) {
@@ -1451,28 +1517,36 @@ if (typeof document !== 'undefined') (function () {
       if (!box.children.length) {
         box.innerHTML = s.options.map(function (v) {
           var label = stateModel.labelFor(s.key, v);
-          return '<button class="opt" data-slot="' + s.key + '" data-value="' + v + '" title="' + label + '">' +
-            '<span class="thumb"></span><span class="oname">' + label + '</span></button>';
+          return '<button type="button" class="opt" data-slot="' + s.key + '" data-value="' + v + '" title="' + label + '" aria-pressed="false">' +
+            '<span class="thumb" aria-hidden="true"></span><span class="oname">' + label + '</span></button>';
         }).join('');
       }
       Array.from(box.children).forEach(function (button) {
         var svg = stateModel.render(state, { slot:s.key, value:button.dataset.value, viewBox:E.FOCUS[s.focus] });
         var thumb = button.querySelector('.thumb');
         if (thumb.innerHTML !== svg) thumb.innerHTML = svg;
-        button.classList.toggle('on', state.slots[s.key] === button.dataset.value);
+        var on = state.slots[s.key] === button.dataset.value;
+        button.classList.toggle('on', on);
+        button.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
     });
   }
 
   function buildParams() {
     $('#params').innerHTML = PARAMS.map(function (p) {
-      return '<div class="row"><label>' + p.name + '</label>' +
-        '<input type="range" data-param="' + p.key + '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '">' +
-        '<span class="val" data-val="' + p.key + '"></span></div>';
+      var id = 'param-' + p.key;
+      var vid = id + '-val';
+      return '<div class="row"><label for="' + id + '">' + p.name + '</label>' +
+        '<input id="' + id + '" type="range" data-param="' + p.key + '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" aria-describedby="' + vid + '">' +
+        '<span class="val" id="' + vid + '" data-val="' + p.key + '"></span></div>';
     }).join('');
     $('#params').addEventListener('input', function (e) {
       var k = e.target.dataset.param; if (!k) return;
       state.params[k] = parseFloat(e.target.value);
+      var shown = Number(state.params[k]).toFixed(2);
+      var v = document.querySelector('[data-val="' + k + '"]');
+      if (v) v.textContent = shown;
+      e.target.setAttribute('aria-valuetext', shown);
       noteEdit();
       scheduleRefresh();
     });
@@ -1483,8 +1557,9 @@ if (typeof document !== 'undefined') (function () {
       var dots = ['hair','cloth','accent','bg'].map(function (k) {
         return '<i style="background:' + p.colors[k] + '"></i>';
       }).join('');
-      return '<button class="pal' + (i === state.palette ? ' on' : '') + '" data-pal="' + i + '">' +
-        '<span class="dots">' + dots + '</span>' + p.name + '</button>';
+      var on = i === state.palette;
+      return '<button type="button" class="pal' + (on ? ' on' : '') + '" data-pal="' + i + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+        '<span class="dots" aria-hidden="true">' + dots + '</span>' + p.name + '</button>';
     }).join('');
     $('#palettes').addEventListener('click', function (e) {
       var b = e.target.closest('[data-pal]'); if (!b) return;
@@ -1516,7 +1591,7 @@ if (typeof document !== 'undefined') (function () {
   function buildGallery() {
     var seeds = ['sample-1000','sample-1001','sample-1025','sample-1073','sample-3453','sample-4091','sample-1050','sample-1013'];
     $('#gallery').innerHTML = seeds.map(function (s) {
-      return '<button data-gseed="' + s + '" title="' + s + '">' + stateModel.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
+      return '<button type="button" data-gseed="' + s + '" title="' + s + '" aria-label="载入示例 ' + s + '">' + stateModel.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
     }).join('');
     $('#gallery').addEventListener('click', function (e) {
       var b = e.target.closest('[data-gseed]'); if (!b) return;
@@ -1534,29 +1609,48 @@ if (typeof document !== 'undefined') (function () {
       var on = !!state.locks[b.dataset.lock];
       b.classList.toggle('on', on);
       b.textContent = on ? '已锁定' : '锁定';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      var nameEl = b.closest('.slot') && b.closest('.slot').querySelector('.name');
+      if (nameEl) b.setAttribute('aria-label', (on ? '已锁定' : '锁定') + nameEl.textContent);
     });
-    $('#lockParams').classList.toggle('on', !!state.locks.params);
-    $('#lockParams').textContent = state.locks.params ? '已锁定' : '锁定';
-    $('#lockColors').classList.toggle('on', !!state.locks.colors);
-    $('#lockColors').textContent = state.locks.colors ? '已锁定' : '锁定';
+    var lp = $('#lockParams');
+    var paramsOn = !!state.locks.params;
+    lp.classList.toggle('on', paramsOn);
+    lp.textContent = paramsOn ? '已锁定' : '锁定';
+    lp.setAttribute('aria-pressed', paramsOn ? 'true' : 'false');
+    lp.setAttribute('aria-label', paramsOn ? '已锁定连续参数' : '锁定连续参数');
+    var lc = $('#lockColors');
+    var colorsOn = !!state.locks.colors;
+    lc.classList.toggle('on', colorsOn);
+    lc.textContent = colorsOn ? '已锁定' : '锁定';
+    lc.setAttribute('aria-pressed', colorsOn ? 'true' : 'false');
+    lc.setAttribute('aria-label', colorsOn ? '已锁定配色' : '锁定配色');
   }
   function syncControls() {
     if (document.activeElement !== $('#seed')) $('#seed').value = state.seed;
     PARAMS.forEach(function (p) {
       var el = document.querySelector('[data-param="' + p.key + '"]');
-      if (el && document.activeElement !== el) el.value = state.params[p.key];
+      var shown = Number(state.params[p.key]).toFixed(2);
+      if (el) {
+        if (document.activeElement !== el) el.value = state.params[p.key];
+        el.setAttribute('aria-valuetext', shown);
+      }
       var v = document.querySelector('[data-val="' + p.key + '"]');
-      if (v) v.textContent = Number(state.params[p.key]).toFixed(2);
+      if (v) v.textContent = shown;
     });
     COLOR_KEYS.forEach(function (c) {
       var el = document.querySelector('[data-color="' + c.key + '"]');
       if (el && document.activeElement !== el) el.value = state.colors[c.key];
     });
     document.querySelectorAll('[data-pal]').forEach(function (b) {
-      b.classList.toggle('on', parseInt(b.dataset.pal, 10) === state.palette);
+      var on = parseInt(b.dataset.pal, 10) === state.palette;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     document.querySelectorAll('[data-view]').forEach(function (b) {
-      b.classList.toggle('on', b.dataset.view === state.view);
+      var on = b.dataset.view === state.view;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
   function refresh() {
