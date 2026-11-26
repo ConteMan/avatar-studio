@@ -446,6 +446,48 @@ test('首次打开分享不清理参数也不改草稿；存储失败保留全�
   assert.equal(app.historyClearNotice(secondNotice.previous, { ok:true }).previous, '');
 });
 
+test('显式分享把 s 放在查询串，hash 留在后面', () => {
+  const picture = app.defaultState();
+  picture.seed = '要分享的头像🐈';
+  picture.drawingSeed = '分享发型🌱';
+  picture.view = 'head';
+  picture.locks.hair = true;
+  const normalized = app.sanitizeState(picture);
+  const token = app.encodeState(normalized);
+  const encoded = encodeURIComponent(token);
+  assert.equal(app.shareLocation('/index.html', '', '#panel', token), '/index.html?s=' + encoded + '#panel');
+  assert.equal(app.shareLocation('/index.html', '', '', token), '/index.html?s=' + encoded);
+  assert.equal(
+    app.shareLocation('/index.html', '?from=mail&tab=1', '#panel', token),
+    '/index.html?from=mail&tab=1&s=' + encoded + '#panel'
+  );
+  assert.equal(
+    app.shareLocation('/index.html', '?s=old&%73=again&keep=1', '#panel?x=1', token),
+    '/index.html?keep=1&s=' + encoded + '#panel?x=1'
+  );
+  const tricky = app.shareLocation('/index.html', '?s=' + encoded, '#panel?s=fake', token);
+  const query = tricky.slice(tricky.indexOf('?'), tricky.indexOf('#'));
+  assert.equal(query.indexOf('s='), query.lastIndexOf('s='));
+  assert.equal(tricky.endsWith('#panel?s=fake'), true);
+  assert.equal(app.shareParam(query).present, true);
+  const unrelated = memoryStorage(JSON.stringify({
+    v: 1,
+    state: app.sanitizeState(Object.assign(app.defaultState(), { seed: '收件人的无关草稿🌱' }))
+  }));
+  const opened = app.resolveInitial(query, unrelated);
+  assert.equal(opened.source, 'share');
+  assert.equal(opened.state.seed, '要分享的头像🐈');
+  assert.equal(opened.state.drawingSeed, '分享发型🌱');
+  assert.equal(opened.state.view, 'head');
+  assert.equal(opened.state.locks.hair, true);
+  assert.equal(app.render(opened.state), app.render(normalized));
+  assert.equal(unrelated.calls.get, 0);
+  const afterClear = app.searchAfterEdit('?s=' + encoded, { ok: true });
+  assert.equal(afterClear, '');
+  const again = app.shareLocation('/index.html', afterClear, '#panel', token);
+  assert.equal(again, '/index.html?s=' + encoded + '#panel');
+});
+
 test('UI 标签按槽位区分 dots 和 cat，Engine 接口原值保持', () => {
   assert.equal(app.labelFor('bg', 'dots'), '圆点');
   assert.equal(app.labelFor('eyes', 'dots'), '点眼');

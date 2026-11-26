@@ -973,6 +973,15 @@ var AvatarState = (function () {
     if (!saveResult || !saveResult.ok) return current;
     return stripShareSearch(current);
   }
+  function shareLocation(pathname, search, hash, token) {
+    var path = String(pathname == null ? '' : pathname);
+    var fragment = String(hash == null ? '' : hash);
+    if (fragment && fragment.charAt(0) !== '#') fragment = '#' + fragment;
+    var query = stripShareSearch(search);
+    var param = 's=' + encodeURIComponent(String(token == null ? '' : token));
+    query = query ? query + '&' + param : '?' + param;
+    return path + query + fragment;
+  }
   function historyClearNotice(previous, result) {
     if (!result || result.ok) return { previous:'', notice:'' };
     var notice = '草稿已保存，但地址栏仍保留旧分享。直接刷新会打开旧链接，而不是刚才的编辑。';
@@ -1129,7 +1138,7 @@ var AvatarState = (function () {
     FORMAT_VERSION:FORMAT_VERSION, DRAFT_KEY:DRAFT_KEY,
     defaultState:defaultState, sanitizeState:sanitizeState, encodeState:encodeState, decodeState:decodeState,
     readEncoded:readEncoded, shareParam:shareParam, stripShareSearch:stripShareSearch,
-    locationWithoutShare:locationWithoutShare, searchAfterEdit:searchAfterEdit,
+    locationWithoutShare:locationWithoutShare, searchAfterEdit:searchAfterEdit, shareLocation:shareLocation,
     historyClearNotice:historyClearNotice, readDraft:readDraft, saveDraft:saveDraft,
     storageWriteNotice:storageWriteNotice, resolveInitial:resolveInitial,
     render:render, randomize:randomize, applyPalette:applyPalette,
@@ -1154,7 +1163,9 @@ if (typeof document !== 'undefined') (function () {
   function shareUrl() {
     var token = stateModel.encodeState(state);
     if (!token) return '';
-    return location.href.split('?')[0] + '?s=' + encodeURIComponent(token);
+    var relative = stateModel.shareLocation(location.pathname, location.search, location.hash, token);
+    if (!location.origin || location.origin === 'null') return relative;
+    return location.origin + relative;
   }
   function fileStem() {
     var s = String(state.seed == null ? '' : state.seed);
@@ -1424,7 +1435,9 @@ if (typeof document !== 'undefined') (function () {
   $('#btnShare').addEventListener('click', function () {
     var url = shareUrl();
     if (!url) { toast('分享链接生成失败'); return; }
-    try { history.replaceState(null, '', url); } catch (e) {}
+    try {
+      if (history && typeof history.replaceState === 'function') history.replaceState(history.state, '', url);
+    } catch (e) {}
     copyText(url, '分享链接已复制');
   });
   $('#btnSvg').addEventListener('click', function () {

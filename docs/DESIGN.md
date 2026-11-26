@@ -86,7 +86,7 @@ SVG 先输出背景底色矩形，再按以下顺序连接层函数返回的片�
 { "v": 1, "state": { "seed": "", "drawingSeed": "", "slots": {}, "params": {}, "colors": {}, "view": "half", "locks": {} } }
 ```
 
-`state` 是归一化后的绘图与锁定状态，不含由颜色重新匹配的 `palette`。分享把封套按 UTF-8 JSON → base64 → 将 `+`、`/` 替换为 `-`、`_` 并去掉尾部 `=` → `encodeURIComponent`，放在首个查询参数 `s`。草稿把同一封套以 JSON 文本存在 `localStorage` 键 `avatar-studio.draft`，不放进地址栏。点击分享才把当前配置写入 URL 并尝试复制链接。编辑不会重新编码一条新分享。
+`state` 是归一化后的绘图与锁定状态，不含由颜色重新匹配的 `palette`。分享把封套按 UTF-8 JSON → base64 → 将 `+`、`/` 替换为 `-`、`_` 并去掉尾部 `=` → `encodeURIComponent`，放在首个查询参数 `s`。草稿把同一封套以 JSON 文本存在 `localStorage` 键 `avatar-studio.draft`，不放进地址栏。点击分享才把当前配置写入 URL 并尝试复制链接，并沿用当时的 `history.state`。新的 `s` 放在查询串里，hash 留在查询串之后；路径和其他查询参数保留，原有的一个或多个 `s` 不重复留下。只含 hash、hash 中含有 `?`，或参数名被编码成 `s` 时，也按这个顺序组装。编辑不会重新编码一条新分享。
 
 初始化来源写在根元素 `data-avatar-source`：`share` 是版本 1 分享，`legacy-share` 是没有 `v` 的旧分享，`draft` 是合法本地草稿，`default` 是默认形象。优先级是合法分享、然后合法草稿、最后默认。存在 `s` 时，即使值为空、过长、无法解码、结构不合法或版本不是 `1`，也使用默认形象并提示，不读取、不写入、不清除草稿。没有 `s` 时才读草稿。
 
