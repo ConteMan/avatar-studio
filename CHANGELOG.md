@@ -2,10 +2,11 @@
 
 ## 未发布
 
-### 工程与发布候选
+### 工程与发布配置
 
+- 2026-11-27 经所有者正式授权，完成 `0.1.0` 发布配置：在 `cloudflare.config.ts` 启用自定义域名 `avatar.conteman.com`（Worker `avatar-studio`，保持 `workersDev: false`），将 `deploy/release.json` 切换为 `stage: "release"` 与 `allowedDomains: ["avatar.conteman.com"]`，并同步 `package.json` / `package-lock.json` 版本为 `0.1.0`（待合并、部署并在公开地址复测后确认上线）。
 - 增加显式白名单 `dist/` 打包脚本、`deploy/release.json` 阶段与域名清单、候选/正式双模式校验、清单驱动 PR CI 门禁（`verify:ci`）、本地静态预览服务与 `tests/dist.test.cjs` 回归用例（应用源码 `index.html` 无功能变更）。
-- 增加 `cloudflare.config.ts`（Workers Static Assets 纯静态候选配置，`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、锁定 `cf@1.0.0-rc.1`、PR CI 打包/dry-run 门禁与 `docs/RELEASING.md` 发布及紧急撤下指南；尚未正式上线。
+- 增加 `cloudflare.config.ts`（Workers Static Assets 纯静态配置，`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、锁定 `cf@1.0.0-rc.1`、PR CI 打包/dry-run 门禁与 `docs/RELEASING.md` 发布及紧急撤下指南。
 
 ### 页面
 

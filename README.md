@@ -4,7 +4,7 @@
 
 代码与项目文档在本独立仓库维护。
 
-产品方向已确定为轻量头像工坊。没有后端，不进 Dokploy。初版采用 Cloudflare Workers Static Assets 托管，还没部署。许可还没定。
+产品方向已确定为轻量头像工坊。没有后端，不进 Dokploy。初版采用 Cloudflare Workers Static Assets 托管（2026-11-27 经所有者授权配置 `0.1.0` 发布目标 `avatar.conteman.com` / Worker `avatar-studio`，尚未完成正式部署与线上复测）。许可还没定。
 
 ## 本地使用与自检
 
@@ -19,15 +19,15 @@ git diff --check
 
 从其他目录调用时使用脚本的实际路径；脚本会自行定位仓库。成功时 Node 测试汇总的失败数为 0，任一断言失败时非零退出。自检覆盖固定 SVG 摘要、重复渲染、输入不可变、144 个部件与裁切用例、实际 11 层拼接顺序、随机锁定、手动换部件、新旧分享和非法输入回退，以及 `dist/` 显式白名单打包与本地预览 HTTP/404 行为；不替代浏览器视觉验收。参与开发前阅读 [贡献指南](CONTRIBUTING.md)。
 
-静态候选打包与本地预览（`0.1.0` 尚未正式上线）：
+静态打包、清单校验与本地预览（`0.1.0` 已授权配置发布，尚未正式部署上线）：
 
 ```sh
 npm run build
-npm run verify:dist
+npm run verify:ci
 npm run preview
 ```
 
-需要运行 Cloudflare `cf` 无上传干跑校验时，安装锁定依赖后执行 `npm run cf:dry-run` 与 `npm run cf:triggers:dry-run`，详见 [打包与发布指南](docs/RELEASING.md)。
+需要运行 Cloudflare `cf` 无上传干跑校验或正式发布校验时，安装锁定依赖后执行 `npm run verify:release -- --expect-commit "$(git rev-parse HEAD)"`、`npm run cf:dry-run` 与 `npm run cf:triggers:dry-run`，详见 [打包与发布指南](docs/RELEASING.md)。
 
 ## 随机与锁定
 

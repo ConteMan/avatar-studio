@@ -141,8 +141,8 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 ## 已批准、后续实现
 
-所有者于 2026-11-26 批准 [六个开发切片](development-plan.md)。切片 1 已建立维护与回归基线，切片 2 已接入页头标志和站点图标（见上一节），切片 3 已实现锁定和同步，切片 4 已实现本节的草稿与版本化分享，切片 5 已实现经所有者验收的手机粘性预览布局与基础可访问性。切片 6 已完成首发候选的显式白名单 `dist/` 打包、`cloudflare.config.ts`（`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、本地预览与 `cf` dry-run 门禁（见 [RELEASING.md](RELEASING.md)）；正式发布仍待所有者验收后执行。
+所有者于 2026-11-26 批准 [六个开发切片](development-plan.md)。切片 1 已建立维护与回归基线，切片 2 已接入页头标志和站点图标（见上一节），切片 3 已实现锁定和同步，切片 4 已实现本节的草稿与版本化分享，切片 5 已实现经所有者验收的手机粘性预览布局与基础可访问性。切片 6 已完成显式白名单 `dist/` 打包、`cloudflare.config.ts`（`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、本地预览与 `cf` dry-run 门禁（见 [RELEASING.md](RELEASING.md)）；2026-11-27 所有者已正式授权 `0.1.0` 发布上线（目标 Worker `avatar-studio`、公开域名 `avatar.conteman.com`），正式部署与公开地址复测待合并后执行。
 
 锁合同与 seed 输入行为见「本轮状态合同」。恢复优先级、旧链接、未来版本和存储失败行为见「当前分享与恢复格式」。
 
-正式发布需可评审产物与预览，再经所有者验收。`0.1.0` 是首发计划，尚未发布；候选阶段不启用生产域名，也不配置自动生产部署。
+`0.1.0` 已获所有者发布授权并完成仓库发布配置，尚未完成正式部署与公开地址复测；不配置自动生产部署。
