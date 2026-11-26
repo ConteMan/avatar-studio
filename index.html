@@ -1146,6 +1146,221 @@ var AvatarState = (function () {
   };
 })();
 
+/* 复制回退与 PNG 导出。不绘图，只处理点击当时的文本、SVG 和文件名。 */
+var Export = (function () {
+  var COPY_FAIL = '复制失败，请手动复制';
+  var PNG_OK = '已导出 PNG · 1024×1024';
+  var PNG_CONTEXT = 'PNG 导出失败：无法创建画布，请改用 SVG';
+  var PNG_DRAW = 'PNG 导出失败：无法绘制图像，请改用 SVG';
+  var PNG_BLOB = 'PNG 导出失败：无法生成图片，请改用 SVG';
+  var PNG_EMPTY = 'PNG 导出失败：浏览器未返回图片，请改用 SVG';
+  var PNG_DECODE = 'PNG 导出失败：图片无法解码，请改用 SVG';
+  var PNG_PREPARE = 'PNG 导出失败：无法准备图像，请改用 SVG';
+  var PNG_SAVE = 'PNG 导出失败：无法保存图片，请改用 SVG';
+
+  function restoreFocus(documentRef, previous, field) {
+    if (!previous || previous === field || typeof previous.focus !== 'function') return;
+    try {
+      if (typeof documentRef.contains === 'function' && !documentRef.contains(previous)) return;
+      previous.focus();
+    } catch (e) {}
+  }
+
+  function fallbackCopy(text, documentRef) {
+    var previous = documentRef.activeElement;
+    var field = documentRef.createElement('textarea');
+    field.value = text;
+    field.setAttribute('readonly', 'readonly');
+    field.style.position = 'fixed';
+    field.style.top = '0';
+    field.style.left = '0';
+    field.style.opacity = '0';
+    var copied = false;
+    try {
+      documentRef.body.appendChild(field);
+      if (typeof field.focus === 'function') field.focus();
+      if (typeof field.select === 'function') field.select();
+      try {
+        copied = documentRef.execCommand('copy') === true;
+      } catch (e) {
+        copied = false;
+      }
+    } catch (e) {
+      copied = false;
+    } finally {
+      try {
+        if (field.parentNode) field.parentNode.removeChild(field);
+      } catch (e) {}
+      restoreFocus(documentRef, previous, field);
+    }
+    return copied;
+  }
+
+  function copyText(text, ok, env) {
+    function report(success) {
+      env.notify(success ? ok : COPY_FAIL);
+    }
+    function fallback() {
+      report(!!fallbackCopy(text, env.document));
+    }
+    var clipboard = env.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== 'function') {
+      fallback();
+      return Promise.resolve();
+    }
+    var pending;
+    try {
+      pending = clipboard.writeText(text);
+    } catch (e) {
+      fallback();
+      return Promise.resolve();
+    }
+    if (!pending || typeof pending.then !== 'function') {
+      fallback();
+      return Promise.resolve();
+    }
+    return Promise.resolve(pending).then(function () {
+      report(true);
+    }, function () {
+      fallback();
+    });
+  }
+
+  function jsonText(state) {
+    return JSON.stringify({
+      seed: state.seed,
+      drawingSeed: state.drawingSeed,
+      slots: state.slots,
+      params: state.params,
+      colors: state.colors,
+      view: state.view
+    }, null, 2);
+  }
+
+  function capturePng(state, render, stem) {
+    return { svg: render(state), filename: stem(state) + '.png' };
+  }
+
+  function releaseUrl(revoke, url) {
+    if (!url) return;
+    try { revoke(url); } catch (e) {}
+  }
+
+  function exportPng(snapshot, env) {
+    var svgUrl = null;
+    var pngUrl = null;
+    var finished = false;
+    function fail(message) {
+      if (finished) return;
+      finished = true;
+      releaseUrl(env.revokeObjectURL, svgUrl);
+      svgUrl = null;
+      releaseUrl(env.revokeObjectURL, pngUrl);
+      pngUrl = null;
+      env.notify(message);
+    }
+    var svg = snapshot.svg;
+    var filename = snapshot.filename;
+    try {
+      svgUrl = env.createSvgUrl(svg);
+    } catch (e) {
+      fail(PNG_PREPARE);
+      return Promise.resolve();
+    }
+    return new Promise(function (resolve) {
+      var img;
+      try {
+        img = new env.Image();
+      } catch (e) {
+        fail(PNG_DECODE);
+        resolve();
+        return;
+      }
+      img.onload = function () {
+        if (finished) { resolve(); return; }
+        var canvas;
+        var context;
+        try {
+          canvas = env.createCanvas();
+          context = canvas && typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null;
+        } catch (e) {
+          fail(PNG_CONTEXT);
+          resolve();
+          return;
+        }
+        if (!context || typeof context.drawImage !== 'function') {
+          fail(PNG_CONTEXT);
+          resolve();
+          return;
+        }
+        try {
+          context.drawImage(img, 0, 0, 1024, 1024);
+        } catch (e) {
+          fail(PNG_DRAW);
+          resolve();
+          return;
+        }
+        releaseUrl(env.revokeObjectURL, svgUrl);
+        svgUrl = null;
+        try {
+          if (!canvas || typeof canvas.toBlob !== 'function') throw new Error('toBlob');
+          canvas.toBlob(function (blob) {
+            if (finished) { resolve(); return; }
+            if (!blob) {
+              fail(PNG_EMPTY);
+              resolve();
+              return;
+            }
+            var own = null;
+            try {
+              own = env.createBlobUrl(blob);
+              pngUrl = own;
+              env.save(own, filename);
+              finished = true;
+              pngUrl = null;
+              env.notify(PNG_OK);
+              env.schedule(function () { releaseUrl(env.revokeObjectURL, own); }, 1000);
+            } catch (e) {
+              pngUrl = own;
+              fail(PNG_SAVE);
+            }
+            resolve();
+          }, 'image/png');
+        } catch (e) {
+          fail(PNG_BLOB);
+          resolve();
+        }
+      };
+      img.onerror = function () {
+        fail(PNG_DECODE);
+        resolve();
+      };
+      try {
+        img.src = svgUrl;
+      } catch (e) {
+        fail(PNG_DECODE);
+        resolve();
+      }
+    });
+  }
+
+  return {
+    COPY_FAIL: COPY_FAIL,
+    PNG_OK: PNG_OK,
+    PNG_CONTEXT: PNG_CONTEXT,
+    PNG_DRAW: PNG_DRAW,
+    PNG_BLOB: PNG_BLOB,
+    PNG_EMPTY: PNG_EMPTY,
+    PNG_DECODE: PNG_DECODE,
+    PNG_PREPARE: PNG_PREPARE,
+    PNG_SAVE: PNG_SAVE,
+    copyText: copyText,
+    jsonText: jsonText,
+    capturePng: capturePng,
+    exportPng: exportPng
+  };
+})();
+
 if (typeof document !== 'undefined') (function () {
   var $ = function (s) { return document.querySelector(s); };
   var E = Engine;
@@ -1167,8 +1382,8 @@ if (typeof document !== 'undefined') (function () {
     if (!location.origin || location.origin === 'null') return relative;
     return location.origin + relative;
   }
-  function fileStem() {
-    var s = String(state.seed == null ? '' : state.seed);
+  function fileStemFrom(seed) {
+    var s = String(seed == null ? '' : seed);
     s = s.replace(/[\\/]+/g, '-').replace(/\s+/g, '-');
     s = s.replace(/[<>:"|?*\u0000-\u001f]/g, '');
     s = s.replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
@@ -1176,6 +1391,7 @@ if (typeof document !== 'undefined') (function () {
     if (s.length > 80) s = s.slice(0, 80);
     return 'avatar-' + s;
   }
+  function fileStem() { return fileStemFrom(state.seed); }
 
   /* ---------- 生成 ---------- */
   function newSeed() {
@@ -1388,45 +1604,54 @@ if (typeof document !== 'undefined') (function () {
     var t = $('#toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1900);
   }
+  function clipboardApi() {
+    try { return navigator.clipboard; } catch (e) { return null; }
+  }
   function copyText(txt, ok) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(function () { toast(ok); }, function () { fallback(); });
-    } else fallback();
-    function fallback() {
-      var ta = document.createElement('textarea');
-      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); toast(ok); } catch (e) { toast('复制失败，请手动复制'); }
-      document.body.removeChild(ta);
-    }
+    Export.copyText(txt, ok, { clipboard: clipboardApi(), document: document, notify: toast });
   }
   function download(name, content, type) {
-    var blob = new Blob([content], { type: type });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = name; document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    var url = null;
+    var link = null;
+    try {
+      url = URL.createObjectURL(new Blob([content], { type: type }));
+      link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      if (link && link.parentNode) link.parentNode.removeChild(link);
+      if (url) {
+        var own = url;
+        setTimeout(function () { URL.revokeObjectURL(own); }, 1000);
+      }
+    }
   }
   function exportPng() {
-    var svg = stateModel.render(state);
-    var url = URL.createObjectURL(new Blob([svg], { type:'image/svg+xml;charset=utf-8' }));
-    var img = new Image();
-    img.onload = function () {
-      var c = document.createElement('canvas'); c.width = 1024; c.height = 1024;
-      c.getContext('2d').drawImage(img, 0, 0, 1024, 1024);
-      URL.revokeObjectURL(url);
-      c.toBlob(function (blob) {
-        var u = URL.createObjectURL(blob);
-        var a = document.createElement('a'); a.href = u;
-        a.download = fileStem() + '.png';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
-        toast('已导出 PNG · 1024×1024');
-      }, 'image/png');
-    };
-    img.onerror = function () { toast('PNG 导出失败，请改用 SVG'); URL.revokeObjectURL(url); };
-    img.src = url;
+    var snapshot = Export.capturePng(state, function (s) { return stateModel.render(s); }, function (s) { return fileStemFrom(s.seed); });
+    Export.exportPng(snapshot, {
+      createSvgUrl: function (svg) { return URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })); },
+      createBlobUrl: function (blob) { return URL.createObjectURL(blob); },
+      revokeObjectURL: function (url) { URL.revokeObjectURL(url); },
+      Image: Image,
+      createCanvas: function () {
+        var c = document.createElement('canvas');
+        c.width = 1024;
+        c.height = 1024;
+        return c;
+      },
+      notify: toast,
+      save: function (url, name) {
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        try { link.click(); }
+        finally { if (link.parentNode) link.parentNode.removeChild(link); }
+      },
+      schedule: function (fn, ms) { setTimeout(fn, ms); }
+    });
   }
 
   /* ---------- 事件 ---------- */
@@ -1441,12 +1666,14 @@ if (typeof document !== 'undefined') (function () {
     copyText(url, '分享链接已复制');
   });
   $('#btnSvg').addEventListener('click', function () {
-    download(fileStem() + '.svg', stateModel.render(state), 'image/svg+xml;charset=utf-8');
+    var name = fileStem() + '.svg';
+    var svg = stateModel.render(state);
+    download(name, svg, 'image/svg+xml;charset=utf-8');
     toast('已导出 SVG');
   });
   $('#btnPng').addEventListener('click', exportPng);
   $('#btnJson').addEventListener('click', function () {
-    copyText(JSON.stringify({ seed:state.seed, drawingSeed:state.drawingSeed, slots:state.slots, params:state.params, colors:state.colors, view:state.view }, null, 2), '配置 JSON 已复制');
+    copyText(Export.jsonText(state), '配置 JSON 已复制');
   });
   $('#viewSeg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-view]'); if (!b) return;
