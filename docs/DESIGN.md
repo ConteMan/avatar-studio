@@ -137,12 +137,12 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 页头左侧是 32px 的 `assets/mark.svg`，旁边是活字「半身像工坊」（17px、字重 650）。标记只有一条路径，`d` 与母版 `rounds/R05-2026-11-26/shu.svg` 相同，填色 `#1b1a18`。母版文件不改、不移动。「满」（缩放 0.70）不进入页面。
 
-浏览器图标同时引用这个 SVG 和 `assets/favicon-32.png`。PNG 是该 SVG 的一次性 32×32 透明栅格，不参与页面运行。站点写有 `description`，`theme-color` 为页面底色 `#f6f5f1`。没有公开域名，因此不写开放图谱图片或分享图。
+浏览器图标同时引用这个 SVG 和 `assets/favicon-32.png`。PNG 是该 SVG 的一次性 32×32 透明栅格，不参与页面运行。站点写有 `description`，`theme-color` 为页面底色 `#f6f5f1`；当前暂不写开放图谱图片或分享图。
 
 ## 已批准、后续实现
 
-所有者于 2026-11-26 批准 [六个开发切片](development-plan.md)。切片 1 已建立维护与回归基线，切片 2 已接入页头标志和站点图标（见上一节），切片 3 已实现锁定和同步，切片 4 已实现本节的草稿与版本化分享，切片 5 已实现经所有者验收的手机粘性预览布局与基础可访问性。切片 6 已完成显式白名单 `dist/` 打包、`cloudflare.config.ts`（`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、本地预览与 `cf` dry-run 门禁（见 [RELEASING.md](RELEASING.md)）；2026-11-27 所有者已正式授权 `0.1.0` 发布上线（目标 Worker `avatar-studio`、公开域名 `avatar.conteman.com`），正式部署与公开地址复测待合并后执行。
+所有者于 2026-11-26 批准 [六个开发切片](development-plan.md)。切片 1 已建立维护与回归基线，切片 2 已接入页头标志和站点图标（见上一节），切片 3 已实现锁定和同步，切片 4 已实现本节的草稿与版本化分享，切片 5 已实现经所有者验收的手机粘性预览布局与基础可访问性。切片 6 已完成显式白名单 `dist/` 打包、`cloudflare.config.ts`（`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、本地预览与 `cf` dry-run 门禁，并于 `2026-11-27 06:35 +08:00` 正式上线 `0.1.0` 至 <https://avatar.conteman.com/>（Worker `avatar-studio`，`2026-11-27 06:39–06:40 +08:00` 完成公开地址验收，详见 [RELEASING.md](RELEASING.md)）。
 
 锁合同与 seed 输入行为见「本轮状态合同」。恢复优先级、旧链接、未来版本和存储失败行为见「当前分享与恢复格式」。
 
-`0.1.0` 已获所有者发布授权并完成仓库发布配置，尚未完成正式部署与公开地址复测；不配置自动生产部署。
+`0.1.0` 已正式上线并完成公开地址验收，不配置自动生产部署；预发布构建产物 `build-meta.json` 仍保持 `released: false` 设计合同。真机、Safari、微信内置浏览器与系统剪贴板真实写入仍在未测边界。

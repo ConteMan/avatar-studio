@@ -4,7 +4,7 @@
 
 代码与项目文档在本独立仓库维护。
 
-产品方向已确定为轻量头像工坊。没有后端，不进 Dokploy。初版采用 Cloudflare Workers Static Assets 托管（2026-11-27 经所有者授权配置 `0.1.0` 发布目标 `avatar.conteman.com` / Worker `avatar-studio`，尚未完成正式部署与线上复测）。许可还没定。
+产品方向已确定为轻量头像工坊。没有后端，不进 Dokploy。`0.1.0` 已于 2026-11-27 06:35 +08:00 经 Cloudflare Workers Static Assets 正式上线，公开入口为 <https://avatar.conteman.com/>。源码许可仍未定。
 
 ## 本地使用与自检
 
@@ -19,7 +19,7 @@ git diff --check
 
 从其他目录调用时使用脚本的实际路径；脚本会自行定位仓库。成功时 Node 测试汇总的失败数为 0，任一断言失败时非零退出。自检覆盖固定 SVG 摘要、重复渲染、输入不可变、144 个部件与裁切用例、实际 11 层拼接顺序、随机锁定、手动换部件、新旧分享和非法输入回退，以及 `dist/` 显式白名单打包与本地预览 HTTP/404 行为；不替代浏览器视觉验收。参与开发前阅读 [贡献指南](CONTRIBUTING.md)。
 
-静态打包、清单校验与本地预览（`0.1.0` 已授权配置发布，尚未正式部署上线）：
+静态打包、清单校验与本地预览（`0.1.0` 已上线，线上入口 <https://avatar.conteman.com/>）：
 
 ```sh
 npm run build
@@ -40,7 +40,7 @@ npm run preview
 ## 项目文档
 
 - [实现评估](docs/implementation-review-2026-11-26.md)：优点、缺点、实际检查结果。
-- [开发与首发安排](docs/development-plan.md)：已批准的架构、维护流程、开发切片和发布验收；`0.1.0` 是首发计划，尚未发布。
+- [开发与首发安排](docs/development-plan.md)：已批准的架构、维护流程、开发切片和发布验收；`0.1.0` 正式上线记录见 [RELEASING.md](docs/RELEASING.md)。
 - [设计基线](docs/DESIGN.md)：当前 11 层、状态字段、分享格式与后续目标。
 - [打包与发布指南](docs/RELEASING.md)：显式白名单构建、本地预览、`cf` dry-run、授权后发布与回退撤下步骤。
 - [开发安排可视化](docs/development-overview.html)：可离线打开的流程与开发顺序。
