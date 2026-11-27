@@ -344,11 +344,15 @@ test('新建作品与连续编辑保留第零步和当前快照，跳过重复�
   });
   assert.equal(savedA2.ok, true);
   assert.equal(savedA2.work.rev, 2);
-  assert.equal(savedA2.work.snapshots.length, 2);
+  assert.equal(savedA2.work.snapshots.length, 3);
+  assert.equal(savedA2.work.currentIndex, 2);
   assert.equal(savedA2.work.snapshots[0].state.slots.hair, 'cloud');
   assert.equal(savedA2.work.snapshots[0].state.slots.eyes, 'round');
   assert.equal(savedA2.work.snapshots[1].state.slots.hair, 'bob');
-  assert.equal(savedA2.work.snapshots[1].state.slots.eyes, 'wink');
+  assert.equal(savedA2.work.snapshots[1].state.slots.eyes, 'round');
+  assert.equal(savedA2.work.snapshots[2].state.slots.hair, 'bob');
+  assert.equal(savedA2.work.snapshots[2].state.slots.eyes, 'wink');
+  assert.equal(app.render(lib.currentStateOf(savedA2.work)), app.render(editA2));
 
   // 分享预览另存（无修改）：仅第零步，currentIndex=0
   const shareB = app.randomize(app.defaultState(), '分享B🎨');
@@ -420,7 +424,9 @@ test('跨标签页修订号冲突：拒绝旧修订覆盖，支持保存副本�
   assert.equal(conflictRes.ok, false);
   assert.equal(conflictRes.reason, 'conflict');
   assert.equal(conflictRes.latest.rev, 2);
-  assert.equal(conflictRes.latest.snapshots[1].state.slots.topper, 'dog');
+  assert.equal(conflictRes.latest.currentIndex, 2);
+  assert.equal(conflictRes.latest.snapshots.length, 3);
+  assert.equal(lib.currentStateOf(conflictRes.latest).slots.topper, 'dog');
 
   // 标签页 1 拿旧 rev=1 重命名也必须拦截
   const renameConflict = await tab1.renameWork({ id: workId, expectedRev: 1, title: '旧标签改名' });
@@ -430,7 +436,8 @@ test('跨标签页修订号冲突：拒绝旧修订覆盖，支持保存副本�
   // 确认库中仍是标签页 2 的版本
   const latestInDb = await tab1.getWork(workId);
   assert.equal(latestInDb.work.rev, 2);
-  assert.equal(latestInDb.work.snapshots[1].state.slots.topper, 'dog');
+  assert.equal(latestInDb.work.currentIndex, 2);
+  assert.equal(lib.currentStateOf(latestInDb.work).slots.topper, 'dog');
 
   // 标签页 1 选择保存为副本：保留原第零步且不覆盖原作品
   const copy = await tab1.createWork({
@@ -448,7 +455,7 @@ test('跨标签页修订号冲突：拒绝旧修订覆盖，支持保存副本�
   const allWorks = await tab1.listWorks();
   assert.equal(allWorks.works.length, 2);
   const originalStillIntact = allWorks.works.find(w => w.id === workId);
-  assert.equal(originalStillIntact.snapshots[1].state.slots.topper, 'dog');
+  assert.equal(lib.currentStateOf(originalStillIntact).slots.topper, 'dog');
 });
 
 test('存储不可用、配额不足与未来版本记录不破坏既有数据和渲染', async () => {
@@ -580,7 +587,8 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
   assert.equal(replayedEdit.ok, true);
   assert.equal(replayedEdit.recovered, true);
   assert.equal(replayedEdit.work.rev, 2);
-  assert.equal(replayedEdit.work.snapshots[1].state.params.volume, 1.33);
+  assert.equal(replayedEdit.work.currentIndex, 2);
+  assert.equal(lib.currentStateOf(replayedEdit.work).params.volume, 1.33);
   assert.equal(storage.raw.has(lib.PENDING_KEY), false);
   assert.equal(storage.raw.get(app.DRAFT_KEY), legacyRaw);
 
@@ -620,7 +628,8 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
   assert.equal(conflicted.ok, false);
   assert.equal(conflicted.reason, 'conflict');
   assert.equal(conflicted.latest.rev, 2);
-  assert.equal(conflicted.latest.snapshots[1].state.params.volume, 1.33);
+  assert.equal(conflicted.latest.currentIndex, 2);
+  assert.equal(lib.currentStateOf(conflicted.latest).params.volume, 1.33);
   lib.clearPendingEdit(storage);
 
   // 4. 新建作品中途卸载（含确定性 workId）-> 回放建档，且已建档时不重复建
@@ -766,4 +775,371 @@ test('R1 显式分享另存后立即刷新：已提交未回调与未提交均�
   assert.equal(replayUncommitted.work.id, 'share-save-op-2');
   assert.equal(lib.shouldAdoptShareReplay(sharePreview, replayUncommitted, 'tab-r1'), true);
   assert.equal((await store.listWorks()).works.length, 2);
+});
+
+function historyState(volume) {
+  const st = app.defaultState();
+  st.params.volume = volume;
+  return app.persistableState(app.sanitizeState(st));
+}
+
+function snapshotOf(state, label, at) {
+  return { state, label, at };
+}
+
+test('历史快照去重、相邻收束、分支替换与 50 步上限', () => {
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.0);
+  const d = historyState(1.1);
+
+  let hist = { snapshots: [snapshotOf(base, '起点', 1)], currentIndex: 0 };
+  let applied = lib.applyEditToHistory(hist, a, { label: '步A', at: 2 });
+  assert.equal(applied.changed, true);
+  assert.equal(applied.snapshots.length, 2);
+  hist = { snapshots: applied.snapshots, currentIndex: applied.currentIndex };
+
+  applied = lib.applyEditToHistory(hist, b, { label: '步B', at: 3 });
+  assert.equal(applied.currentIndex, 2);
+  hist = { snapshots: applied.snapshots, currentIndex: applied.currentIndex };
+
+  // 与当前步骤完全等值：跳过，不写重复快照
+  const same = lib.applyEditToHistory(hist, b, { label: '重复', at: 4 });
+  assert.equal(same.changed, false);
+  assert.equal(same.skipped, true);
+  assert.equal(same.snapshots.length, 3);
+
+  // 回到紧邻上一步（A）时收束，丢弃当前 B，不保留重复状态
+  const backToA = lib.applyEditToHistory(hist, a, { label: '回到A', at: 5 });
+  assert.equal(backToA.changed, true);
+  assert.equal(backToA.collapsed, true);
+  assert.equal(backToA.currentIndex, 1);
+  assert.equal(backToA.snapshots.length, 2);
+  assert.equal(app.render(backToA.snapshots[1].state), app.render(a));
+
+  // 撤销后继续编辑：替换重做分支
+  let branch = { snapshots: backToA.snapshots, currentIndex: backToA.currentIndex };
+  const replaced = lib.applyEditToHistory(branch, d, { label: '分支D', at: 6 });
+  assert.equal(replaced.currentIndex, 2);
+  assert.equal(replaced.snapshots.length, 3);
+  assert.equal(app.render(replaced.snapshots[1].state), app.render(a));
+  assert.equal(app.render(replaced.snapshots[2].state), app.render(d));
+
+  // 50 个可撤销步骤 + 当前步骤 = 最多 51 份快照，保留最新编辑
+  let capped = { snapshots: [snapshotOf(base, '起点', 0)], currentIndex: 0 };
+  for (let i = 1; i <= 60; i += 1) {
+    const next = historyState(0.72 + i * 0.01);
+    const step = lib.applyEditToHistory(capped, next, { label: `步${i}`, at: i });
+    assert.equal(step.changed, true);
+    capped = { snapshots: step.snapshots, currentIndex: step.currentIndex };
+  }
+  assert.equal(capped.snapshots.length, lib.MAX_SNAPSHOTS);
+  assert.equal(capped.snapshots.length, 51);
+  assert.equal(capped.currentIndex, 50);
+  assert.equal(capped.snapshots[0].state.params.volume, 0.82);
+  assert.equal(capped.snapshots[50].state.params.volume, 1.32);
+  const status = lib.historyStatus(capped);
+  assert.equal(status.undoCount, 50);
+  assert.equal(status.redoCount, 0);
+  assert.equal(status.canUndo, true);
+  assert.equal(status.canRedo, false);
+
+  let undo = lib.stepHistory(capped, -1);
+  let pos = { snapshots: undo.snapshots, currentIndex: undo.currentIndex };
+  for (let i = 1; i < 50; i += 1) {
+    const stepped = lib.stepHistory(pos, -1);
+    assert.equal(stepped.changed, true);
+    pos = { snapshots: stepped.snapshots, currentIndex: stepped.currentIndex };
+  }
+  assert.equal(pos.currentIndex, 0);
+  assert.equal(lib.stepHistory(pos, -1).changed, false);
+  for (let i = 0; i < 50; i += 1) {
+    const stepped = lib.stepHistory(pos, 1);
+    assert.equal(stepped.changed, true);
+    pos = { snapshots: stepped.snapshots, currentIndex: stepped.currentIndex };
+  }
+  assert.equal(pos.currentIndex, 50);
+  assert.equal(lib.stepHistory(pos, 1).changed, false);
+
+  // 加载时按当前步骤裁剪窗口，仍保留最新位置
+  const rawStates = [];
+  for (let i = 0; i <= 60; i += 1) rawStates.push(snapshotOf(historyState(0.72 + i * 0.01), `原始${i}`, i));
+  const trimmed = lib.normalizeHistory(rawStates, 55, 1, lib.MAX_SNAPSHOTS);
+  assert.equal(trimmed.snapshots.length, 51);
+  assert.equal(trimmed.currentIndex, 50);
+  assert.equal(app.render(trimmed.snapshots[50].state), app.render(rawStates[55].state));
+
+  // 上限后继续编辑：只丢最旧步骤，最新快照与当前位置保留
+  const appended = lib.applyEditToHistory(capped, historyState(0.73), { label: '新步', at: 99 });
+  assert.equal(appended.snapshots.length, 51);
+  assert.equal(appended.currentIndex, 50);
+  assert.equal(appended.snapshots[50].state.params.volume, 0.73);
+  assert.equal(appended.snapshots[0].state.params.volume, 0.83);
+});
+
+test('syncWorkHistory 持久化快照与撤销位置，冲突不覆盖，加载裁剪旧记录', async () => {
+  const idb = createMockIDB();
+  let tick = 50000;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => 'history-work' });
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.0);
+  const d = historyState(1.1);
+
+  const created = await store.createWork({
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+  });
+  assert.equal(created.ok, true);
+  assert.equal(created.work.rev, 1);
+  assert.equal(created.work.snapshots.length, 3);
+  assert.equal(created.work.currentIndex, 2);
+
+  const saved = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 1,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4)],
+    currentIndex: 3,
+  });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.work.rev, 2);
+  assert.equal(saved.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(saved.work)), app.render(c));
+
+  // 撤销位置持久化：快照不变，只移动 currentIndex
+  const undone = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 2,
+    snapshots: saved.work.snapshots,
+    currentIndex: 2,
+  });
+  assert.equal(undone.ok, true);
+  assert.equal(undone.work.rev, 3);
+  assert.equal(undone.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(undone.work)), app.render(b));
+
+  // 撤销后继续编辑：同步完整新历史替换分支
+  const branched = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 3,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(d, '步D', 5)],
+    currentIndex: 3,
+  });
+  assert.equal(branched.ok, true);
+  assert.equal(branched.work.rev, 4);
+  assert.equal(branched.work.snapshots.length, 4);
+  assert.equal(app.render(lib.currentStateOf(branched.work)), app.render(d));
+
+  const reloaded = await store.getWork('history-work');
+  assert.equal(reloaded.work.rev, 4);
+  assert.equal(reloaded.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(reloaded.work)), app.render(d));
+
+  // 旧修订号写入必须冲突，不得把旧步骤覆盖回新版
+  const stale = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 3,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  assert.equal(stale.ok, false);
+  assert.equal(stale.reason, 'conflict');
+  assert.equal(stale.latest.rev, 4);
+  assert.equal(app.render(lib.currentStateOf(stale.latest)), app.render(d));
+
+  // 第一阶段双快照记录保持可读
+  const legacyTwo = await store.createWork({
+    id: 'phase1-two',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '第零步',
+    currentState: a,
+    currentLabel: '第一阶段编辑',
+  });
+  assert.equal(legacyTwo.ok, true);
+  assert.equal(legacyTwo.work.snapshots.length, 2);
+  assert.equal(legacyTwo.work.currentIndex, 1);
+
+  // 超限旧记录加载时按当前位置裁剪，仍保留最新快照
+  const longSnapshots = [];
+  for (let i = 0; i <= 60; i += 1) longSnapshots.push(snapshotOf(historyState(0.72 + i * 0.01), `长记录${i}`, i));
+  idb.dbs.get(lib.DB_NAME).stores.get(lib.STORE_WORKS).records.set('long-record', {
+    v: lib.STORAGE_VERSION,
+    id: 'long-record',
+    title: '超长记录',
+    createdAt: 1,
+    updatedAt: 2,
+    rev: 1,
+    source: 'editor',
+    currentIndex: 55,
+    snapshots: longSnapshots,
+  });
+  const longLoaded = await store.getWork('long-record');
+  assert.equal(longLoaded.ok, true);
+  assert.equal(longLoaded.work.snapshots.length, 51);
+  assert.equal(longLoaded.work.currentIndex, 50);
+  assert.equal(app.render(lib.currentStateOf(longLoaded.work)), app.render(longSnapshots[55].state));
+  assert.equal(lib.historyStatus(longLoaded.work).undoCount, 50);
+});
+
+test('待保存暂存支持完整历史回放、撤销位置恢复与旧格式兼容', async () => {
+  const idb = createMockIDB();
+  let tick = 60000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `hist-rec-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.0);
+  const d = historyState(1.1);
+
+  const created = await store.createWork({
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+  });
+  assert.equal(created.ok, true);
+
+  // 完整历史 + 未落盘的新分支：回放后保留全部快照和当前步骤
+  const fullHistory = [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4)];
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '步C',
+    snapshots: fullHistory,
+    currentIndex: 3,
+    at: tick,
+  });
+  const replayed = await store.replayPendingEdit(storage);
+  assert.equal(replayed.ok, true);
+  assert.equal(replayed.recovered, true);
+  assert.equal(replayed.work.rev, 2);
+  assert.equal(replayed.work.snapshots.length, 4);
+  assert.equal(replayed.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(replayed.work)), app.render(c));
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+
+  // 撤销但尚未落盘：回放恢复 currentIndex，不新增快照
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '步A',
+    snapshots: fullHistory,
+    currentIndex: 1,
+    at: tick + 100,
+  });
+  const replayedUndo = await store.replayPendingEdit(storage);
+  assert.equal(replayedUndo.ok, true);
+  assert.equal(replayedUndo.recovered, true);
+  assert.equal(replayedUndo.work.rev, 3);
+  assert.equal(replayedUndo.work.snapshots.length, 4);
+  assert.equal(replayedUndo.work.currentIndex, 1);
+  assert.equal(app.render(lib.currentStateOf(replayedUndo.work)), app.render(a));
+
+  // 已落盘同一历史：幂等清理，不增修订号
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '步A',
+    snapshots: fullHistory,
+    currentIndex: 1,
+    at: tick + 200,
+  });
+  const idem = await store.replayPendingEdit(storage);
+  assert.equal(idem.ok, true);
+  assert.equal(idem.recovered, false);
+  assert.equal(idem.work.rev, 3);
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+
+  // 旧修订号的完整历史不得覆盖其他标签的新版本
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: d,
+    label: '步D',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4), snapshotOf(d, '步D', 5)],
+    currentIndex: 4,
+    at: tick + 300,
+  });
+  const conflicted = await store.replayPendingEdit(storage);
+  assert.equal(conflicted.ok, false);
+  assert.equal(conflicted.reason, 'conflict');
+  assert.equal(conflicted.latest.rev, 3);
+  assert.equal(app.render(lib.currentStateOf(conflicted.latest)), app.render(a));
+
+  // 新建作品携带完整历史：回放后保留原始快照与当前位置，重复回放幂等
+  const shareBase = app.randomize(app.defaultState(), '历史分享🎨');
+  const shareA = app.selectSlot(shareBase, 'eyes', 'wink');
+  const shareB = app.selectSlot(shareA, 'mouth', 'cat');
+  const createHistory = [
+    snapshotOf(app.persistableState(shareBase), '分享原稿', 1),
+    snapshotOf(app.persistableState(shareA), '选择部件', 2),
+    snapshotOf(app.persistableState(shareB), '选择部件', 3),
+  ];
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-history-create',
+    kind: 'create',
+    workId: 'history-create-1',
+    source: 'share',
+    baseState: app.persistableState(shareBase),
+    baseLabel: '分享原稿',
+    nextState: app.persistableState(shareB),
+    label: '选择部件',
+    snapshots: createHistory,
+    currentIndex: 2,
+    at: tick + 400,
+  });
+  const createdByReplay = await store.replayPendingEdit(storage, 'tab-history-create');
+  assert.equal(createdByReplay.ok, true);
+  assert.equal(createdByReplay.recovered, true);
+  assert.equal(createdByReplay.work.id, 'history-create-1');
+  assert.equal(createdByReplay.work.snapshots.length, 3);
+  assert.equal(createdByReplay.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(createdByReplay.work)), app.render(shareB));
+
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-history-create',
+    kind: 'create',
+    workId: 'history-create-1',
+    source: 'share',
+    baseState: app.persistableState(shareBase),
+    baseLabel: '分享原稿',
+    nextState: app.persistableState(shareB),
+    label: '选择部件',
+    snapshots: createHistory,
+    currentIndex: 2,
+    at: tick + 500,
+  });
+  const createdAgain = await store.replayPendingEdit(storage, 'tab-history-create');
+  assert.equal(createdAgain.ok, true);
+  assert.equal(createdAgain.recovered, false);
+  assert.equal(createdAgain.committedBeforeUnload, true);
+  assert.equal((await store.listWorks()).works.filter(w => w.id === 'history-create-1').length, 1);
 });
