@@ -1,6 +1,6 @@
 {
   "stage": "release",
-  "plannedVersion": "0.1.0",
+  "plannedVersion": "0.2.0",
   "allowedDomains": [
     "avatar.conteman.com"
   ]

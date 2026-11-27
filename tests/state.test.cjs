@@ -57,13 +57,46 @@ test('各槽位锁只保留自身选择，发型锁额外保留绘图种子', ()
       const seed = 'subset-' + index;
       const next = app.randomize(original, seed);
       for (const slot of engine.SLOTS) {
-        assert.equal(next.slots[slot.key], slot.key === locked.key ? original.slots[slot.key] : engine.fromSeed(seed, slot.key));
+        const drawn = engine.fromSeed(seed, slot.key);
+        const available = slot.key === 'bg' && drawn === 'rays' ? 'plain' : drawn;
+        assert.equal(next.slots[slot.key], slot.key === locked.key ? original.slots[slot.key] : available);
       }
       assert.equal(next.drawingSeed, locked.key === 'hair' ? original.drawingSeed : seed);
       if (locked.key === 'hair') {
         const restoredSlots = { ...next, slots:original.slots };
         assert.equal(app.render(restoredSlots), app.render(original));
       }
+    }
+  }
+});
+
+test('放射背景退出编辑选项，旧分享和草稿继续保留原画面', () => {
+  const original = app.defaultState();
+  original.slots.bg = 'rays';
+  original.locks.bg = true;
+  const seed = Array.from({ length:100 }, (_, index) => 'background-' + index)
+    .find(candidate => engine.fromSeed(candidate, 'bg') === 'rays');
+  assert.ok(seed);
+  assert.ok(!app.EDITOR_SLOTS.find(slot => slot.key === 'bg').options.includes('rays'));
+  assert.equal(app.selectSlot(app.defaultState(), 'bg', 'rays').slots.bg, 'plain');
+  assert.equal(app.randomize(app.defaultState(), seed).slots.bg, 'plain');
+
+  const restored = app.sanitizeState(app.decodeState(app.encodeState(original)));
+  assert.equal(restored.slots.bg, 'rays');
+  assert.equal(restored.locks.bg, true);
+  assert.equal(app.render(restored), app.render(original));
+  assert.equal(app.randomize(restored, seed).slots.bg, 'rays');
+  const storage = memoryStorage();
+  assert.equal(app.saveDraft(storage, original).ok, true);
+  assert.equal(app.readDraft(storage).state.slots.bg, 'rays');
+
+  for (const value of ['rays', 'plain', 'circle', 'dots', 'grid', 'blob']) {
+    const current = { ...restored, slots:{ ...restored.slots, bg:value } };
+    for (let index = 0; index < 20; index++) {
+      const shuffled = app.shuffleSlot(current, 'bg');
+      assert.notEqual(shuffled.slots.bg, value);
+      assert.notEqual(shuffled.slots.bg, 'rays');
+      assert.equal(shuffled.locks.bg, true);
     }
   }
 });
