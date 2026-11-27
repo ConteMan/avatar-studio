@@ -1568,6 +1568,8 @@ var WorkLibrary = (function () {
   var META_MIGRATION = 'migration.legacyDraft';
   var META_ACTIVE = 'activeWork';
   var PENDING_KEY = 'avatar-studio.pending-edit';
+  var PENDING_MAX_AGE_MS = 86400000;
+  var PENDING_MAX_TABS = 8;
   var MAX_TITLE_LEN = 60;
   var LEGACY_DRAFT_TITLE = '旧草稿';
 
@@ -1747,14 +1749,17 @@ var WorkLibrary = (function () {
     if (!nextSan) return null;
     var baseSan = AvatarState.sanitizeState(raw.baseState);
     if (!baseSan) baseSan = nextSan;
+    var workId = typeof raw.workId === 'string' && raw.workId.trim() ? raw.workId.trim() : null;
     if (raw.kind === 'edit') {
-      if (typeof raw.workId !== 'string' || !raw.workId.trim()) return null;
+      if (!workId) return null;
       if (typeof raw.expectedRev !== 'number' || !Number.isInteger(raw.expectedRev) || raw.expectedRev < 1) return null;
     }
+    var tabId = typeof raw.tabId === 'string' && raw.tabId.trim() ? raw.tabId.trim().slice(0, 80) : 'default';
     return {
       v: STORAGE_VERSION,
+      tabId: tabId,
       kind: raw.kind,
-      workId: raw.kind === 'edit' ? raw.workId : null,
+      workId: workId,
       expectedRev: raw.kind === 'edit' ? raw.expectedRev : null,
       source: typeof raw.source === 'string' && raw.source ? raw.source : 'editor',
       baseState: AvatarState.persistableState(baseSan),
@@ -1765,32 +1770,80 @@ var WorkLibrary = (function () {
       at: typeof raw.at === 'number' && isFinite(raw.at) ? raw.at : Date.now()
     };
   }
-  function readPendingEdit(storage) {
+  function readPendingMap(storage, nowTs) {
+    var out = {};
     try {
-      if (!storage || typeof storage.getItem !== 'function') return null;
+      if (!storage || typeof storage.getItem !== 'function') return out;
       var raw = storage.getItem(PENDING_KEY);
-      if (!raw) return null;
-      return sanitizePendingEdit(JSON.parse(raw));
+      if (!raw) return out;
+      var parsed = JSON.parse(raw);
+      if (!isPlainObject(parsed) || parsed.v !== STORAGE_VERSION) return out;
+      var now = typeof nowTs === 'number' && isFinite(nowTs) ? nowTs : Date.now();
+      if (isPlainObject(parsed.byTab)) {
+        var keys = Object.keys(parsed.byTab);
+        for (var i = 0; i < keys.length; i++) {
+          var k = keys[i];
+          var entry = sanitizePendingEdit(Object.assign({ tabId: k }, parsed.byTab[k]));
+          if (entry && (now - entry.at) <= PENDING_MAX_AGE_MS) out[entry.tabId] = entry;
+        }
+        return out;
+      }
+      var single = sanitizePendingEdit(parsed);
+      if (single && (now - single.at) <= PENDING_MAX_AGE_MS) out[single.tabId] = single;
+    } catch (e) {}
+    return out;
+  }
+  function savePendingMap(storage, map) {
+    try {
+      var keys = Object.keys(map);
+      if (!keys.length) {
+        if (storage && typeof storage.removeItem === 'function') storage.removeItem(PENDING_KEY);
+        return true;
+      }
+      if (keys.length > PENDING_MAX_TABS) {
+        keys.sort(function (a, b) { return map[b].at - map[a].at; });
+        var trimmed = {};
+        for (var i = 0; i < PENDING_MAX_TABS; i++) trimmed[keys[i]] = map[keys[i]];
+        map = trimmed;
+      }
+      if (!storage || typeof storage.setItem !== 'function') return false;
+      storage.setItem(PENDING_KEY, JSON.stringify({ v: STORAGE_VERSION, byTab: map }));
+      return true;
     } catch (e) {
-      return null;
+      return false;
     }
+  }
+  function readPendingEdit(storage, tabId, nowTs) {
+    var map = readPendingMap(storage, nowTs);
+    var keys = Object.keys(map);
+    if (!keys.length) return null;
+    if (tabId && map[tabId]) return map[tabId];
+    keys.sort(function (a, b) { return map[b].at - map[a].at; });
+    return map[keys[0]];
   }
   function writePendingEdit(storage, entry) {
     try {
       if (!storage || typeof storage.setItem !== 'function') return false;
       var safe = sanitizePendingEdit(Object.assign({ v: STORAGE_VERSION }, entry));
       if (!safe) return false;
-      storage.setItem(PENDING_KEY, JSON.stringify(safe));
-      return true;
+      var map = readPendingMap(storage, safe.at);
+      map[safe.tabId] = safe;
+      return savePendingMap(storage, map);
     } catch (e) {
       return false;
     }
   }
-  function clearPendingEdit(storage) {
+  function clearPendingEdit(storage, tabId, nowTs) {
     try {
-      if (!storage || typeof storage.removeItem !== 'function') return false;
-      storage.removeItem(PENDING_KEY);
-      return true;
+      if (!storage) return false;
+      if (!tabId) {
+        if (typeof storage.removeItem !== 'function') return false;
+        storage.removeItem(PENDING_KEY);
+        return true;
+      }
+      var map = readPendingMap(storage, nowTs);
+      delete map[tabId];
+      return savePendingMap(storage, map);
     } catch (e) {
       return false;
     }
@@ -1892,7 +1945,7 @@ var WorkLibrary = (function () {
             return;
           }
           tx.oncomplete = function () {
-            done(outcome || { ok:true });
+            done(outcome || { ok:false, reason:'unavailable' });
           };
           tx.onerror = function () {
             done(outcome && !outcome.ok ? outcome : { ok:false, reason:storageReason(tx.error), error:tx.error });
@@ -2063,6 +2116,7 @@ var WorkLibrary = (function () {
 
     function createWork(opts) {
       opts = opts || {};
+      var requestedId = typeof opts.id === 'string' && opts.id.trim() ? opts.id.trim() : null;
       return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
         var worksStore = tx.objectStore(STORE_WORKS);
         var metaStore = tx.objectStore(STORE_META);
@@ -2070,12 +2124,23 @@ var WorkLibrary = (function () {
         allReq.onerror = function () { fail(allReq.error); };
         allReq.onsuccess = function () {
           var existing = Array.isArray(allReq.result) ? allReq.result : [];
+          if (requestedId) {
+            for (var ei = 0; ei < existing.length; ei++) {
+              if (existing[ei] && existing[ei].id === requestedId) {
+                var safeExisting = sanitizeWork(existing[ei]);
+                if (safeExisting) {
+                  setResult({ ok:true, work:safeExisting, deduplicated:true });
+                  return;
+                }
+              }
+            }
+          }
           var ts = nowFn();
           var title = opts.copyFromTitle
             ? copyTitleFor(opts.copyFromTitle, existing)
             : (opts.title ? cleanTitle(opts.title, nextAutoTitle(existing)) : nextAutoTitle(existing));
           var record = makeWorkRecord({
-            id: idFn(),
+            id: requestedId || idFn(),
             title: title,
             source: opts.source || 'editor',
             baseState: opts.baseState,
@@ -2200,9 +2265,11 @@ var WorkLibrary = (function () {
       });
     }
 
-    function replayPendingEdit(storage) {
-      var pending = readPendingEdit(storage);
+    function replayPendingEdit(storage, tabId) {
+      var tsNow = nowFn();
+      var pending = readPendingEdit(storage, tabId, tsNow);
       if (!pending) return Promise.resolve({ ok:true, recovered:false, none:true });
+      var owner = pending.tabId;
       if (pending.kind === 'edit') {
         return getWork(pending.workId).then(function (found) {
           if (!found.ok) return { ok:false, reason:found.reason, pending:pending };
@@ -2216,14 +2283,14 @@ var WorkLibrary = (function () {
               setActive: true
             }).then(function (created) {
               if (created.ok) {
-                clearPendingEdit(storage);
+                clearPendingEdit(storage, owner, tsNow);
                 return { ok:true, recovered:true, work:created.work };
               }
               return { ok:false, reason:created.reason, pending:pending };
             });
           }
           if (AvatarState.statesEqual(currentStateOf(found.work), pending.nextState)) {
-            clearPendingEdit(storage);
+            clearPendingEdit(storage, owner, tsNow);
             return { ok:true, recovered:false, work:found.work };
           }
           if (found.work.rev !== pending.expectedRev) {
@@ -2236,10 +2303,34 @@ var WorkLibrary = (function () {
             label: pending.label
           }).then(function (saved) {
             if (saved.ok) {
-              clearPendingEdit(storage);
+              clearPendingEdit(storage, owner, tsNow);
               return { ok:true, recovered:true, work:saved.work };
             }
             return { ok:false, reason:saved.reason, latest:saved.latest || found.work, pending:pending };
+          });
+        });
+      }
+      if (pending.workId) {
+        return getWork(pending.workId).then(function (foundById) {
+          if (!foundById.ok) return { ok:false, reason:foundById.reason, pending:pending };
+          if (foundById.work) {
+            clearPendingEdit(storage, owner, tsNow);
+            return { ok:true, recovered:false, work:foundById.work };
+          }
+          return createWork({
+            id: pending.workId,
+            source: pending.source || 'editor',
+            baseState: pending.baseState,
+            baseLabel: pending.baseLabel,
+            currentState: pending.explicitCreate ? null : pending.nextState,
+            currentLabel: pending.label,
+            setActive: true
+          }).then(function (created) {
+            if (created.ok) {
+              clearPendingEdit(storage, owner, tsNow);
+              return { ok:true, recovered:!created.deduplicated, work:created.work };
+            }
+            return { ok:false, reason:created.reason, pending:pending };
           });
         });
       }
@@ -2251,7 +2342,7 @@ var WorkLibrary = (function () {
             AvatarState.statesEqual(currentStateOf(w), pending.nextState);
         });
         if (existing) {
-          clearPendingEdit(storage);
+          clearPendingEdit(storage, owner, tsNow);
           return { ok:true, recovered:false, work:existing };
         }
         return createWork({
@@ -2263,7 +2354,7 @@ var WorkLibrary = (function () {
           setActive: true
         }).then(function (created) {
           if (created.ok) {
-            clearPendingEdit(storage);
+            clearPendingEdit(storage, owner, tsNow);
             return { ok:true, recovered:true, work:created.work };
           }
           return { ok:false, reason:created.reason, pending:pending };
@@ -2310,6 +2401,7 @@ var WorkLibrary = (function () {
     readPendingEdit: readPendingEdit,
     writePendingEdit: writePendingEdit,
     clearPendingEdit: clearPendingEdit,
+    generateWorkId: defaultRandomId,
     createStore: createStore
   };
 })();
@@ -2449,7 +2541,22 @@ if (typeof document !== 'undefined') (function () {
   function safeLocalStorage() {
     try { return window.localStorage; } catch (e) { return null; }
   }
+  function resolveTabId() {
+    var key = 'avatar-studio.tab-id';
+    try {
+      var ss = window.sessionStorage;
+      if (ss && typeof ss.getItem === 'function') {
+        var existing = ss.getItem(key);
+        if (existing && existing.trim()) return existing.trim().slice(0, 80);
+        var fresh = 'tab-' + libraryModel.generateWorkId();
+        ss.setItem(key, fresh);
+        return fresh;
+      }
+    } catch (e) {}
+    return 'tab-' + libraryModel.generateWorkId();
+  }
 
+  var tabId = resolveTabId();
   var store = libraryModel.createStore();
   var channel = null;
   try {
@@ -2482,6 +2589,7 @@ if (typeof document !== 'undefined') (function () {
   var userActedBeforeBoot = false;
   var saveInFlight = false;
   var pendingSave = null;
+  var pendingCreateId = null;
   var drainPromise = null;
   var drainResolve = null;
   var continuousSaveTimer = null;
@@ -2587,6 +2695,13 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
+  function clearOwnPendingEdit() {
+    libraryModel.clearPendingEdit(safeLocalStorage(), tabId);
+  }
+  function ensurePendingCreateId() {
+    if (!pendingCreateId) pendingCreateId = libraryModel.generateWorkId();
+    return pendingCreateId;
+  }
   function recordPendingEdit(label, targetState, explicitCreate) {
     if (conflict) return;
     var snap = targetState || stateModel.persistableState(stateModel.sanitizeState(state));
@@ -2594,11 +2709,13 @@ if (typeof document !== 'undefined') (function () {
     if (preview || (unsaved && unsaved.pendingCreate)) {
       var meta = preview || unsaved.pendingCreate;
       if (!exp && stateModel.statesEqual(meta.baseState, snap)) {
-        libraryModel.clearPendingEdit(safeLocalStorage());
+        clearOwnPendingEdit();
         return;
       }
       libraryModel.writePendingEdit(safeLocalStorage(), {
+        tabId: tabId,
         kind: 'create',
+        workId: ensurePendingCreateId(),
         source: meta.kind || meta.source || 'editor',
         baseState: meta.baseState,
         baseLabel: meta.baseLabel || '初始状态',
@@ -2611,11 +2728,13 @@ if (typeof document !== 'undefined') (function () {
     }
     if (!activeWork) {
       if (!exp && stateModel.statesEqual(freshBaseState, snap)) {
-        libraryModel.clearPendingEdit(safeLocalStorage());
+        clearOwnPendingEdit();
         return;
       }
       libraryModel.writePendingEdit(safeLocalStorage(), {
+        tabId: tabId,
         kind: 'create',
+        workId: ensurePendingCreateId(),
         source: 'editor',
         baseState: freshBaseState,
         baseLabel: '初始形象',
@@ -2627,10 +2746,11 @@ if (typeof document !== 'undefined') (function () {
       return;
     }
     if (stateModel.statesEqual(libraryModel.currentStateOf(activeWork), snap)) {
-      libraryModel.clearPendingEdit(safeLocalStorage());
+      clearOwnPendingEdit();
       return;
     }
     libraryModel.writePendingEdit(safeLocalStorage(), {
+      tabId: tabId,
       kind: 'edit',
       workId: activeWork.id,
       expectedRev: activeWork.rev,
@@ -2749,9 +2869,10 @@ if (typeof document !== 'undefined') (function () {
       ex.view = view;
       contextEpoch += 1;
       pendingSave = null;
+      pendingCreateId = null;
       unsaved = null;
       conflict = null;
-      libraryModel.clearPendingEdit(safeLocalStorage());
+      clearOwnPendingEdit();
       state = stateModel.sanitizeState(ex);
       preview = {
         kind: 'example',
@@ -2920,10 +3041,23 @@ if (typeof document !== 'undefined') (function () {
       titleEl.textContent = preview.kind === 'share'
         ? '正在预览分享头像'
         : ('正在预览示例 · ' + (preview.seed || ''));
-      statusEl.textContent = '查看或下载不会覆盖原作品；点击保存或开始编辑将建立新作品。';
+      if (preview.returnMigrationFailed) {
+        var migReasonText = preview.returnMigrationReason === 'quota' ? '存储空间不足' : '本地存储不可用';
+        statusEl.textContent = '旧草稿迁移失败（' + migReasonText + '），原草稿仍保留；可重试迁移或返回查看，分享预览仍可正常查看与另存。';
+      } else {
+        statusEl.textContent = '查看或下载不会覆盖原作品；点击保存或开始编辑将建立新作品。';
+      }
       actionsEl.appendChild(makeActionButton('btnSavePreview', '保存为新作品', true, savePreviewAsNewWork));
+      if (preview.returnMigrationFailed) {
+        actionsEl.appendChild(makeActionButton('btnRetryMigration', '重试迁移旧草稿', false, retryLegacyMigrationFromPreview));
+      }
       if (preview.returnWorkId || preview.returnState) {
-        actionsEl.appendChild(makeActionButton('btnReturnWork', '返回原作品', false, returnFromPreview));
+        actionsEl.appendChild(makeActionButton(
+          'btnReturnWork',
+          preview.returnMigrationFailed ? '返回原草稿' : '返回原作品',
+          false,
+          returnFromPreview
+        ));
       }
       return;
     }
@@ -3146,10 +3280,11 @@ if (typeof document !== 'undefined') (function () {
       }
       contextEpoch += 1;
       pendingSave = null;
+      pendingCreateId = null;
       preview = null;
       unsaved = null;
       conflict = null;
-      libraryModel.clearPendingEdit(safeLocalStorage());
+      clearOwnPendingEdit();
       activeWork = res.work;
       state = libraryModel.currentStateOf(res.work);
       document.documentElement.setAttribute('data-avatar-source', 'library');
@@ -3173,9 +3308,10 @@ if (typeof document !== 'undefined') (function () {
     var migReason = preview.returnMigrationReason || 'unavailable';
     contextEpoch += 1;
     pendingSave = null;
+    pendingCreateId = null;
     unsaved = migFailed ? { reason:migReason, migrationFailed:true, pendingCreate:null } : null;
     conflict = null;
-    libraryModel.clearPendingEdit(safeLocalStorage());
+    clearOwnPendingEdit();
     var restored = preview.returnState ? stateModel.sanitizeState(preview.returnState) : stateModel.defaultState();
     preview = null;
     activeWork = null;
@@ -3192,6 +3328,28 @@ if (typeof document !== 'undefined') (function () {
     enqueueSave(preview.baseLabel || '保存新作品', { explicitCreate:true });
   }
 
+  function retryLegacyMigrationFromPreview() {
+    if (!preview || !preview.returnMigrationFailed) return;
+    var epoch = contextEpoch;
+    store.migrateLegacyDraft(safeLocalStorage()).then(function (mig) {
+      if (epoch !== contextEpoch || !preview) return;
+      if (!mig.ok) {
+        preview.returnMigrationReason = mig.reason;
+        renderWorkBar();
+        toast('旧草稿迁移仍失败：' + (mig.reason === 'quota' ? '存储空间不足' : '本地存储不可用'));
+        return;
+      }
+      preview.returnMigrationFailed = false;
+      preview.returnMigrationReason = '';
+      if (mig.work) preview.returnWorkId = mig.work.id;
+      else if (mig.workId) preview.returnWorkId = mig.workId;
+      refreshWorksCache(true).then(function () {
+        renderWorkBar();
+        toast('旧草稿已迁移到「我的作品」');
+      });
+    });
+  }
+
   function resolveConflictReload() {
     if (!conflict) return;
     var targetId = conflict.workId;
@@ -3203,16 +3361,17 @@ if (typeof document !== 'undefined') (function () {
       if (!res.work) {
         conflict = null;
         activeWork = null;
-        libraryModel.clearPendingEdit(safeLocalStorage());
+        clearOwnPendingEdit();
         renderWorkBar();
         toast('原作品已不存在，请另存为副本');
         return;
       }
       contextEpoch += 1;
       pendingSave = null;
+      pendingCreateId = null;
       unsaved = null;
       conflict = null;
-      libraryModel.clearPendingEdit(safeLocalStorage());
+      clearOwnPendingEdit();
       activeWork = res.work;
       state = libraryModel.currentStateOf(res.work);
       refresh();
@@ -3244,7 +3403,8 @@ if (typeof document !== 'undefined') (function () {
         conflict = null;
         unsaved = null;
         storageNotice = '';
-        libraryModel.clearPendingEdit(safeLocalStorage());
+        pendingCreateId = null;
+        clearOwnPendingEdit();
         clearShareParamAfterSave();
         document.documentElement.setAttribute('data-avatar-source', 'library');
         broadcastLibraryChange(res.work.id);
@@ -3359,7 +3519,7 @@ if (typeof document !== 'undefined') (function () {
         drainSaveQueue();
       } else {
         if (stopQueue || continuousSaveTimer === null) {
-          libraryModel.clearPendingEdit(safeLocalStorage());
+          clearOwnPendingEdit();
         }
         finishDrainPromise();
       }
@@ -3404,6 +3564,7 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
       promise = store.createWork({
+        id: ensurePendingCreateId(),
         source: meta.kind || meta.source || 'editor',
         baseState: meta.baseState,
         baseLabel: meta.baseLabel || '初始状态',
@@ -3414,6 +3575,7 @@ if (typeof document !== 'undefined') (function () {
         if (job.epoch !== contextEpoch) return { ignored:true };
         if (res.ok) {
           activeWork = res.work;
+          pendingCreateId = null;
           preview = null;
           unsaved = null;
           conflict = null;
@@ -3443,6 +3605,7 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
       promise = store.createWork({
+        id: ensurePendingCreateId(),
         source: 'editor',
         baseState: freshBaseState,
         baseLabel: '初始形象',
@@ -3453,6 +3616,7 @@ if (typeof document !== 'undefined') (function () {
         if (job.epoch !== contextEpoch) return { ignored:true };
         if (res.ok) {
           activeWork = res.work;
+          pendingCreateId = null;
           unsaved = null;
           conflict = null;
           storageNotice = '';
@@ -3710,7 +3874,7 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
 
-      return store.replayPendingEdit(storageRef).then(function (replayed) {
+      return store.replayPendingEdit(storageRef, tabId).then(function (replayed) {
         return store.listWorks().then(function (list) {
           bootDone = true;
           if (!list.ok) {
@@ -3740,7 +3904,7 @@ if (typeof document !== 'undefined') (function () {
               baseLabel: replayed.pending.baseLabel,
               latest: latest || null
             };
-            libraryModel.clearPendingEdit(storageRef);
+            libraryModel.clearPendingEdit(storageRef, replayed.pending.tabId);
             document.documentElement.setAttribute('data-avatar-source', 'library');
             refresh();
             renderWorkBar();

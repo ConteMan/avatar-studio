@@ -623,11 +623,13 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
   assert.equal(conflicted.latest.snapshots[1].state.params.volume, 1.33);
   lib.clearPendingEdit(storage);
 
-  // 4. 新建作品中途卸载 -> 回放建档，且已建档时不重复建
+  // 4. 新建作品中途卸载（含确定性 workId）-> 回放建档，且已建档时不重复建
   const shareBase = app.randomize(app.defaultState(), '未落盘分享🎨');
   const shareEdited = app.selectSlot(shareBase, 'eyes', 'wink');
   lib.writePendingEdit(storage, {
+    tabId: 'tab-share-1',
     kind: 'create',
+    workId: 'det-share-work-1',
     source: 'share',
     baseState: shareBase,
     baseLabel: '分享原稿',
@@ -635,24 +637,58 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
     label: '选择部件',
     at: tick,
   });
-  const replayedCreate = await store.replayPendingEdit(storage);
+  const replayedCreate = await store.replayPendingEdit(storage, 'tab-share-1');
   assert.equal(replayedCreate.ok, true);
   assert.equal(replayedCreate.recovered, true);
+  assert.equal(replayedCreate.work.id, 'det-share-work-1');
   assert.equal(replayedCreate.work.snapshots[0].state.seed, '未落盘分享🎨');
   assert.equal(replayedCreate.work.snapshots[1].state.slots.eyes, 'wink');
 
-  // 重复回放同一新建记录不产生副本
+  // 重复回放同一 workId 不产生副本（即使时间前进超过窗口）
   lib.writePendingEdit(storage, {
+    tabId: 'tab-share-1',
     kind: 'create',
+    workId: 'det-share-work-1',
     source: 'share',
     baseState: shareBase,
     baseLabel: '分享原稿',
     nextState: shareEdited,
     label: '选择部件',
-    at: tick,
+    at: tick + 60000,
   });
-  const dupCreate = await store.replayPendingEdit(storage);
+  const dupCreate = await store.replayPendingEdit(storage, 'tab-share-1');
   assert.equal(dupCreate.ok, true);
   assert.equal(dupCreate.recovered, false);
   assert.equal((await store.listWorks()).works.length, 2);
+
+  // 5. 多标签归属隔离：标签 B 清理自身记录不误删标签 A 的待保存记录
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    nextState: app.selectSlot(v2, 'mouth', 'cat'),
+    label: '标签A编辑',
+    at: tick + 100,
+  });
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-B',
+    kind: 'edit',
+    workId: 'det-share-work-1',
+    expectedRev: 1,
+    source: 'share',
+    baseState: shareBase,
+    nextState: app.selectSlot(shareEdited, 'topper', 'dog'),
+    label: '标签B编辑',
+    at: tick + 200,
+  });
+  lib.clearPendingEdit(storage, 'tab-B', tick + 250);
+  const stillTabA = lib.readPendingEdit(storage, 'tab-A', tick + 300);
+  assert.ok(stillTabA);
+  assert.equal(stillTabA.tabId, 'tab-A');
+  assert.equal(stillTabA.nextState.slots.mouth, 'cat');
+  lib.clearPendingEdit(storage, 'tab-A', tick + 350);
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
 });
