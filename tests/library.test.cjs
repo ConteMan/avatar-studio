@@ -501,3 +501,158 @@ test('存储不可用、配额不足与未来版本记录不破坏既有数据�
   assert.equal(listed.works.length, 1);
   assert.equal(listed.works[0].id, 'quota-work');
 });
+
+test('改回第零步同值时收束为单步且 currentIndex=0，不写入重复快照', async () => {
+  const idb = createMockIDB();
+  let tick = 20000;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => 'dedup-work' });
+
+  const step0 = app.defaultState();
+  const edited = app.sanitizeState(step0);
+  edited.params.volume = 1.24;
+  const created = await store.createWork({
+    baseState: step0,
+    baseLabel: '初始形象',
+    currentState: edited,
+    currentLabel: '调整形状',
+  });
+  assert.equal(created.ok, true);
+  assert.equal(created.work.snapshots.length, 2);
+  assert.equal(created.work.currentIndex, 1);
+
+  // 将参数改回第零步同值
+  const backToStep0 = await store.saveWorkEdit({
+    id: 'dedup-work',
+    expectedRev: 1,
+    nextState: step0,
+    label: '调整形状',
+  });
+  assert.equal(backToStep0.ok, true);
+  assert.equal(backToStep0.work.rev, 2);
+  assert.equal(backToStep0.work.snapshots.length, 1);
+  assert.equal(backToStep0.work.currentIndex, 0);
+  assert.equal(backToStep0.work.snapshots[0].state.params.volume, 1);
+
+  // 再次提交同一第零步状态直接跳过
+  const dupAgain = await store.saveWorkEdit({
+    id: 'dedup-work',
+    expectedRev: 2,
+    nextState: step0,
+    label: '调整形状',
+  });
+  assert.equal(dupAgain.ok, true);
+  assert.equal(dupAgain.skipped, true);
+  assert.equal(dupAgain.work.rev, 2);
+});
+
+test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲突检测，且不改动旧草稿键', async () => {
+  const idb = createMockIDB();
+  let tick = 30000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `rec-${++seq}` });
+
+  const legacyRaw = JSON.stringify({ v: 1, state: app.persistableState(app.defaultState()) });
+  const storage = memoryStorage(legacyRaw);
+
+  // 1. 已有作品编辑中途卸载 -> replayPendingEdit 补落盘并清理暂存键
+  const base = app.defaultState();
+  const v1 = app.selectSlot(base, 'hair', 'bob');
+  const created = await store.createWork({ baseState: base, currentState: v1 });
+  assert.equal(created.ok, true);
+
+  const v2 = app.sanitizeState(v1);
+  v2.params.volume = 1.33;
+  assert.equal(lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '初始形象',
+    nextState: v2,
+    label: '调整形状',
+    at: tick,
+  }), true);
+  assert.ok(storage.raw.has(lib.PENDING_KEY));
+  assert.equal(storage.raw.get(app.DRAFT_KEY), legacyRaw);
+
+  const replayedEdit = await store.replayPendingEdit(storage);
+  assert.equal(replayedEdit.ok, true);
+  assert.equal(replayedEdit.recovered, true);
+  assert.equal(replayedEdit.work.rev, 2);
+  assert.equal(replayedEdit.work.snapshots[1].state.params.volume, 1.33);
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+  assert.equal(storage.raw.get(app.DRAFT_KEY), legacyRaw);
+
+  // 2. 幂等：若 IDB 已落盘同状态，回放不增 rev 并清理暂存键
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '初始形象',
+    nextState: v2,
+    label: '调整形状',
+    at: tick,
+  });
+  const idem = await store.replayPendingEdit(storage);
+  assert.equal(idem.ok, true);
+  assert.equal(idem.recovered, false);
+  assert.equal(idem.work.rev, 2);
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+
+  // 3. 冲突：另一标签已前进到 rev=2 且内容不同，旧 rev=1 暂存绝不覆盖
+  const stale = app.sanitizeState(v1);
+  stale.params.volume = 0.78;
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '初始形象',
+    nextState: stale,
+    label: '旧标签编辑',
+    at: tick,
+  });
+  const conflicted = await store.replayPendingEdit(storage);
+  assert.equal(conflicted.ok, false);
+  assert.equal(conflicted.reason, 'conflict');
+  assert.equal(conflicted.latest.rev, 2);
+  assert.equal(conflicted.latest.snapshots[1].state.params.volume, 1.33);
+  lib.clearPendingEdit(storage);
+
+  // 4. 新建作品中途卸载 -> 回放建档，且已建档时不重复建
+  const shareBase = app.randomize(app.defaultState(), '未落盘分享🎨');
+  const shareEdited = app.selectSlot(shareBase, 'eyes', 'wink');
+  lib.writePendingEdit(storage, {
+    kind: 'create',
+    source: 'share',
+    baseState: shareBase,
+    baseLabel: '分享原稿',
+    nextState: shareEdited,
+    label: '选择部件',
+    at: tick,
+  });
+  const replayedCreate = await store.replayPendingEdit(storage);
+  assert.equal(replayedCreate.ok, true);
+  assert.equal(replayedCreate.recovered, true);
+  assert.equal(replayedCreate.work.snapshots[0].state.seed, '未落盘分享🎨');
+  assert.equal(replayedCreate.work.snapshots[1].state.slots.eyes, 'wink');
+
+  // 重复回放同一新建记录不产生副本
+  lib.writePendingEdit(storage, {
+    kind: 'create',
+    source: 'share',
+    baseState: shareBase,
+    baseLabel: '分享原稿',
+    nextState: shareEdited,
+    label: '选择部件',
+    at: tick,
+  });
+  const dupCreate = await store.replayPendingEdit(storage);
+  assert.equal(dupCreate.ok, true);
+  assert.equal(dupCreate.recovered, false);
+  assert.equal((await store.listWorks()).works.length, 2);
+});

@@ -92,11 +92,11 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 本地作品库由 `WorkLibrary` 模块维护，详细设计与两阶段安排见 [本地作品与编辑历史](local-work-history.md)。
 
-- IndexedDB 数据库名 `avatar-studio.library`（版本 `1`），包含 `works`（主键 `id`，索引 `by_updatedAt`）与 `meta`（`migration.legacyDraft`、`activeWork`）两个对象仓库。记录使用独立存储版本 `STORAGE_VERSION = 1`，包含 `id`、`title`、`createdAt`、`updatedAt`、`rev`、`source`、`currentIndex` 和 `snapshots`。每条快照保存经 `AvatarState.persistableState()` 校验的完整配置（含 `drawingSeed` 与 `locks`）及简短操作名。第一阶段保留第零步与当前快照（最多 2 步），供后续阶段接入撤销/重做。
+- IndexedDB 数据库名 `avatar-studio.library`（版本 `1`），包含 `works`（主键 `id`，索引 `by_updatedAt`）与 `meta`（`migration.legacyDraft`、`activeWork`）两个对象仓库。记录使用独立存储版本 `STORAGE_VERSION = 1`，包含 `id`、`title`、`createdAt`、`updatedAt`、`rev`、`source`、`currentIndex` 和 `snapshots`。每条快照保存经 `AvatarState.persistableState()` 校验的完整配置（含 `drawingSeed` 与 `locks`）及简短操作名。第一阶段保留第零步与当前快照（最多 2 步），改回第零步同值时收束为单步且 `currentIndex = 0`，避免重复快照，供后续阶段接入撤销/重做。
 - 首次启动检测到合法 `localStorage` 键 `avatar-studio.draft` 时，在单一 `readwrite` 事务中同时写入「旧草稿」作品与 `migration.legacyDraft` 标记；事务失败时原子回滚并继续在内存中显示原草稿，重试只导入一次，成功后重复启动不再导入。旧 `avatar-studio.draft` 键保持只读不删改，以支持回退；后续编辑写入 IndexedDB 作品库。
 - 打开首页恢复上次活跃作品；空库仅在首次有效编辑时建立记录。点击页头「我的作品」打开原生 `<dialog>` 列表，按最近编辑倒序显示实时配置渲染的缩略图、标题和更新时间，支持打开恢复与行内重命名，并说明数据仅存于当前浏览器与站点。窄屏保持 `144×144px` 粘性预览与编辑空间，作品列表独立打开。
 - 打开有效分享或点击示例先进入预览态，不写入作品库也不修改原作品；查看、下载和返回原作品均保持原作品不变。点击「保存为新作品」或首次有效编辑时以预览原稿作为第零步新建独立作品，仅在 IndexedDB 提交成功后才通过 `history.replaceState` 移除 URL 中的分享参数 `s`。打开无效或不兼容分享时，提示失败并保留原有本地作品（空库时回退默认形象）。
-- 单标签内通过串行写队列合并连续编辑并跳过重复快照；跨标签写入与重命名在单事务内校验 `id` 与 `rev`，发现修订号不一致时拒绝覆盖，保持当前编辑画面并提供「重新载入新版」「保存为副本」与「导出配置 JSON」。配额不足或存储不可用时明确提示「更改尚未保存」，保留编辑画面和上次成功保存的版本，并提供重试保存与配置 JSON 导出。
+- 单标签内通过串行写队列合并连续编辑并跳过重复快照；编辑与连续输入同步写入独立的待保存暂存键 `avatar-studio.pending-edit`（不改动旧键 `avatar-studio.draft`，不使用阻塞式 `beforeunload`），在 `pagehide`、`visibilitychange` 隐藏及切换作品前立即冲刷，下次启动按 `id` 与 `rev` 幂等回放并清理，防止刷新或切页窗口丢失待保存编辑。跨标签写入与重命名在单事务内校验 `id` 与 `rev`，发现修订号不一致时拒绝覆盖，保持当前编辑画面并提供「重新载入新版」「保存为副本」与「导出配置 JSON」。配额不足或存储不可用时明确提示「更改尚未保存」，保留编辑画面和上次成功保存的版本，并提供重试保存与配置 JSON 导出。
 
 ## 当前分享与恢复格式
 
