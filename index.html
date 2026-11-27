@@ -149,6 +149,11 @@
   dialog::backdrop{background:rgba(27,26,24,.5)}
   .about-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .about-head h2{font-size:20px;margin:0}
+  .about-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--muted)}
+  .about-version{
+    display:inline-flex;align-items:center;padding:2px 9px;border:1px solid var(--line);border-radius:999px;
+    background:var(--bg);color:var(--label);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;
+  }
   dialog h3{font-size:15px;margin:22px 0 6px}
   dialog p{line-height:1.7;color:var(--label);margin:10px 0 0}
   .toast{
@@ -281,6 +286,7 @@
     <h2 id="aboutTitle">关于</h2>
     <form method="dialog"><button class="btn" type="submit" autofocus>关闭</button></form>
   </div>
+  <p class="about-meta"><span class="about-version" id="aboutVersion" data-version-state="source">源码预览</span></p>
   <p>在浏览器里搭配发型、五官、服装与配饰，再选择半身、胸像或头像裁切。图像在本机生成，打开即可使用。</p>
   <h3>草稿和分享</h3>
   <p>编辑后的草稿保存在当前浏览器。打开分享链接时会先显示链接里的头像，开始编辑后会保存为当前草稿。</p>
@@ -1448,6 +1454,112 @@ var Export = (function () {
   };
 })();
 
+var AppVersion = (function () {
+  var SOURCE_LABEL = '源码预览';
+  var META_PATH = 'build-meta.json';
+  var SEMVER_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+  function normalizeVersion(value) {
+    if (typeof value !== 'string') return null;
+    var trimmed = value.trim();
+    if (!trimmed || trimmed.length > 64) return null;
+    if (!SEMVER_RE.test(trimmed)) return null;
+    return trimmed;
+  }
+
+  function formatLabel(version) {
+    var normalized = normalizeVersion(version);
+    return normalized ? ('版本 ' + normalized) : SOURCE_LABEL;
+  }
+
+  function extractMetaVersion(meta) {
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
+    return normalizeVersion(meta.packageVersion) || normalizeVersion(meta.version);
+  }
+
+  function readInlineVersion(doc) {
+    if (!doc) return null;
+    try {
+      if (typeof doc.querySelector === 'function') {
+        var metaEl = doc.querySelector('meta[name="app-version"]');
+        if (metaEl && typeof metaEl.getAttribute === 'function') {
+          var metaVer = normalizeVersion(metaEl.getAttribute('content'));
+          if (metaVer) return metaVer;
+        }
+      }
+      if (doc.documentElement && typeof doc.documentElement.getAttribute === 'function') {
+        var attrVer = normalizeVersion(doc.documentElement.getAttribute('data-app-version'));
+        if (attrVer) return attrVer;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function sourceFallback() {
+    return { version: null, label: SOURCE_LABEL, source: 'source' };
+  }
+
+  function resolve(env) {
+    var cfg = env || {};
+    var inlineVer = readInlineVersion(cfg.document);
+    if (inlineVer) {
+      return Promise.resolve({
+        version: inlineVer,
+        label: formatLabel(inlineVer),
+        source: 'inline'
+      });
+    }
+    var fetchFn = cfg.fetch;
+    var protocol = typeof cfg.protocol === 'string' ? cfg.protocol : '';
+    if (typeof fetchFn !== 'function') {
+      return Promise.resolve(sourceFallback());
+    }
+    if (protocol && protocol !== 'http:' && protocol !== 'https:') {
+      return Promise.resolve(sourceFallback());
+    }
+    var metaPath = typeof cfg.metaPath === 'string' && cfg.metaPath ? cfg.metaPath : META_PATH;
+    try {
+      return Promise.resolve(fetchFn(metaPath, { cache: 'no-cache' }))
+        .then(function (res) {
+          if (!res || !res.ok || typeof res.json !== 'function') return null;
+          return res.json();
+        })
+        .then(function (data) {
+          var ver = extractMetaVersion(data);
+          if (!ver) return sourceFallback();
+          return { version: ver, label: formatLabel(ver), source: 'meta' };
+        })
+        .catch(function () {
+          return sourceFallback();
+        });
+    } catch (e) {
+      return Promise.resolve(sourceFallback());
+    }
+  }
+
+  function applyToElement(el, info) {
+    if (!el) return;
+    var resolved = info && normalizeVersion(info.version);
+    el.textContent = resolved ? formatLabel(resolved) : SOURCE_LABEL;
+    if (typeof el.setAttribute === 'function') {
+      el.setAttribute('data-version-state', resolved ? 'resolved' : 'source');
+      if (resolved) el.setAttribute('data-app-version', resolved);
+      else if (typeof el.removeAttribute === 'function') el.removeAttribute('data-app-version');
+    }
+  }
+
+  return {
+    SOURCE_LABEL: SOURCE_LABEL,
+    META_PATH: META_PATH,
+    normalizeVersion: normalizeVersion,
+    formatLabel: formatLabel,
+    extractMetaVersion: extractMetaVersion,
+    readInlineVersion: readInlineVersion,
+    resolve: resolve,
+    applyToElement: applyToElement
+  };
+})();
+
 if (typeof document !== 'undefined') (function () {
   var $ = function (s) { return document.querySelector(s); };
   var E = Engine;
@@ -1844,6 +1956,16 @@ if (typeof document !== 'undefined') (function () {
 
   /* ---------- 启动 ---------- */
   document.documentElement.setAttribute('data-avatar-source', boot.source);
+  var aboutVersionEl = $('#aboutVersion');
+  if (aboutVersionEl) {
+    AppVersion.resolve({
+      document: document,
+      fetch: typeof fetch === 'function' ? fetch.bind(window) : null,
+      protocol: location ? location.protocol : ''
+    }).then(function (info) {
+      AppVersion.applyToElement(aboutVersionEl, info);
+    });
+  }
   buildSlots();
   buildParams();
   buildColors();

@@ -24,6 +24,7 @@ export const ASSET_WHITELIST = Object.freeze([
 export const RELEASE_MANIFEST_REL = "deploy/release.json";
 export const VALID_STAGES = Object.freeze(["candidate", "release"]);
 export const META_FILENAME = "build-meta.json";
+const SEMVER_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 export const EXPECTED_DIST_FILES = Object.freeze(
   [...ASSET_WHITELIST.map((item) => item.dest), META_FILENAME].sort(),
@@ -31,6 +32,27 @@ export const EXPECTED_DIST_FILES = Object.freeze(
 
 function sha256Buffer(buf) {
   return createHash("sha256").update(buf).digest("hex");
+}
+
+export function readPackageVersion(projectRoot = PROJECT_ROOT) {
+  const pkgPath = path.join(path.resolve(projectRoot), "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    throw new Error("Missing package.json");
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  } catch (err) {
+    throw new Error(`Invalid JSON in package.json: ${err.message}`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("package.json must be a JSON object");
+  }
+  const version = typeof parsed.version === "string" ? parsed.version.trim() : "";
+  if (!version || version.length > 64 || !SEMVER_RE.test(version)) {
+    throw new Error(`package.json version must be a valid SemVer string (got: ${String(parsed.version)})`);
+  }
+  return version;
 }
 
 export function readReleaseManifest(projectRoot = PROJECT_ROOT) {
@@ -151,18 +173,7 @@ export function buildDist(options = {}) {
   }
 
   const gitInfo = readGitInfo(projectRoot);
-  const pkgPath = path.join(projectRoot, "package.json");
-  let packageVersion = "0.1.0-candidate.0";
-  if (fs.existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-      if (typeof pkg.version === "string" && pkg.version) {
-        packageVersion = pkg.version;
-      }
-    } catch {
-      // Keep default version if package.json is unavailable
-    }
-  }
+  const packageVersion = readPackageVersion(projectRoot);
 
   // 静态预发布产物始终保持 released=false：是否上线只能在实际部署并复测公开地址后确认，
   // 绝不在静态构建阶段提前宣称已发布。
