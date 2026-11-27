@@ -2025,14 +2025,10 @@ var WorkLibrary = (function () {
     var map = readPendingMap(storage, nowTs);
     var keys = Object.keys(map);
     if (!keys.length) return null;
-    if (tabId && map[tabId]) return map[tabId];
+    if (tabId) return map[tabId] || null;
+    // 仅保留无 tabId 的旧调用兼容；界面启动、恢复、比较和清理都必须传确切 tabId。
     keys.sort(function (a, b) { return map[b].at - map[a].at; });
-    // 完整历史只允许拥有该暂存的标签恢复；旧格式暂存保留原先的跨标签回放兼容。
-    for (var i = 0; i < keys.length; i++) {
-      if (!pendingHasFullHistory(map[keys[i]])) return map[keys[i]];
-    }
-    if (!tabId) return map[keys[0]];
-    return null;
+    return map[keys[0]];
   }
   function writePendingEdit(storage, entry) {
     try {
@@ -3090,6 +3086,9 @@ if (typeof document !== 'undefined') (function () {
     if (conflict || writeLeaseRevoked) return false;
     return ownershipWriteAllowed() || ownerLockState === 'pending';
   }
+  function ownershipRenameAllowed() {
+    return ownershipWriteAllowed() && !conflict && !unsaved;
+  }
   function acquireTabOwnershipLock() {
     var targetId = tabId;
     var navType = navigationTypeOf();
@@ -4051,6 +4050,13 @@ if (typeof document !== 'undefined') (function () {
         renameBtn.dataset.renameBtn = work.id;
         renameBtn.setAttribute('aria-label', '重命名 ' + work.title);
         renameBtn.addEventListener('click', function () {
+          if (!ownershipRenameAllowed()) {
+            editingRenameId = null;
+            libraryAlertMsg = '当前无法重命名：请先处理未保存的更改或等待编辑归属确认。';
+            renderLibraryDialog();
+            toast('当前无法重命名作品');
+            return;
+          }
           editingRenameId = work.id;
           libraryAlertMsg = '';
           renderLibraryDialog();
@@ -4072,6 +4078,13 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function commitRenameWork(work, rawTitle) {
+    if (!ownershipRenameAllowed()) {
+      editingRenameId = null;
+      libraryAlertMsg = '当前无法重命名：请先处理未保存的更改或等待编辑归属确认。';
+      renderLibraryDialog();
+      toast('当前无法重命名作品');
+      return;
+    }
     var nextTitle = libraryModel.cleanTitle(rawTitle, '');
     if (!nextTitle) {
       libraryAlertMsg = '请输入有效的作品名称。';
@@ -4102,10 +4115,12 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function openWorkById(id) {
-    if (conflict || unsaved) {
-      libraryAlertMsg = '当前有未保存的更改，请先重试保存、保存为副本或导出配置 JSON。';
+    if (conflict || unsaved || !ownershipWriteAllowed()) {
+      libraryAlertMsg = !ownershipWriteAllowed()
+        ? '当前标签页没有确认的编辑归属，不能切换作品；请先保存副本、导出或恢复归属。'
+        : '当前有未保存的更改，请先重试保存、保存为副本或导出配置 JSON。';
       renderLibraryDialog();
-      toast('请先处理当前未保存的更改，再切换作品');
+      toast('现在不能切换作品');
       return Promise.resolve();
     }
     var ready = flushAndWaitForSave();

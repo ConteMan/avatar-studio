@@ -1210,10 +1210,10 @@ test('完整历史与旧格式暂存都只由确认归属的标签回放，异�
     label: '旧格式步C',
     at: tick,
   });
-  assert.ok(lib.readPendingEdit(storage, 'tab-B', tick + 1000));
+  assert.equal(lib.readPendingEdit(storage, 'tab-B', tick + 1000), null);
   const blockedLegacy = await store.replayPendingEdit(storage, 'tab-B');
-  assert.equal(blockedLegacy.ok, false);
-  assert.equal(blockedLegacy.reason, 'ownership-unconfirmed');
+  assert.equal(blockedLegacy.ok, true);
+  assert.equal(blockedLegacy.none, true);
   assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
   const afterBlockedLegacy = await store.getWork('own-work');
   assert.equal(afterBlockedLegacy.work.rev, 2);
@@ -1643,4 +1643,61 @@ test('写租约撤销后 readwrite 被阻止，恢复后才允许重新写入', 
   assert.equal(created.ok, true);
   assert.equal(created.work.rev, 1);
   assert.equal((await store.listWorks()).works.length, 1);
+});
+
+test('无自己暂存时不回退读取其他标签的旧单条或 byTab 记录', () => {
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const single = memoryStorage();
+  single.raw.set(lib.PENDING_KEY, JSON.stringify({
+    v: lib.STORAGE_VERSION,
+    tabId: 'legacy-single',
+    kind: 'edit',
+    workId: 'legacy-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '旧单条',
+    at: Date.now(),
+  }));
+  assert.ok(lib.readPendingEdit(single, 'legacy-single'));
+  assert.equal(lib.readPendingEdit(single, 'other-tab'), null);
+
+  const byTab = memoryStorage();
+  byTab.raw.set(lib.PENDING_KEY, JSON.stringify({
+    v: lib.STORAGE_VERSION,
+    byTab: {
+      'legacy-a': {
+        v: lib.STORAGE_VERSION,
+        tabId: 'legacy-a',
+        kind: 'edit',
+        workId: 'legacy-work',
+        expectedRev: 1,
+        source: 'editor',
+        baseState: base,
+        baseLabel: '起点',
+        nextState: a,
+        label: '旧A',
+        at: Date.now(),
+      },
+      'legacy-b': {
+        v: lib.STORAGE_VERSION,
+        tabId: 'legacy-b',
+        kind: 'edit',
+        workId: 'legacy-work',
+        expectedRev: 1,
+        source: 'editor',
+        baseState: base,
+        baseLabel: '起点',
+        nextState: a,
+        label: '旧B',
+        at: Date.now() + 1,
+      },
+    },
+  }));
+  assert.equal(lib.readPendingEdit(byTab, 'legacy-a').tabId, 'legacy-a');
+  assert.equal(lib.readPendingEdit(byTab, 'legacy-b').tabId, 'legacy-b');
+  assert.equal(lib.readPendingEdit(byTab, 'unrelated'), null);
 });
