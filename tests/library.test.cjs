@@ -1519,3 +1519,80 @@ test('暂存写入失败返回 false，不清除已有其他标签记录', () =>
   assert.equal(storage.data.has(lib.PENDING_KEY), false);
   assert.equal(lib.readPendingEdit(storage, 'tab-A'), null);
 });
+
+test('未确认活跃文档归属时不自动提交完整历史，旧格式仍兼容', async () => {
+  const idb = createMockIDB();
+  let tick = 95000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `owner-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.05);
+
+  await store.createWork({
+    id: 'owner-check',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'owner-check',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: b,
+    label: '待确认分支',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+    at: tick,
+  });
+
+  // 同一 tab id 但归属未确认：不提交、不删除暂存
+  const blocked = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: false });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, 'ownership-unconfirmed');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const unchanged = await store.getWork('owner-check');
+  assert.equal(unchanged.work.rev, 1);
+  assert.equal(unchanged.work.currentIndex, 1);
+  assert.equal(unchanged.work.snapshots.length, 2);
+
+  // 确认归属后才自动恢复
+  const recovered = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: true });
+  assert.equal(recovered.ok, true);
+  assert.equal(recovered.recovered, true);
+  const saved = await store.getWork('owner-check');
+  assert.equal(saved.work.rev, 2);
+  assert.equal(saved.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(saved.work)), app.render(b));
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+
+  // 旧格式没有完整历史，继续允许在归属未确认时按最终状态追加
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'owner-check',
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '旧格式步C',
+    at: tick,
+  });
+  const legacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: false });
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.recovered, true);
+  const afterLegacy = await store.getWork('owner-check');
+  assert.equal(afterLegacy.work.rev, 3);
+  assert.equal(afterLegacy.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(afterLegacy.work)), app.render(c));
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+});

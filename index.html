@@ -2613,7 +2613,8 @@ var WorkLibrary = (function () {
       });
     }
 
-    function replayPendingEdit(storage, tabId) {
+    function replayPendingEdit(storage, tabId, opts) {
+      var ownerConfirmed = !opts || opts.ownerConfirmed !== false;
       function latestPending() {
         return readPendingEdit(storage, owner, nowFn());
       }
@@ -2657,6 +2658,10 @@ var WorkLibrary = (function () {
       // 完整历史只能由写入它的标签回放；旧格式暂存继续支持原跨标签兼容。
       if (hasFullHistory && tabId && owner !== tabId) {
         return Promise.resolve({ ok:true, recovered:false, foreign:true, pending:pending });
+      }
+      // 同一 tab id 也可能来自复制标签/BFCache；未确认活跃文档归属时不自动提交。
+      if (hasFullHistory && !ownerConfirmed) {
+        return Promise.resolve({ ok:false, reason:'ownership-unconfirmed', pending:pending });
       }
       if (pending.kind === 'edit') {
         return getWork(pending.workId).then(function (found) {
@@ -3011,21 +3016,24 @@ if (typeof document !== 'undefined') (function () {
   function safeLocalStorage() {
     try { return window.localStorage; } catch (e) { return null; }
   }
-  function resolveTabId() {
-    var key = 'avatar-studio.tab-id';
-    var navType = '';
+  function navigationTypeOf() {
     try {
       var entries = typeof performance !== 'undefined' && performance.getEntriesByType
         ? performance.getEntriesByType('navigation')
         : null;
-      if (entries && entries.length) navType = entries[0].type || '';
+      if (entries && entries.length) return entries[0].type || '';
     } catch (e) {}
+    return '';
+  }
+  function resolveTabId() {
+    var key = 'avatar-studio.tab-id';
+    var navType = navigationTypeOf();
     try {
       var ss = window.sessionStorage;
       if (ss && typeof ss.getItem === 'function') {
         var existing = ss.getItem(key);
         if (existing && existing.trim()) {
-          // 复制标签或 window.open 会继承 sessionStorage；只有刷新/前进后退沿用原归属。
+          // 复制标签会继承 sessionStorage；只有刷新/前进后退沿用原归属。
           if (!navType || navType === 'reload' || navType === 'back_forward') {
             return existing.trim().slice(0, 80);
           }
@@ -3042,6 +3050,72 @@ if (typeof document !== 'undefined') (function () {
   }
 
   var tabId = resolveTabId();
+  var ownerLockState = 'pending';
+  var ownerLockPromise = null;
+  var ownerLockRelease = null;
+  function acquireTabOwnershipLock() {
+    var targetId = tabId;
+    var navType = navigationTypeOf();
+    var retries = (navType === 'reload' || navType === 'back_forward') ? 6 : 0;
+    ownerLockState = 'pending';
+    if (typeof navigator === 'undefined' || !navigator.locks || typeof navigator.locks.request !== 'function') {
+      ownerLockState = 'unavailable';
+      return Promise.resolve(ownerLockState);
+    }
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = null;
+      function finish(state) {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) clearTimeout(timer);
+        ownerLockState = state;
+        resolve(state);
+      }
+      function request(remaining) {
+        if (targetId !== tabId) { finish(ownerLockState); return; }
+        var req;
+        try {
+          req = navigator.locks.request('avatar-studio.tab-owner:' + targetId, { ifAvailable:true }, function (lock) {
+            if (targetId !== tabId) return undefined;
+            if (!lock) {
+              if (remaining > 0) {
+                setTimeout(function () { request(remaining - 1); }, 50);
+                return undefined;
+              }
+              finish('blocked');
+              return undefined;
+            }
+            ownerLockState = 'held';
+            finish('held');
+            return new Promise(function (release) { ownerLockRelease = release; });
+          });
+        } catch (e) {
+          finish('unavailable');
+          return;
+        }
+        if (req && typeof req.catch === 'function') {
+          req.catch(function () { finish('unavailable'); });
+        }
+      }
+      timer = setTimeout(function () { finish('unavailable'); }, 1200);
+      request(retries);
+    });
+  }
+  function rotateTabId() {
+    if (ownerLockRelease) {
+      var oldRelease = ownerLockRelease;
+      ownerLockRelease = null;
+      try { oldRelease(); } catch (e) {}
+    }
+    var fresh = 'tab-' + libraryModel.generateWorkId();
+    tabId = fresh;
+    ownerLockState = 'pending';
+    try { window.sessionStorage.setItem('avatar-studio.tab-id', fresh); } catch (e) {}
+    ownerLockPromise = acquireTabOwnershipLock();
+    return fresh;
+  }
+  ownerLockPromise = acquireTabOwnershipLock();
   var store = libraryModel.createStore();
   var channel = null;
   try {
@@ -3663,6 +3737,21 @@ if (typeof document !== 'undefined') (function () {
       bar.hidden = false;
       bar.classList.add('is-error');
       bar.setAttribute('role', 'alert');
+      if (conflict.ambiguous) {
+        titleEl.textContent = conflict.kind === 'create' ? '无法确认未保存新作品的归属' : '无法确认未保存编辑的归属';
+        statusEl.textContent = '检测到另一个标签页可能仍在使用同一份未保存历史。为避免覆盖，已暂停自动保存；可保存副本、导出配置 JSON，或关闭其他标签页后刷新重试。';
+        var ambiguousCopy = makeActionButton('btnConflictCopy', copyInFlight ? '正在保存副本…' : '保存为副本', true, resolveConflictCopy);
+        ambiguousCopy.disabled = copyInFlight;
+        actionsEl.appendChild(ambiguousCopy);
+        if (conflict.latest && conflict.kind !== 'create') {
+          var useSavedBtn = makeActionButton('btnUseSaved', '使用已保存版本', false, useSavedAfterAmbiguous);
+          useSavedBtn.disabled = copyInFlight;
+          actionsEl.appendChild(useSavedBtn);
+        }
+        actionsEl.appendChild(makeActionButton('btnConflictExport', '导出配置 JSON', false, exportConfigJsonFile));
+        syncHistoryControls();
+        return;
+      }
       titleEl.textContent = libraryModel.saveErrorMessage('conflict');
       statusEl.textContent = pendingWriteFailed
         ? '其他标签页已保存新版，当前画面未覆盖原进度。浏览器无法写入恢复暂存，刷新会丢失当前分支；请先导出配置 JSON。'
@@ -4028,8 +4117,30 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
+  function useSavedAfterAmbiguous() {
+    if (!conflict || !conflict.ambiguous || !conflict.latest || copyInFlight) return;
+    var latest = conflict.latest;
+    // 只切换本页身份，不清除原标签暂存；原标签仍可在刷新后恢复自己的分支。
+    rotateTabId();
+    contextEpoch += 1;
+    historyDirty = false;
+    explicitCreatePending = false;
+    pendingCreateId = null;
+    unsaved = null;
+    conflict = null;
+    preview = null;
+    activeWork = latest;
+    state = libraryModel.currentStateOf(latest);
+    setLocalHistoryFromWork(latest);
+    document.documentElement.setAttribute('data-avatar-source', 'library');
+    refresh({ syncFocusedInputs: true });
+    renderWorkBar();
+    refreshWorksCache(false);
+    toast('已使用已保存版本；原标签未保存分支仍保留在暂存中');
+  }
+
   function resolveConflictReload() {
-    if (!conflict || copyInFlight) return;
+    if (!conflict || copyInFlight || conflict.ambiguous) return;
     var targetId = conflict.workId;
     store.getWork(targetId).then(function (res) {
       if (!res.ok) {
@@ -4077,6 +4188,7 @@ if (typeof document !== 'undefined') (function () {
       : { snapshots: [{ state: snap, label: '保存为副本', at: Date.now() }], currentIndex: 0 };
     if (!target.copyId) target.copyId = libraryModel.conflictCopyId(target.workId, copyHistory);
     var copyPending = target.pending || currentOwnPendingEdit();
+    var ambiguous = !!target.ambiguous;
     var epoch = contextEpoch;
     copyInFlight = true;
     renderWorkBar();
@@ -4094,9 +4206,15 @@ if (typeof document !== 'undefined') (function () {
     }).then(function (res) {
       copyInFlight = false;
       if (res.ok) {
-        // 副本已实际落盘，只有此时才安全清理对应的本标签暂存。
-        if (copyPending) clearOwnPendingEditIfCurrent(copyPending);
-        else clearOwnPendingEdit();
+        if (ambiguous) {
+          // 归属不明时副本已安全落盘，但不能删除原标签仍可能使用的暂存；本页换用新身份继续编辑。
+          rotateTabId();
+        } else if (copyPending) {
+          // 归属明确时副本已实际落盘，才安全清理对应的本标签暂存。
+          clearOwnPendingEditIfCurrent(copyPending);
+        } else {
+          clearOwnPendingEdit();
+        }
       }
       if (epoch !== contextEpoch) {
         renderWorkBar();
@@ -4116,7 +4234,9 @@ if (typeof document !== 'undefined') (function () {
         broadcastLibraryChange(res.work.id);
         refreshWorksCache(true);
         renderWorkBar();
-        toast('已保存为副本「' + res.work.title + '」');
+        toast(ambiguous
+          ? ('已保存为副本「' + res.work.title + '」；原标签暂存保留')
+          : ('已保存为副本「' + res.work.title + '」'));
       } else {
         announceStorageFailure(res.reason);
         renderWorkBar();
@@ -4680,7 +4800,42 @@ if (typeof document !== 'undefined') (function () {
   });
   $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; noteEdit('切换形状锁'); refresh(); });
   $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; noteEdit('切换配色锁'); refresh(); });
-  window.addEventListener('pagehide', function () { flushContinuousEdit(); });
+  window.addEventListener('pagehide', function () {
+    flushContinuousEdit();
+    if (ownerLockRelease) {
+      var release = ownerLockRelease;
+      ownerLockRelease = null;
+      ownerLockState = 'released';
+      try { release(); } catch (e) {}
+    }
+  });
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    ownerLockPromise = acquireTabOwnershipLock();
+    ownerLockPromise.then(function (state) {
+      if (state === 'held' || !bootDone || conflict || unsaved) return;
+      var pending = currentOwnPendingEdit();
+      if (pending) {
+        restorePendingBranch(pending, 'ownership-unconfirmed', worksCache, activeWork);
+      } else if (activeWork) {
+        conflict = {
+          workId: activeWork.id,
+          workTitle: activeWork.title,
+          baseState: libraryModel.stepZeroStateOf(activeWork),
+          baseLabel: activeWork.snapshots[0] ? activeWork.snapshots[0].label : '初始状态',
+          latest: activeWork,
+          localSnapshots: cloneSnapshots(localHistory.snapshots),
+          localCurrentIndex: localHistory.currentIndex,
+          pending: null,
+          ambiguous: true
+        };
+        unsaved = null;
+        syncHistoryControls();
+        renderWorkBar();
+        toast('无法确认此页是否仍拥有未保存分支；已暂停自动保存，可保存副本或导出');
+      }
+    });
+  });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') flushContinuousEdit();
   });
@@ -4717,6 +4872,7 @@ if (typeof document !== 'undefined') (function () {
       if (!latest && fallbackWork && fallbackWork.id === pending.workId) latest = fallbackWork;
     }
     var hist = pendingHistoryFromReplay(pending);
+    var ambiguous = reason === 'ownership-unconfirmed';
     localHistory = hist;
     state = stateModel.sanitizeState(hist.snapshots[hist.currentIndex].state);
     historyDirty = false;
@@ -4725,7 +4881,7 @@ if (typeof document !== 'undefined') (function () {
       preview = null;
       pendingCreateId = null;
       explicitCreatePending = false;
-      if (reason === 'conflict') {
+      if (reason === 'conflict' || ambiguous) {
         conflict = {
           workId: pending.workId,
           workTitle: latest ? latest.title : '未命名作品',
@@ -4734,16 +4890,42 @@ if (typeof document !== 'undefined') (function () {
           latest: latest,
           localSnapshots: cloneSnapshots(hist.snapshots),
           localCurrentIndex: hist.currentIndex,
-          pending: pending
+          pending: pending,
+          ambiguous: ambiguous,
+          kind: 'edit'
         };
         unsaved = null;
-        toast('此作品已在其他标签页更新，已恢复未保存编辑；刷新后仍可处理');
+        if (ambiguous) {
+          toast('无法确认此页是否拥有未保存分支；已暂停自动保存，可保存副本或导出');
+        } else {
+          toast('此作品已在其他标签页更新，已恢复未保存编辑；刷新后仍可处理');
+        }
       } else {
         conflict = null;
         unsaved = { reason:reason, migrationFailed:false, pendingCreate:null };
         toast(libraryModel.saveErrorMessage(reason) + '；当前分支将在刷新后继续保留');
       }
       document.documentElement.setAttribute('data-avatar-source', 'library');
+    } else if (ambiguous) {
+      activeWork = null;
+      preview = null;
+      pendingCreateId = pending.workId || null;
+      explicitCreatePending = !!pending.explicitCreate;
+      unsaved = null;
+      conflict = {
+        workId: pending.workId,
+        workTitle: '未保存的新作品',
+        baseState: pending.baseState,
+        baseLabel: pending.baseLabel,
+        latest: null,
+        localSnapshots: cloneSnapshots(hist.snapshots),
+        localCurrentIndex: hist.currentIndex,
+        pending: pending,
+        ambiguous: true,
+        kind: 'create'
+      };
+      document.documentElement.setAttribute('data-avatar-source', 'default');
+      toast('无法确认此页是否拥有未保存的新作品分支；已暂停自动保存，可保存副本或导出');
     } else {
       activeWork = null;
       preview = null;
@@ -4809,7 +4991,9 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
 
-      return store.replayPendingEdit(storageRef, tabId).then(function (replayed) {
+      return ownerLockPromise.then(function (lockState) {
+        return store.replayPendingEdit(storageRef, tabId, { ownerConfirmed: lockState === 'held' });
+      }).then(function (replayed) {
         return store.listWorks().then(function (list) {
           bootDone = true;
           if (!list.ok) {
