@@ -16,7 +16,7 @@
 
 ## 当前职责
 
-单 HTML 包含样式、Engine、AvatarState、Export 与 UI。Engine 无 DOM 依赖，已有 CommonJS 导出，`render(state, override)` 返回自包含 SVG。AvatarState 负责状态校验、随机锁合同、分享编码、草稿读写与绘图输入转换。Export 负责复制回退、PNG 失败提示和本次对象 URL 的释放，不参与绘图。UI 持有状态，负责控件、统一刷新、下载、分享和草稿保存时机。没有后端或外部运行时依赖。草稿只存在于浏览器 `localStorage`。
+单 HTML 包含样式、Engine、AvatarState、Export、WorkLibrary 与 UI。Engine 无 DOM 依赖，已有 CommonJS 导出，`render(state, override)` 返回自包含 SVG。AvatarState 负责状态校验、随机锁合同、分享编码、旧草稿读写与绘图输入转换。Export 负责复制回退、PNG 失败提示和本次对象 URL 的释放，不参与绘图。WorkLibrary 负责 IndexedDB 本地作品库、旧草稿事务迁移、修订号冲突检测与快照存取。UI 持有当前编辑状态，负责控件、统一刷新、作品库对话框、预览另存、下载和分享。没有后端或外部运行时依赖；作品保存在当前浏览器 IndexedDB（`avatar-studio.library`），并保留旧 `localStorage` 草稿键以支持回退。
 
 `render` 复制 `slots`，只在副本应用可选 `override.slot` / `override.value`，`override.viewBox` 可覆盖裁切。它读取参数与颜色，不应修改输入。锁定与配色预设索引是 UI 元数据，不参与绘图。Engine 自身不负责校验任意外部状态，URL 恢复由 UI 归一化后交给引擎。
 
@@ -87,6 +87,16 @@ SVG 先输出背景底色矩形，再按以下顺序连接层函数返回的片�
 PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的文件名。这次导出只用这份快照；之后的编辑和另一次点击使用各自的快照与对象 URL。绘制完成后释放这次的 SVG URL；下载触发后再过约 1 秒释放这次的 PNG URL。一次失败或释放不会撤销另一次仍在使用的 URL。
 
 画布 2D context 不可用时提示无法创建画布。`drawImage` 抛错时提示无法绘制。`toBlob` 抛错时提示无法生成图片。回调没有 blob 时提示浏览器未返回图片。图片无法解码时提示无法解码。这些失败都建议改用 SVG。成功时提示已导出 1024×1024 PNG。SVG 下载和 JSON 复制读取同一次点击的统一状态。JSON 只含 `seed`、`drawingSeed`、`slots`、`params`、`colors`、`view`。
+
+## 当前本地作品库（第一阶段）
+
+本地作品库由 `WorkLibrary` 模块维护，详细设计与两阶段安排见 [本地作品与编辑历史](local-work-history.md)。
+
+- IndexedDB 数据库名 `avatar-studio.library`（版本 `1`），包含 `works`（主键 `id`，索引 `by_updatedAt`）与 `meta`（`migration.legacyDraft`、`activeWork`）两个对象仓库。记录使用独立存储版本 `STORAGE_VERSION = 1`，包含 `id`、`title`、`createdAt`、`updatedAt`、`rev`、`source`、`currentIndex` 和 `snapshots`。每条快照保存经 `AvatarState.persistableState()` 校验的完整配置（含 `drawingSeed` 与 `locks`）及简短操作名。第一阶段保留第零步与当前快照（最多 2 步），改回第零步同值时收束为单步且 `currentIndex = 0`，避免重复快照，供后续阶段接入撤销/重做。
+- 首次启动检测到合法 `localStorage` 键 `avatar-studio.draft` 时，在单一 `readwrite` 事务中同时写入「旧草稿」作品与 `migration.legacyDraft` 标记；事务失败时原子回滚并继续在内存中显示原草稿，重试只导入一次，成功后重复启动不再导入。旧 `avatar-studio.draft` 键保持只读不删改，以支持回退；后续编辑写入 IndexedDB 作品库。
+- 打开首页恢复上次活跃作品；空库仅在首次有效编辑时建立记录。点击页头「我的作品」打开原生 `<dialog>` 列表，按最近编辑倒序显示实时配置渲染的缩略图、标题和更新时间，支持打开恢复与行内重命名，并说明数据仅存于当前浏览器与站点。窄屏保持 `144×144px` 粘性预览与编辑空间，作品列表独立打开。
+- 打开有效分享或点击示例先进入预览态，不写入作品库也不修改原作品；查看、下载和返回原作品均保持原作品不变。点击「保存为新作品」或首次有效编辑时以预览原稿作为第零步新建独立作品，仅在 IndexedDB 提交成功后才通过 `history.replaceState` 移除 URL 中的分享参数 `s`。打开无效或不兼容分享时，提示失败并保留原有本地作品（空库时回退默认形象）。
+- 单标签内通过串行写队列合并连续编辑并跳过重复快照；编辑与连续输入同步写入按标签归属（`sessionStorage['avatar-studio.tab-id']`）隔离的待保存暂存键 `avatar-studio.pending-edit`（不改动旧键 `avatar-studio.draft`，不使用阻塞式 `beforeunload`），新建作品复用确定性 `workId` 防止回放重复建档。暂存仅由归属标签在队列排空提交成功、显式写失败、触发冲突或切换离开时清理，在 `pagehide`、`visibilitychange` 隐藏及切换作品前冲刷待发编辑（不把 `pagehide` 异步写当作持久化保证）。下次启动优先回放本标签或残留的未落盘记录：若 IDB 已落盘同状态/同 `workId` 则幂等清理；若 `rev` 已被其他标签推进且内容不同则拒绝自动覆盖并展示冲突恢复栏。浏览器进程被强杀前尚未写入或 `localStorage` 不可用/满额时无法依赖暂存恢复，仍可通过配置 JSON 导出备份。跨标签写入与重命名在单事务内校验 `id` 与 `rev`，发现修订号不一致时拒绝覆盖，保持当前编辑画面并提供「重新载入新版」「保存为副本」与「导出配置 JSON」。配额不足或存储不可用时明确提示「更改尚未保存」，保留编辑画面和上次成功保存的版本，并提供重试保存与配置 JSON 导出；有效分享预览中若旧草稿迁移失败，则在预览栏持续提示并提供独立的「重试迁移旧草稿」与「返回原草稿」入口，不误标为分享保存失败。
 
 ## 当前分享与恢复格式
 
