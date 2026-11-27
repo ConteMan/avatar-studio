@@ -13,7 +13,7 @@ function loadState(html) {
   const context = vm.createContext({ module: { exports: {} }, TextEncoder, TextDecoder, atob, btoa }, {
     codeGeneration: { strings: false, wasm: false }
   });
-  new vm.Script(source.slice(0, source.indexOf(boundary)) + '\nmodule.exports = { Engine, AvatarState, Export };')
+  new vm.Script(source.slice(0, source.indexOf(boundary)) + '\nmodule.exports = { Engine, AvatarState, Export, WorkLibrary: typeof WorkLibrary !== "undefined" ? WorkLibrary : undefined };')
     .runInContext(context, { timeout: 1000 });
   assert.equal(typeof context.module.exports.AvatarState.randomize, 'function');
   assert.equal(typeof context.module.exports.Export.copyText, 'function');

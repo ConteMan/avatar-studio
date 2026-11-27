@@ -37,6 +37,60 @@
   .brand h1{font-size:17px;margin:0;letter-spacing:.02em;font-weight:650;line-height:1.2;white-space:nowrap}
   .btn.about{border-color:transparent;background:transparent;color:var(--label)}
   .btn.about:hover{background:var(--brand-soft);color:var(--brand)}
+  .btn.library{display:inline-flex;align-items:center;gap:6px}
+  .work-count{
+    font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;
+    padding:1px 6px;border-radius:999px;background:var(--brand-soft);color:var(--brand);line-height:1.4;
+  }
+  .work-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;
+  }
+  .work-bar.is-preview{background:#faf8f3;border-color:#d8d2c6}
+  .work-bar.is-error{background:#fbf2f1;border-color:#e3bdb8}
+  .work-bar-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px}
+  .work-bar-title-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+  .work-bar-title{font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  .work-bar-status{font-size:12px;color:var(--label);line-height:1.45}
+  .work-bar.is-error .work-bar-title,.work-bar.is-error .work-bar-status{color:#7c221d}
+  .work-bar-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .work-bar .btn{padding:6px 10px;font-size:12px;border-radius:8px}
+  .library-dialog{width:min(44rem,calc(100% - 32px))}
+  .library-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .library-total{font-size:12px;color:var(--label);font-variant-numeric:tabular-nums}
+  .library-note{font-size:12px;color:var(--label);margin:10px 0 14px;line-height:1.6}
+  .library-empty{
+    padding:28px 16px;text-align:center;border:1px dashed var(--line);border-radius:12px;
+    background:#fbfaf7;color:var(--label);font-size:13px;line-height:1.7;
+  }
+  .library-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none}
+  .work-item{
+    display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;align-items:center;
+    padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:.15s;
+  }
+  .work-item.is-active{border-color:var(--brand);background:#fdfaf9}
+  .work-thumb{
+    width:64px;height:64px;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    background:#fbfaf7;padding:0;display:block;flex:none;
+  }
+  .work-thumb svg{width:100%;height:100%;display:block}
+  .work-info{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .work-head{display:flex;align-items:center;gap:6px;min-width:0}
+  .work-name{
+    font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .work-badge{
+    flex:none;font-size:11px;font-weight:600;padding:1px 6px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand);line-height:1.4;
+  }
+  .work-time{font-size:11px;color:var(--label);font-variant-numeric:tabular-nums}
+  .work-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px}
+  .work-rename-form{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px}
+  .work-rename-form input[type=text]{flex:1 1 110px;min-width:0;width:auto;padding:5px 8px;font-size:12px}
+  .library-alert{
+    margin:0 0 12px;padding:10px 12px;border:1px solid #e3bdb8;border-radius:10px;
+    background:#fbf2f1;color:#7c221d;font-size:12px;line-height:1.5;
+  }
   .seedbox{display:flex;align-items:center;gap:6px}
   .seedbox label{font-size:12px;color:var(--muted);white-space:nowrap}
   input[type=text]{
@@ -173,9 +227,9 @@
   /* 窄屏：144px 预览贴在页头下。main 用块级而不是格子，预览才能在整页滚动时留住；控件排在预览下面。 */
   @media(max-width:720px){
     header{
-      gap:8px 10px;
+      gap:6px;
       padding-top:max(10px,env(safe-area-inset-top));
-      padding-right:16px;padding-bottom:10px;padding-left:16px;
+      padding-right:12px;padding-bottom:10px;padding-left:12px;
     }
     main{
       display:block;max-width:none;gap:0;
@@ -199,9 +253,18 @@
     .mini{min-height:40px;padding:8px 10px}
     .row{min-height:44px}
     .row input[type=range]{height:28px}
-    .brand{gap:6px}
-    header .btn{padding-inline:8px}
+    .brand{gap:5px}
+    .brand .mark{width:26px;height:26px}
+    .brand h1{font-size:15px}
+    header .btn{padding-inline:7px;font-size:12px}
+    header .btn.library{gap:4px}
+    header .btn.about{padding-inline:5px}
     .seedbox input[type=text]{width:min(15rem,100%);min-width:0;min-height:44px}
+    .work-bar{padding:10px}
+    .work-bar .btn{min-height:40px;padding:8px 10px}
+    .library-dialog{width:calc(100% - 20px);max-height:calc(100dvh - 24px);padding:18px}
+    .library-list{grid-template-columns:1fr}
+    .work-rename-form input[type=text]{min-height:40px}
   }
   @media(prefers-reduced-motion:reduce){
     *,*::before,*::after{transition:none !important;scroll-behavior:auto !important}
@@ -215,6 +278,7 @@
     <img class="mark" src="assets/mark.svg" width="32" height="32" alt="">
     <h1>半身像工坊</h1>
   </div>
+  <button class="btn library" id="btnLibrary" type="button" aria-haspopup="dialog">我的作品<span class="work-count" id="workCount" hidden></span></button>
   <button class="btn" id="btnRandom" type="button" title="随机更换未锁定的部件、参数和配色">随机生成</button>
   <button class="btn about" id="btnAbout" type="button" aria-haspopup="dialog">关于</button>
 </header>
@@ -236,6 +300,15 @@
       </div>
     </div>
     <section class="stage">
+      <div class="work-bar" id="workBar" hidden>
+        <div class="work-bar-main">
+          <div class="work-bar-title-row">
+            <span class="work-bar-title" id="workBarTitle"></span>
+          </div>
+          <span class="work-bar-status" id="workBarStatus"></span>
+        </div>
+        <div class="work-bar-actions" id="workBarActions"></div>
+      </div>
       <div class="toolbar">
         <div class="seg" id="viewSeg" role="group" aria-label="裁切视图">
           <button type="button" data-view="half" class="on" aria-pressed="true">半身</button>
@@ -276,14 +349,27 @@
   </aside>
 </main>
 
+<dialog class="library-dialog" id="libraryDialog" aria-labelledby="libraryTitle">
+  <div class="about-head">
+    <div class="library-meta">
+      <h2 id="libraryTitle">我的作品</h2>
+      <span class="library-total" id="libraryTotal"></span>
+    </div>
+    <form method="dialog"><button class="btn" id="btnCloseLibrary" type="submit" autofocus>关闭</button></form>
+  </div>
+  <p class="library-note">作品保存在当前浏览器和本站本地，不会跨浏览器或跨域名同步；清除站点数据后会一并清除。如需长期备份单个头像，请使用「复制配置」或导出配置 JSON。</p>
+  <div class="library-alert" id="libraryAlert" role="alert" hidden></div>
+  <div id="libraryBody"></div>
+</dialog>
+
 <dialog id="aboutDialog" aria-labelledby="aboutTitle">
   <div class="about-head">
     <h2 id="aboutTitle">关于</h2>
     <form method="dialog"><button class="btn" type="submit" autofocus>关闭</button></form>
   </div>
   <p>在浏览器里搭配发型、五官、服装与配饰，再选择半身、胸像或头像裁切。图像在本机生成，打开即可使用。</p>
-  <h3>草稿和分享</h3>
-  <p>编辑后的草稿保存在当前浏览器。打开分享链接时会先显示链接里的头像，开始编辑后会保存为当前草稿。</p>
+  <h3>本地作品和分享</h3>
+  <p>编辑后的头像会自动保存到当前浏览器的「我的作品」。打开分享链接或载入示例时会先预览，点击「保存为新作品」或开始编辑后才会建立新记录，不会覆盖原有作品。</p>
   <h3>头像如何生成</h3>
   <p>头像由 11 个绘制层叠成。发型和服装的前后层负责遮挡，形状与颜色可以独立调整。若想复现同一个头像，请保存完整配置或分享链接。</p>
 </dialog>
@@ -1215,6 +1301,12 @@ var AvatarState = (function () {
     next.slots[key] = choices[Math.floor(Math.random() * choices.length)];
     return next;
   }
+  function statesEqual(a, b) {
+    var sa = sanitizeState(a);
+    var sb = sanitizeState(b);
+    if (!sa || !sb) return false;
+    return JSON.stringify(persistableState(sa)) === JSON.stringify(persistableState(sb));
+  }
   function labelFor(key, value) {
     if (key === 'bg' && value === 'dots') return '圆点';
     if (key === 'mouth' && value === 'cat') return '猫嘴';
@@ -1223,7 +1315,8 @@ var AvatarState = (function () {
   return {
     PARAMS:PARAMS, COLOR_KEYS:COLOR_KEYS, EDITOR_SLOTS:EDITOR_SLOTS, MAX_SHARE_PARAM:MAX_SHARE_PARAM,
     FORMAT_VERSION:FORMAT_VERSION, DRAFT_KEY:DRAFT_KEY,
-    defaultState:defaultState, sanitizeState:sanitizeState, encodeState:encodeState, decodeState:decodeState,
+    defaultState:defaultState, sanitizeState:sanitizeState, persistableState:persistableState, statesEqual:statesEqual,
+    encodeState:encodeState, decodeState:decodeState,
     readEncoded:readEncoded, shareParam:shareParam, stripShareSearch:stripShareSearch,
     locationWithoutShare:locationWithoutShare, searchAfterEdit:searchAfterEdit, shareLocation:shareLocation,
     historyClearNotice:historyClearNotice, readDraft:readDraft, saveDraft:saveDraft,
@@ -1448,10 +1541,634 @@ var Export = (function () {
   };
 })();
 
+/* ============================================================
+   WORK LIBRARY — IndexedDB 本地作品库（独立存储版本，无 DOM 依赖）
+   ============================================================ */
+var WorkLibrary = (function () {
+  var DB_NAME = 'avatar-studio.library';
+  var DB_VERSION = 1;
+  var STORAGE_VERSION = 1;
+  var STORE_WORKS = 'works';
+  var STORE_META = 'meta';
+  var META_MIGRATION = 'migration.legacyDraft';
+  var META_ACTIVE = 'activeWork';
+  var MAX_TITLE_LEN = 60;
+  var LEGACY_DRAFT_TITLE = '旧草稿';
+
+  function isPlainObject(v) {
+    return !!v && typeof v === 'object' && !Array.isArray(v);
+  }
+  function storageReason(error) {
+    var name = error && error.name;
+    var code = error && error.code;
+    if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014) return 'quota';
+    return 'unavailable';
+  }
+  function cleanTitle(value, fallback) {
+    if (typeof value !== 'string') return fallback;
+    var cleaned = value.replace(/[\u0000-\u001f]/g, '').trim().slice(0, MAX_TITLE_LEN);
+    return cleaned || fallback;
+  }
+  function nextAutoTitle(works) {
+    var maxNum = 0;
+    if (Array.isArray(works)) {
+      for (var i = 0; i < works.length; i++) {
+        var t = works[i] && typeof works[i].title === 'string' ? works[i].title.trim() : '';
+        var m = /^作品\s*(\d+)$/.exec(t);
+        if (m) {
+          var num = parseInt(m[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+    return '作品 ' + (maxNum + 1);
+  }
+  function copyTitleFor(title, works) {
+    var base = cleanTitle(title, '未命名作品').replace(/（副本(?:\s*\d+)?）$/, '').trim() || '未命名作品';
+    var candidate = cleanTitle(base + '（副本）', '作品副本');
+    var existing = {};
+    if (Array.isArray(works)) {
+      for (var i = 0; i < works.length; i++) {
+        if (works[i] && works[i].title) existing[works[i].title] = true;
+      }
+    }
+    if (!existing[candidate]) return candidate;
+    for (var n = 2; n < 1000; n++) {
+      var next = cleanTitle(base + '（副本 ' + n + '）', '作品副本 ' + n);
+      if (!existing[next]) return next;
+    }
+    return candidate;
+  }
+  function defaultRandomId() {
+    try {
+      if (typeof crypto !== 'undefined' && crypto && typeof crypto.randomUUID === 'function') {
+        return 'work-' + crypto.randomUUID();
+      }
+    } catch (e) {}
+    return 'work-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+  function sanitizeSnapshot(raw, fallbackTime) {
+    if (!isPlainObject(raw)) return null;
+    var state = AvatarState.sanitizeState(raw.state);
+    if (!state) return null;
+    var at = typeof raw.at === 'number' && isFinite(raw.at) ? raw.at : fallbackTime;
+    var label = typeof raw.label === 'string' ? raw.label.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) : '';
+    return {
+      state: AvatarState.persistableState(state),
+      label: label || '编辑',
+      at: at
+    };
+  }
+  function sanitizeWork(raw) {
+    if (!isPlainObject(raw)) return null;
+    if (raw.v !== STORAGE_VERSION) return null;
+    if (typeof raw.id !== 'string' || !raw.id.trim()) return null;
+    var now = Date.now();
+    var createdAt = typeof raw.createdAt === 'number' && isFinite(raw.createdAt) ? raw.createdAt : now;
+    var updatedAt = typeof raw.updatedAt === 'number' && isFinite(raw.updatedAt) ? raw.updatedAt : createdAt;
+    var rev = typeof raw.rev === 'number' && Number.isInteger(raw.rev) && raw.rev >= 1 ? raw.rev : 1;
+    if (!Array.isArray(raw.snapshots) || !raw.snapshots.length) return null;
+    var snapshots = [];
+    for (var i = 0; i < raw.snapshots.length; i++) {
+      var snap = sanitizeSnapshot(raw.snapshots[i], updatedAt);
+      if (!snap) return null;
+      snapshots.push(snap);
+    }
+    var currentIndex = typeof raw.currentIndex === 'number' && Number.isInteger(raw.currentIndex) ? raw.currentIndex : snapshots.length - 1;
+    if (currentIndex < 0) currentIndex = 0;
+    if (currentIndex >= snapshots.length) currentIndex = snapshots.length - 1;
+    var source = typeof raw.source === 'string' ? raw.source : 'editor';
+    return {
+      v: STORAGE_VERSION,
+      id: raw.id,
+      title: cleanTitle(raw.title, '未命名作品'),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      rev: rev,
+      source: source,
+      currentIndex: currentIndex,
+      snapshots: snapshots
+    };
+  }
+  function currentStateOf(work) {
+    var safe = sanitizeWork(work);
+    if (!safe) return AvatarState.defaultState();
+    return AvatarState.sanitizeState(safe.snapshots[safe.currentIndex].state);
+  }
+  function stepZeroStateOf(work) {
+    var safe = sanitizeWork(work);
+    if (!safe) return AvatarState.defaultState();
+    return AvatarState.sanitizeState(safe.snapshots[0].state);
+  }
+  function sortWorks(works) {
+    return works.slice().sort(function (a, b) {
+      if (b.updatedAt !== a.updatedAt) return b.updatedAt - a.updatedAt;
+      if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+      return String(b.id).localeCompare(String(a.id));
+    });
+  }
+  function makeWorkRecord(opts) {
+    var now = typeof opts.now === 'number' && isFinite(opts.now) ? opts.now : Date.now();
+    var baseSan = AvatarState.sanitizeState(opts.baseState);
+    if (!baseSan) return null;
+    var basePersist = AvatarState.persistableState(baseSan);
+    var snapshots = [{
+      state: basePersist,
+      label: cleanTitle(opts.baseLabel || '初始状态', '初始状态').slice(0, 40),
+      at: now
+    }];
+    var currentIndex = 0;
+    if (opts.currentState) {
+      var curSan = AvatarState.sanitizeState(opts.currentState);
+      if (curSan && !AvatarState.statesEqual(baseSan, curSan)) {
+        snapshots.push({
+          state: AvatarState.persistableState(curSan),
+          label: cleanTitle(opts.currentLabel || '编辑', '编辑').slice(0, 40),
+          at: now
+        });
+        currentIndex = 1;
+      }
+    }
+    return {
+      v: STORAGE_VERSION,
+      id: opts.id,
+      title: cleanTitle(opts.title, '作品 1'),
+      createdAt: now,
+      updatedAt: now,
+      rev: 1,
+      source: opts.source || 'editor',
+      currentIndex: currentIndex,
+      snapshots: snapshots
+    };
+  }
+  function formatUpdatedTime(ts, nowTs) {
+    if (typeof ts !== 'number' || !isFinite(ts)) return '';
+    var now = typeof nowTs === 'number' && isFinite(nowTs) ? nowTs : Date.now();
+    var diff = now - ts;
+    if (diff >= 0 && diff < 60000) return '刚刚';
+    if (diff >= 60000 && diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+    var d = new Date(ts);
+    var cur = new Date(now);
+    function pad(v) { return v < 10 ? '0' + v : String(v); }
+    var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    if (d.getFullYear() === cur.getFullYear() && d.getMonth() === cur.getMonth() && d.getDate() === cur.getDate()) {
+      return '今天 ' + hm;
+    }
+    if (d.getFullYear() === cur.getFullYear()) {
+      return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + hm;
+    }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function saveErrorMessage(reason) {
+    if (reason === 'quota') return '更改尚未保存：存储空间不足';
+    if (reason === 'conflict') return '更改尚未保存：此作品已在其他标签页更新';
+    return '更改尚未保存：本地存储不可用';
+  }
+
+  function createStore(env) {
+    env = env || {};
+    var getIDB = typeof env.getIndexedDB === 'function' ? env.getIndexedDB : function () {
+      if ('indexedDB' in env) return env.indexedDB;
+      try { return typeof indexedDB !== 'undefined' ? indexedDB : null; } catch (e) { return null; }
+    };
+    var nowFn = typeof env.now === 'function' ? env.now : function () { return Date.now(); };
+    var idFn = typeof env.randomId === 'function' ? env.randomId : defaultRandomId;
+    var dbName = env.dbName || DB_NAME;
+    var dbPromise = null;
+    var activeDb = null;
+
+    function closeDb() {
+      if (activeDb) {
+        try { activeDb.close(); } catch (e) {}
+        activeDb = null;
+      }
+      dbPromise = null;
+    }
+
+    function open() {
+      if (dbPromise) return dbPromise;
+      var idb;
+      try { idb = getIDB(); } catch (e) { idb = null; }
+      if (!idb || typeof idb.open !== 'function') {
+        return Promise.resolve({ ok:false, reason:'unavailable' });
+      }
+      dbPromise = new Promise(function (resolve) {
+        var settled = false;
+        function finish(res) {
+          if (settled) return;
+          settled = true;
+          if (!res.ok) dbPromise = null;
+          resolve(res);
+        }
+        var req;
+        try {
+          req = idb.open(dbName, DB_VERSION);
+        } catch (e) {
+          finish({ ok:false, reason:storageReason(e), error:e });
+          return;
+        }
+        req.onupgradeneeded = function (event) {
+          try {
+            var db = event && event.target ? event.target.result : req.result;
+            if (!db.objectStoreNames.contains(STORE_WORKS)) {
+              var worksStore = db.createObjectStore(STORE_WORKS, { keyPath:'id' });
+              worksStore.createIndex('by_updatedAt', 'updatedAt', { unique:false });
+            }
+            if (!db.objectStoreNames.contains(STORE_META)) {
+              db.createObjectStore(STORE_META, { keyPath:'key' });
+            }
+          } catch (e) {
+            finish({ ok:false, reason:storageReason(e), error:e });
+          }
+        };
+        req.onsuccess = function () {
+          var db = req.result;
+          activeDb = db;
+          db.onversionchange = function () { closeDb(); };
+          db.onclose = function () {
+            if (activeDb === db) { activeDb = null; dbPromise = null; }
+          };
+          finish({ ok:true, db:db });
+        };
+        req.onerror = function () {
+          finish({ ok:false, reason:storageReason(req.error), error:req.error });
+        };
+        req.onblocked = function () {
+          finish({ ok:false, reason:'unavailable' });
+        };
+      });
+      return dbPromise;
+    }
+
+    function runTx(stores, mode, runner) {
+      return open().then(function (opened) {
+        if (!opened.ok) return { ok:false, reason:opened.reason };
+        var db = opened.db;
+        return new Promise(function (resolve) {
+          var settled = false;
+          var outcome = null;
+          var tx;
+          function done(res) {
+            if (settled) return;
+            settled = true;
+            resolve(res);
+          }
+          try {
+            tx = db.transaction(stores, mode);
+          } catch (e) {
+            if (e && e.name === 'InvalidStateError') closeDb();
+            done({ ok:false, reason:storageReason(e), error:e });
+            return;
+          }
+          tx.oncomplete = function () {
+            done(outcome || { ok:true });
+          };
+          tx.onerror = function () {
+            done(outcome && !outcome.ok ? outcome : { ok:false, reason:storageReason(tx.error), error:tx.error });
+          };
+          tx.onabort = function () {
+            done(outcome && !outcome.ok ? outcome : { ok:false, reason:storageReason(tx.error), error:tx.error });
+          };
+          function fail(err) {
+            var reason = typeof err === 'string' ? err : storageReason(err);
+            outcome = { ok:false, reason:reason };
+            try { tx.abort(); } catch (e) {}
+            done(outcome);
+          }
+          function setResult(res) {
+            outcome = res;
+          }
+          try {
+            runner(tx, setResult, fail);
+          } catch (e) {
+            fail(e);
+          }
+        });
+      });
+    }
+
+    function migrateLegacyDraft(storage) {
+      var draftRead = AvatarState.readDraft(storage);
+      var fallbackDraft = draftRead.ok && draftRead.state ? draftRead.state : null;
+      return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
+        var metaStore = tx.objectStore(STORE_META);
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var checkReq = metaStore.get(META_MIGRATION);
+        checkReq.onerror = function () { fail(checkReq.error); };
+        checkReq.onsuccess = function () {
+          var marker = checkReq.result;
+          if (marker && marker.status === 'done') {
+            setResult({ ok:true, migrated:false, alreadyDone:true, workId:marker.workId || null });
+            return;
+          }
+          if (!draftRead.ok) {
+            setResult({ ok:true, migrated:false, draftError:draftRead.reason });
+            return;
+          }
+          if (!draftRead.state) {
+            setResult({ ok:true, migrated:false });
+            return;
+          }
+          var ts = nowFn();
+          var record = makeWorkRecord({
+            id: idFn(),
+            title: LEGACY_DRAFT_TITLE,
+            source: 'legacy-draft',
+            baseState: draftRead.state,
+            baseLabel: LEGACY_DRAFT_TITLE,
+            now: ts
+          });
+          if (!record) {
+            setResult({ ok:true, migrated:false, draftError:'corrupt' });
+            return;
+          }
+          var activeReq = metaStore.get(META_ACTIVE);
+          activeReq.onerror = function () { fail(activeReq.error); };
+          activeReq.onsuccess = function () {
+            var putWorkReq;
+            try { putWorkReq = worksStore.put(record); } catch (e) { fail(e); return; }
+            putWorkReq.onerror = function () { fail(putWorkReq.error); };
+            putWorkReq.onsuccess = function () {
+              var putMarkerReq;
+              try {
+                putMarkerReq = metaStore.put({
+                  key: META_MIGRATION,
+                  v: STORAGE_VERSION,
+                  status: 'done',
+                  workId: record.id,
+                  migratedAt: ts
+                });
+              } catch (e) { fail(e); return; }
+              putMarkerReq.onerror = function () { fail(putMarkerReq.error); };
+              putMarkerReq.onsuccess = function () {
+                if (!activeReq.result || !activeReq.result.workId) {
+                  var putActiveReq;
+                  try {
+                    putActiveReq = metaStore.put({
+                      key: META_ACTIVE,
+                      v: STORAGE_VERSION,
+                      workId: record.id,
+                      updatedAt: ts
+                    });
+                  } catch (e) { fail(e); return; }
+                  putActiveReq.onerror = function () { fail(putActiveReq.error); };
+                }
+                setResult({ ok:true, migrated:true, work:record });
+              };
+            };
+          };
+        };
+      }).then(function (res) {
+        if (!res.ok) {
+          return Object.assign({}, res, { fallbackDraft:fallbackDraft, draftError:draftRead.ok ? null : draftRead.reason });
+        }
+        return res;
+      });
+    }
+
+    function listWorks() {
+      return runTx([STORE_WORKS, STORE_META], 'readonly', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var metaStore = tx.objectStore(STORE_META);
+        var allReq = worksStore.getAll();
+        allReq.onerror = function () { fail(allReq.error); };
+        allReq.onsuccess = function () {
+          var activeReq = metaStore.get(META_ACTIVE);
+          activeReq.onerror = function () { fail(activeReq.error); };
+          activeReq.onsuccess = function () {
+            var rawList = Array.isArray(allReq.result) ? allReq.result : [];
+            var works = [];
+            var skippedFuture = false;
+            for (var i = 0; i < rawList.length; i++) {
+              var item = rawList[i];
+              if (item && typeof item.v === 'number' && isFinite(item.v) && item.v !== STORAGE_VERSION) {
+                skippedFuture = true;
+                continue;
+              }
+              var safe = sanitizeWork(item);
+              if (safe) works.push(safe);
+            }
+            var sorted = sortWorks(works);
+            var activeId = activeReq.result && typeof activeReq.result.workId === 'string' ? activeReq.result.workId : null;
+            setResult({ ok:true, works:sorted, activeWorkId:activeId, skippedFuture:skippedFuture });
+          };
+        };
+      });
+    }
+
+    function getWork(id) {
+      if (typeof id !== 'string' || !id) return Promise.resolve({ ok:true, work:null });
+      return runTx([STORE_WORKS], 'readonly', function (tx, setResult, fail) {
+        var req = tx.objectStore(STORE_WORKS).get(id);
+        req.onerror = function () { fail(req.error); };
+        req.onsuccess = function () {
+          setResult({ ok:true, work:req.result ? sanitizeWork(req.result) : null });
+        };
+      });
+    }
+
+    function setActiveWork(id) {
+      if (typeof id !== 'string' || !id) return Promise.resolve({ ok:false, reason:'not-found' });
+      return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var metaStore = tx.objectStore(STORE_META);
+        var req = worksStore.get(id);
+        req.onerror = function () { fail(req.error); };
+        req.onsuccess = function () {
+          var safe = req.result ? sanitizeWork(req.result) : null;
+          if (!safe) {
+            setResult({ ok:false, reason:'not-found' });
+            return;
+          }
+          var putReq;
+          try {
+            putReq = metaStore.put({ key:META_ACTIVE, v:STORAGE_VERSION, workId:safe.id, updatedAt:nowFn() });
+          } catch (e) { fail(e); return; }
+          putReq.onerror = function () { fail(putReq.error); };
+          putReq.onsuccess = function () { setResult({ ok:true, work:safe }); };
+        };
+      });
+    }
+
+    function createWork(opts) {
+      opts = opts || {};
+      return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var metaStore = tx.objectStore(STORE_META);
+        var allReq = worksStore.getAll();
+        allReq.onerror = function () { fail(allReq.error); };
+        allReq.onsuccess = function () {
+          var existing = Array.isArray(allReq.result) ? allReq.result : [];
+          var ts = nowFn();
+          var title = opts.copyFromTitle
+            ? copyTitleFor(opts.copyFromTitle, existing)
+            : (opts.title ? cleanTitle(opts.title, nextAutoTitle(existing)) : nextAutoTitle(existing));
+          var record = makeWorkRecord({
+            id: idFn(),
+            title: title,
+            source: opts.source || 'editor',
+            baseState: opts.baseState,
+            currentState: opts.currentState,
+            baseLabel: opts.baseLabel,
+            currentLabel: opts.currentLabel,
+            now: ts
+          });
+          if (!record) {
+            setResult({ ok:false, reason:'invalid' });
+            return;
+          }
+          var putWorkReq;
+          try { putWorkReq = worksStore.put(record); } catch (e) { fail(e); return; }
+          putWorkReq.onerror = function () { fail(putWorkReq.error); };
+          putWorkReq.onsuccess = function () {
+            if (opts.setActive === false) {
+              setResult({ ok:true, work:record });
+              return;
+            }
+            var putActiveReq;
+            try {
+              putActiveReq = metaStore.put({ key:META_ACTIVE, v:STORAGE_VERSION, workId:record.id, updatedAt:ts });
+            } catch (e) { fail(e); return; }
+            putActiveReq.onerror = function () { fail(putActiveReq.error); };
+            putActiveReq.onsuccess = function () { setResult({ ok:true, work:record }); };
+          };
+        };
+      });
+    }
+
+    function saveWorkEdit(opts) {
+      opts = opts || {};
+      var nextSan = AvatarState.sanitizeState(opts.nextState);
+      if (!nextSan || typeof opts.id !== 'string' || !opts.id) {
+        return Promise.resolve({ ok:false, reason:'invalid' });
+      }
+      var nextPersist = AvatarState.persistableState(nextSan);
+      return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var metaStore = tx.objectStore(STORE_META);
+        var getReq = worksStore.get(opts.id);
+        getReq.onerror = function () { fail(getReq.error); };
+        getReq.onsuccess = function () {
+          var existing = getReq.result ? sanitizeWork(getReq.result) : null;
+          if (!existing) {
+            setResult({ ok:false, reason:'conflict', latest:null });
+            return;
+          }
+          if (existing.rev !== opts.expectedRev) {
+            setResult({ ok:false, reason:'conflict', latest:existing });
+            return;
+          }
+          var currentSnap = existing.snapshots[existing.currentIndex];
+          if (currentSnap && AvatarState.statesEqual(currentSnap.state, nextPersist)) {
+            setResult({ ok:true, work:existing, skipped:true });
+            return;
+          }
+          var ts = nowFn();
+          var step0 = existing.snapshots[0];
+          var snapshots = [step0, {
+            state: nextPersist,
+            label: cleanTitle(opts.label || '编辑', '编辑').slice(0, 40),
+            at: ts
+          }];
+          var updated = Object.assign({}, existing, {
+            updatedAt: ts,
+            rev: existing.rev + 1,
+            currentIndex: 1,
+            snapshots: snapshots
+          });
+          var putWorkReq;
+          try { putWorkReq = worksStore.put(updated); } catch (e) { fail(e); return; }
+          putWorkReq.onerror = function () { fail(putWorkReq.error); };
+          putWorkReq.onsuccess = function () {
+            var putActiveReq;
+            try {
+              putActiveReq = metaStore.put({ key:META_ACTIVE, v:STORAGE_VERSION, workId:updated.id, updatedAt:ts });
+            } catch (e) { fail(e); return; }
+            putActiveReq.onerror = function () { fail(putActiveReq.error); };
+            putActiveReq.onsuccess = function () { setResult({ ok:true, work:updated }); };
+          };
+        };
+      });
+    }
+
+    function renameWork(opts) {
+      opts = opts || {};
+      var title = cleanTitle(opts.title, '');
+      if (!title) return Promise.resolve({ ok:false, reason:'invalid-title' });
+      if (typeof opts.id !== 'string' || !opts.id) return Promise.resolve({ ok:false, reason:'invalid' });
+      return runTx([STORE_WORKS], 'readwrite', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var getReq = worksStore.get(opts.id);
+        getReq.onerror = function () { fail(getReq.error); };
+        getReq.onsuccess = function () {
+          var existing = getReq.result ? sanitizeWork(getReq.result) : null;
+          if (!existing) {
+            setResult({ ok:false, reason:'conflict', latest:null });
+            return;
+          }
+          if (typeof opts.expectedRev === 'number' && existing.rev !== opts.expectedRev) {
+            setResult({ ok:false, reason:'conflict', latest:existing });
+            return;
+          }
+          if (existing.title === title) {
+            setResult({ ok:true, work:existing, skipped:true });
+            return;
+          }
+          var updated = Object.assign({}, existing, {
+            title: title,
+            rev: existing.rev + 1
+          });
+          var putReq;
+          try { putReq = worksStore.put(updated); } catch (e) { fail(e); return; }
+          putReq.onerror = function () { fail(putReq.error); };
+          putReq.onsuccess = function () { setResult({ ok:true, work:updated }); };
+        };
+      });
+    }
+
+    return {
+      open: open,
+      close: closeDb,
+      migrateLegacyDraft: migrateLegacyDraft,
+      listWorks: listWorks,
+      getWork: getWork,
+      setActiveWork: setActiveWork,
+      createWork: createWork,
+      saveWorkEdit: saveWorkEdit,
+      renameWork: renameWork
+    };
+  }
+
+  return {
+    DB_NAME: DB_NAME,
+    DB_VERSION: DB_VERSION,
+    STORAGE_VERSION: STORAGE_VERSION,
+    STORE_WORKS: STORE_WORKS,
+    STORE_META: STORE_META,
+    META_MIGRATION: META_MIGRATION,
+    META_ACTIVE: META_ACTIVE,
+    MAX_TITLE_LEN: MAX_TITLE_LEN,
+    LEGACY_DRAFT_TITLE: LEGACY_DRAFT_TITLE,
+    storageReason: storageReason,
+    cleanTitle: cleanTitle,
+    nextAutoTitle: nextAutoTitle,
+    copyTitleFor: copyTitleFor,
+    sanitizeWork: sanitizeWork,
+    currentStateOf: currentStateOf,
+    stepZeroStateOf: stepZeroStateOf,
+    sortWorks: sortWorks,
+    makeWorkRecord: makeWorkRecord,
+    formatUpdatedTime: formatUpdatedTime,
+    saveErrorMessage: saveErrorMessage,
+    createStore: createStore
+  };
+})();
+
 if (typeof document !== 'undefined') (function () {
   var $ = function (s) { return document.querySelector(s); };
   var E = Engine;
   var stateModel = AvatarState;
+  var libraryModel = WorkLibrary;
   var PARAMS = stateModel.PARAMS;
   var COLOR_KEYS = stateModel.COLOR_KEYS;
   var refreshFrame = null;
@@ -1472,13 +2189,47 @@ if (typeof document !== 'undefined') (function () {
   } else {
     window.addEventListener('resize', syncChrome);
   }
-  var bootStorage;
-  if (stateModel.shareParam(location.search).present) bootStorage = undefined;
-  else {
-    try { bootStorage = window.localStorage; } catch (e) { bootStorage = null; }
+
+  function safeLocalStorage() {
+    try { return window.localStorage; } catch (e) { return null; }
   }
-  var boot = stateModel.resolveInitial(location.search, bootStorage);
-  var state = boot.state;
+
+  var store = libraryModel.createStore();
+  var channel = null;
+  try {
+    if (typeof BroadcastChannel === 'function') channel = new BroadcastChannel('avatar-studio.library');
+  } catch (e) { channel = null; }
+
+  var initialShareParam = stateModel.shareParam(location.search);
+  var initialShareRead = initialShareParam.present
+    ? (initialShareParam.reason ? { ok:false, reason:initialShareParam.reason } : stateModel.readEncoded(initialShareParam.token))
+    : null;
+
+  var state = (initialShareRead && initialShareRead.ok) ? initialShareRead.state : stateModel.defaultState();
+  var freshBaseState = stateModel.persistableState(stateModel.sanitizeState(state));
+  var activeWork = null;
+  var worksCache = [];
+  var preview = (initialShareRead && initialShareRead.ok) ? {
+    kind: 'share',
+    format: initialShareRead.format,
+    seed: null,
+    baseState: stateModel.persistableState(initialShareRead.state),
+    baseLabel: '分享原稿',
+    returnWorkId: null,
+    returnState: null
+  } : null;
+  var unsaved = null;
+  var conflict = null;
+  var bootDone = false;
+  var userActedBeforeBoot = false;
+  var saveInFlight = false;
+  var pendingSave = null;
+  var continuousSaveTimer = null;
+  var continuousSaveLabel = '调整参数';
+  var contextEpoch = 0;
+  var editingRenameId = null;
+  var libraryAlertMsg = '';
+
   function shareUrl() {
     var token = stateModel.encodeState(state);
     if (!token) return '';
@@ -1497,6 +2248,11 @@ if (typeof document !== 'undefined') (function () {
   }
   function fileStem() { return fileStemFrom(state.seed); }
 
+  function broadcastLibraryChange(workId) {
+    if (!channel) return;
+    try { channel.postMessage({ type:'changed', workId:workId || null }); } catch (e) {}
+  }
+
   /* ---------- 生成 ---------- */
   function newSeed() {
     var a = ['ink','cat','red','moss','dusk','haze','linen','plum','clay','fern','ochre','tide'];
@@ -1505,17 +2261,17 @@ if (typeof document !== 'undefined') (function () {
   function randomize(seed) {
     state = stateModel.randomize(state, seed || newSeed());
     $('#seed').value = state.seed;
-    noteEdit();
+    noteEdit('随机生成');
     refresh();
   }
   function applyPalette(i) {
     state = stateModel.applyPalette(state, i);
-    noteEdit();
+    noteEdit('切换配色');
     refresh();
   }
   function shuffleSlot(key) {
     state = stateModel.shuffleSlot(state, key);
-    noteEdit();
+    noteEdit('更换部件');
     refresh();
   }
 
@@ -1536,13 +2292,13 @@ if (typeof document !== 'undefined') (function () {
       if (b.dataset.lock) {
         var k = b.dataset.lock;
         state.locks[k] = !state.locks[k];
-        noteEdit();
+        noteEdit('切换锁定');
         refresh();
       } else if (b.dataset.shuffle) {
         shuffleSlot(b.dataset.shuffle);
       } else if (b.dataset.value !== undefined) {
         state = stateModel.selectSlot(state, b.dataset.slot, b.dataset.value);
-        noteEdit();
+        noteEdit('选择部件');
         refresh();
       }
     });
@@ -1571,6 +2327,21 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
+  function scheduleContinuousEdit(label) {
+    continuousSaveLabel = label;
+    if (continuousSaveTimer !== null) clearTimeout(continuousSaveTimer);
+    continuousSaveTimer = setTimeout(function () {
+      continuousSaveTimer = null;
+      noteEdit(continuousSaveLabel);
+    }, 250);
+  }
+  function flushContinuousEdit() {
+    if (continuousSaveTimer === null) return;
+    clearTimeout(continuousSaveTimer);
+    continuousSaveTimer = null;
+    noteEdit(continuousSaveLabel);
+  }
+
   function buildParams() {
     $('#params').innerHTML = PARAMS.map(function (p) {
       var id = 'param-' + p.key;
@@ -1586,8 +2357,16 @@ if (typeof document !== 'undefined') (function () {
       var v = document.querySelector('[data-val="' + k + '"]');
       if (v) v.textContent = shown;
       e.target.setAttribute('aria-valuetext', shown);
-      noteEdit();
+      scheduleContinuousEdit('调整形状');
       scheduleRefresh();
+    });
+    $('#params').addEventListener('change', function (e) {
+      if (!e.target.dataset.param) return;
+      if (continuousSaveTimer !== null) {
+        clearTimeout(continuousSaveTimer);
+        continuousSaveTimer = null;
+      }
+      noteEdit('调整形状');
     });
   }
 
@@ -1611,8 +2390,16 @@ if (typeof document !== 'undefined') (function () {
       var k = e.target.dataset.color; if (!k) return;
       state.colors[k] = e.target.value;
       state.locks.colors = true;
-      noteEdit();
+      scheduleContinuousEdit('调整配色');
       scheduleRefresh();
+    });
+    $('#colors').addEventListener('change', function (e) {
+      if (!e.target.dataset.color) return;
+      if (continuousSaveTimer !== null) {
+        clearTimeout(continuousSaveTimer);
+        continuousSaveTimer = null;
+      }
+      noteEdit('调整配色');
     });
   }
 
@@ -1627,18 +2414,40 @@ if (typeof document !== 'undefined') (function () {
     for (var k in colors) st.colors[k] = colors[k];
     return st;
   }
+  function enterExamplePreview(seed) {
+    flushContinuousEdit();
+    var returnWorkId = preview ? preview.returnWorkId : (activeWork ? activeWork.id : null);
+    var returnState = preview ? preview.returnState : (activeWork ? null : stateModel.persistableState(stateModel.sanitizeState(state)));
+    var view = state.view;
+    var ex = exampleState(seed);
+    ex.view = view;
+    contextEpoch += 1;
+    pendingSave = null;
+    unsaved = null;
+    conflict = null;
+    state = stateModel.sanitizeState(ex);
+    preview = {
+      kind: 'example',
+      format: null,
+      seed: seed,
+      baseState: stateModel.persistableState(state),
+      baseLabel: '示例原稿',
+      returnWorkId: returnWorkId,
+      returnState: returnState
+    };
+    document.documentElement.setAttribute('data-avatar-source', 'example');
+    refresh();
+    renderWorkBar();
+    toast('已进入示例预览，保存或编辑后将新建作品');
+  }
   function buildGallery() {
     var seeds = ['sample-1000','sample-1001','sample-1025','sample-1073','sample-3453','sample-4091','sample-1050','sample-1013'];
     $('#gallery').innerHTML = seeds.map(function (s) {
-      return '<button type="button" data-gseed="' + s + '" title="' + s + '" aria-label="载入示例 ' + s + '">' + stateModel.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
+      return '<button type="button" data-gseed="' + s + '" title="' + s + '" aria-label="预览示例 ' + s + '">' + stateModel.render(exampleState(s), { viewBox:E.VIEWS.head }) + '</button>';
     }).join('');
     $('#gallery').addEventListener('click', function (e) {
       var b = e.target.closest('[data-gseed]'); if (!b) return;
-      var view = state.view;
-      state = exampleState(b.dataset.gseed);
-      state.view = view;
-      noteEdit();
-      refresh();
+      enterExamplePreview(b.dataset.gseed);
     });
   }
 
@@ -1709,18 +2518,430 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
-  /* ---------- 工具 ---------- */
+  /* ---------- 作品栏与作品库对话框 ---------- */
+  function updateWorkCountBadge() {
+    var badge = $('#workCount');
+    if (!badge) return;
+    if (worksCache.length > 0) {
+      badge.textContent = String(worksCache.length);
+      badge.hidden = false;
+    } else {
+      badge.textContent = '';
+      badge.hidden = true;
+    }
+  }
+
+  function makeActionButton(id, text, primary, onClick) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = primary ? 'btn primary' : 'btn';
+    if (id) btn.id = id;
+    btn.textContent = text;
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  function exportConfigJsonFile() {
+    var name = fileStem() + '.json';
+    var content = Export.jsonText(state);
+    download(name, content, 'application/json;charset=utf-8');
+    toast('已导出配置 JSON');
+  }
+
+  function renderWorkBar() {
+    var bar = $('#workBar');
+    var titleEl = $('#workBarTitle');
+    var statusEl = $('#workBarStatus');
+    var actionsEl = $('#workBarActions');
+    if (!bar) return;
+
+    bar.className = 'work-bar';
+    bar.removeAttribute('role');
+    actionsEl.innerHTML = '';
+
+    if (conflict) {
+      bar.hidden = false;
+      bar.classList.add('is-error');
+      bar.setAttribute('role', 'alert');
+      titleEl.textContent = libraryModel.saveErrorMessage('conflict');
+      statusEl.textContent = '其他标签页已保存新版，当前画面未覆盖原进度。';
+      actionsEl.appendChild(makeActionButton('btnConflictReload', '重新载入新版', false, resolveConflictReload));
+      actionsEl.appendChild(makeActionButton('btnConflictCopy', '保存为副本', true, resolveConflictCopy));
+      actionsEl.appendChild(makeActionButton('btnConflictExport', '导出配置 JSON', false, exportConfigJsonFile));
+      return;
+    }
+
+    if (unsaved) {
+      bar.hidden = false;
+      bar.classList.add('is-error');
+      bar.setAttribute('role', 'alert');
+      titleEl.textContent = unsaved.migrationFailed
+        ? ('旧草稿迁移失败 · ' + libraryModel.saveErrorMessage(unsaved.reason))
+        : libraryModel.saveErrorMessage(unsaved.reason);
+      statusEl.textContent = '当前画面与上次已保存版本均保留，可重试或导出备份。';
+      actionsEl.appendChild(makeActionButton('btnRetrySave', '重试保存', true, retrySave));
+      actionsEl.appendChild(makeActionButton('btnExportUnsavedJson', '导出配置 JSON', false, exportConfigJsonFile));
+      return;
+    }
+
+    if (preview) {
+      bar.hidden = false;
+      bar.classList.add('is-preview');
+      titleEl.textContent = preview.kind === 'share'
+        ? '正在预览分享头像'
+        : ('正在预览示例 · ' + (preview.seed || ''));
+      statusEl.textContent = '查看或下载不会覆盖原作品；点击保存或开始编辑将建立新作品。';
+      actionsEl.appendChild(makeActionButton('btnSavePreview', '保存为新作品', true, savePreviewAsNewWork));
+      if (preview.returnWorkId || preview.returnState) {
+        actionsEl.appendChild(makeActionButton('btnReturnWork', '返回原作品', false, returnFromPreview));
+      }
+      return;
+    }
+
+    if (activeWork) {
+      bar.hidden = false;
+      titleEl.textContent = activeWork.title;
+      statusEl.textContent = (saveInFlight || pendingSave)
+        ? '正在保存…'
+        : ('已自动保存 · ' + libraryModel.formatUpdatedTime(activeWork.updatedAt));
+      actionsEl.appendChild(makeActionButton('btnQuickLibrary', '切换作品', false, openLibraryDialog));
+      return;
+    }
+
+    if (bootDone) {
+      bar.hidden = false;
+      titleEl.textContent = '新头像';
+      statusEl.textContent = '首次修改后将自动保存到「我的作品」。';
+      return;
+    }
+
+    bar.hidden = true;
+  }
+
+  function refreshWorksCache(andRenderDialog) {
+    return store.listWorks().then(function (res) {
+      if (res.ok) {
+        worksCache = res.works;
+        if (activeWork) {
+          var found = worksCache.find(function (w) { return w.id === activeWork.id; });
+          if (found && found.rev === activeWork.rev) activeWork = found;
+        }
+        updateWorkCountBadge();
+        if (andRenderDialog && libraryDialog.open) renderLibraryDialog();
+      }
+      return res;
+    });
+  }
+
+  function renderLibraryDialog() {
+    var totalEl = $('#libraryTotal');
+    var alertEl = $('#libraryAlert');
+    var bodyEl = $('#libraryBody');
+    totalEl.textContent = worksCache.length ? ('共 ' + worksCache.length + ' 件') : '';
+    if (libraryAlertMsg) {
+      alertEl.textContent = libraryAlertMsg;
+      alertEl.hidden = false;
+    } else {
+      alertEl.textContent = '';
+      alertEl.hidden = true;
+    }
+    if (!worksCache.length) {
+      bodyEl.innerHTML = '<div class="library-empty">还没有保存的作品。随机生成或调整任意部件后，会自动保存到这里。</div>';
+      return;
+    }
+    var ul = document.createElement('ul');
+    ul.className = 'library-list';
+    var nowTs = Date.now();
+    worksCache.forEach(function (work) {
+      var isCurrent = !preview && activeWork && activeWork.id === work.id;
+      var li = document.createElement('li');
+      li.className = 'work-item' + (isCurrent ? ' is-active' : '');
+      li.dataset.workId = work.id;
+
+      var snapState = libraryModel.currentStateOf(work);
+      var thumbBtn = document.createElement('button');
+      thumbBtn.type = 'button';
+      thumbBtn.className = 'work-thumb';
+      thumbBtn.setAttribute('aria-label', '打开作品 ' + work.title);
+      thumbBtn.innerHTML = stateModel.render(snapState, { viewBox:E.VIEWS[snapState.view] });
+      thumbBtn.addEventListener('click', function () { openWorkById(work.id); });
+
+      var info = document.createElement('div');
+      info.className = 'work-info';
+
+      var head = document.createElement('div');
+      head.className = 'work-head';
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'work-name';
+      nameSpan.textContent = work.title;
+      nameSpan.title = work.title;
+      head.appendChild(nameSpan);
+      if (isCurrent) {
+        var curBadge = document.createElement('span');
+        curBadge.className = 'work-badge';
+        curBadge.textContent = '当前';
+        head.appendChild(curBadge);
+      }
+
+      var timeEl = document.createElement('span');
+      timeEl.className = 'work-time';
+      timeEl.textContent = '更新于 ' + libraryModel.formatUpdatedTime(work.updatedAt, nowTs);
+
+      info.appendChild(head);
+      info.appendChild(timeEl);
+
+      if (editingRenameId === work.id) {
+        var form = document.createElement('form');
+        form.className = 'work-rename-form';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.value = work.title;
+        input.maxLength = libraryModel.MAX_TITLE_LEN;
+        input.setAttribute('aria-label', '重命名 ' + work.title);
+        input.dataset.renameInput = work.id;
+
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'submit';
+        saveBtn.className = 'mini on';
+        saveBtn.textContent = '保存';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'mini';
+        cancelBtn.textContent = '取消';
+        cancelBtn.addEventListener('click', function () {
+          editingRenameId = null;
+          renderLibraryDialog();
+          var focusTarget = libraryDialog.querySelector('[data-rename-btn="' + work.id + '"]');
+          if (focusTarget) focusTarget.focus();
+        });
+
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            editingRenameId = null;
+            renderLibraryDialog();
+            var focusTarget = libraryDialog.querySelector('[data-rename-btn="' + work.id + '"]');
+            if (focusTarget) focusTarget.focus();
+          }
+        });
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          commitRenameWork(work, input.value);
+        });
+
+        form.appendChild(input);
+        form.appendChild(saveBtn);
+        form.appendChild(cancelBtn);
+        info.appendChild(form);
+      } else {
+        var actions = document.createElement('div');
+        actions.className = 'work-actions';
+
+        var openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = isCurrent ? 'mini on' : 'mini';
+        openBtn.textContent = isCurrent ? '正在编辑' : '打开';
+        if (isCurrent) openBtn.setAttribute('aria-current', 'true');
+        openBtn.dataset.openWork = work.id;
+        openBtn.addEventListener('click', function () { openWorkById(work.id); });
+
+        var renameBtn = document.createElement('button');
+        renameBtn.type = 'button';
+        renameBtn.className = 'mini';
+        renameBtn.textContent = '重命名';
+        renameBtn.dataset.renameBtn = work.id;
+        renameBtn.setAttribute('aria-label', '重命名 ' + work.title);
+        renameBtn.addEventListener('click', function () {
+          editingRenameId = work.id;
+          libraryAlertMsg = '';
+          renderLibraryDialog();
+          var inp = libraryDialog.querySelector('[data-rename-input="' + work.id + '"]');
+          if (inp) { inp.focus(); inp.select(); }
+        });
+
+        actions.appendChild(openBtn);
+        actions.appendChild(renameBtn);
+        info.appendChild(actions);
+      }
+
+      li.appendChild(thumbBtn);
+      li.appendChild(info);
+      ul.appendChild(li);
+    });
+    bodyEl.innerHTML = '';
+    bodyEl.appendChild(ul);
+  }
+
+  function commitRenameWork(work, rawTitle) {
+    var nextTitle = libraryModel.cleanTitle(rawTitle, '');
+    if (!nextTitle) {
+      libraryAlertMsg = '请输入有效的作品名称。';
+      renderLibraryDialog();
+      var inp = libraryDialog.querySelector('[data-rename-input="' + work.id + '"]');
+      if (inp) inp.focus();
+      return;
+    }
+    store.renameWork({ id:work.id, expectedRev:work.rev, title:nextTitle }).then(function (res) {
+      if (res.ok) {
+        editingRenameId = null;
+        libraryAlertMsg = '';
+        if (activeWork && activeWork.id === res.work.id) activeWork = res.work;
+        broadcastLibraryChange(res.work.id);
+        return refreshWorksCache(true).then(function () {
+          renderWorkBar();
+          toast('已重命名为「' + res.work.title + '」');
+        });
+      }
+      if (res.reason === 'conflict') {
+        editingRenameId = null;
+        libraryAlertMsg = '该作品已在其他标签页更新，列表已刷新，请重新确认后再重命名。';
+        return refreshWorksCache(true);
+      }
+      libraryAlertMsg = libraryModel.saveErrorMessage(res.reason);
+      renderLibraryDialog();
+    });
+  }
+
+  function openWorkById(id) {
+    flushContinuousEdit();
+    return store.setActiveWork(id).then(function (res) {
+      if (!res.ok) {
+        libraryAlertMsg = res.reason === 'not-found' ? '未找到该作品，列表已刷新。' : libraryModel.saveErrorMessage(res.reason);
+        return refreshWorksCache(true);
+      }
+      contextEpoch += 1;
+      pendingSave = null;
+      preview = null;
+      unsaved = null;
+      conflict = null;
+      activeWork = res.work;
+      state = libraryModel.currentStateOf(res.work);
+      document.documentElement.setAttribute('data-avatar-source', 'library');
+      refresh();
+      renderWorkBar();
+      broadcastLibraryChange(res.work.id);
+      if (libraryDialog.open) libraryDialog.close();
+      return refreshWorksCache(false).then(function () {
+        toast('已切换到「' + res.work.title + '」');
+      });
+    });
+  }
+
+  function returnFromPreview() {
+    if (!preview) return;
+    if (preview.returnWorkId) {
+      openWorkById(preview.returnWorkId);
+      return;
+    }
+    contextEpoch += 1;
+    pendingSave = null;
+    unsaved = null;
+    conflict = null;
+    var restored = preview.returnState ? stateModel.sanitizeState(preview.returnState) : stateModel.defaultState();
+    preview = null;
+    activeWork = null;
+    state = restored || stateModel.defaultState();
+    freshBaseState = stateModel.persistableState(state);
+    document.documentElement.setAttribute('data-avatar-source', 'default');
+    refresh();
+    renderWorkBar();
+    toast('已返回原画面');
+  }
+
+  function savePreviewAsNewWork() {
+    if (!preview) return;
+    enqueueSave(preview.baseLabel || '保存新作品', { explicitCreate:true });
+  }
+
+  function resolveConflictReload() {
+    if (!conflict) return;
+    var targetId = conflict.workId;
+    store.getWork(targetId).then(function (res) {
+      if (!res.ok) {
+        toast(libraryModel.saveErrorMessage(res.reason));
+        return;
+      }
+      if (!res.work) {
+        conflict = null;
+        activeWork = null;
+        renderWorkBar();
+        toast('原作品已不存在，请另存为副本');
+        return;
+      }
+      contextEpoch += 1;
+      pendingSave = null;
+      unsaved = null;
+      conflict = null;
+      activeWork = res.work;
+      state = libraryModel.currentStateOf(res.work);
+      refresh();
+      renderWorkBar();
+      refreshWorksCache(false);
+      toast('已载入最新版本');
+    });
+  }
+
+  function resolveConflictCopy() {
+    if (!conflict) return;
+    var snap = stateModel.persistableState(stateModel.sanitizeState(state));
+    var baseState = conflict.baseState || snap;
+    var baseLabel = conflict.baseLabel || '初始状态';
+    var copyFromTitle = conflict.workTitle || '未命名作品';
+    var epoch = contextEpoch;
+    store.createWork({
+      copyFromTitle: copyFromTitle,
+      source: 'duplicate',
+      baseState: baseState,
+      baseLabel: baseLabel,
+      currentState: snap,
+      currentLabel: '保存为副本',
+      setActive: true
+    }).then(function (res) {
+      if (epoch !== contextEpoch) return;
+      if (res.ok) {
+        activeWork = res.work;
+        conflict = null;
+        unsaved = null;
+        storageNotice = '';
+        clearShareParamAfterSave();
+        document.documentElement.setAttribute('data-avatar-source', 'library');
+        broadcastLibraryChange(res.work.id);
+        refreshWorksCache(true);
+        renderWorkBar();
+        toast('已保存为副本「' + res.work.title + '」');
+      } else {
+        announceStorageFailure(res.reason);
+        renderWorkBar();
+      }
+    });
+  }
+
+  function retrySave() {
+    if (conflict) return;
+    enqueueSave('重试保存', { explicitCreate: !!(preview && stateModel.statesEqual(preview.baseState, state)) });
+  }
+
+  function openLibraryDialog() {
+    flushContinuousEdit();
+    editingRenameId = null;
+    libraryAlertMsg = '';
+    refreshWorksCache(false).then(function (res) {
+      if (!res.ok) libraryAlertMsg = libraryModel.saveErrorMessage(res.reason);
+      renderLibraryDialog();
+      if (!libraryDialog.open) libraryDialog.showModal();
+    });
+  }
+
+  /* ---------- 保存队列与 URL 分享参数清理 ---------- */
   var toastTimer;
   var storageNotice = '';
   var historyNotice = '';
-  function noteEdit() {
-    var storage = null;
-    try { storage = window.localStorage; } catch (e) { storage = null; }
-    var result = stateModel.saveDraft(storage, state);
-    var announced = stateModel.storageWriteNotice(storageNotice, result);
-    storageNotice = announced.previous;
-    if (announced.notice) toast(announced.notice);
-    if (!result.ok || !stateModel.shareParam(location.search).present) return;
+
+  function clearShareParamAfterSave() {
+    if (!stateModel.shareParam(location.search).present) return;
     var cleared = { ok:false };
     try {
       if (!history || typeof history.replaceState !== 'function') throw new Error('history');
@@ -1731,9 +2952,212 @@ if (typeof document !== 'undefined') (function () {
     historyNotice = historyAnnounced.previous;
     if (historyAnnounced.notice) toast(historyAnnounced.notice);
   }
+
+  function announceStorageFailure(reason) {
+    var msg = libraryModel.saveErrorMessage(reason);
+    if (storageNotice !== msg) {
+      storageNotice = msg;
+      toast(msg);
+    }
+  }
+
+  function enqueueSave(label, opts) {
+    var target = stateModel.persistableState(stateModel.sanitizeState(state));
+    var explicitCreate = !!(opts && opts.explicitCreate);
+    if (conflict) {
+      renderWorkBar();
+      return;
+    }
+    if (!bootDone) {
+      userActedBeforeBoot = true;
+      pendingSave = { state:target, label:label || '编辑', explicitCreate:explicitCreate, epoch:contextEpoch };
+      renderWorkBar();
+      return;
+    }
+    pendingSave = { state:target, label:label || '编辑', explicitCreate:explicitCreate, epoch:contextEpoch };
+    renderWorkBar();
+    drainSaveQueue();
+  }
+
+  function noteEdit(label) {
+    enqueueSave(label || '编辑', { explicitCreate:false });
+  }
+
+  function drainSaveQueue() {
+    if (saveInFlight || !pendingSave) return;
+    var job = pendingSave;
+    pendingSave = null;
+    if (job.epoch !== contextEpoch) {
+      drainSaveQueue();
+      return;
+    }
+    saveInFlight = true;
+    renderWorkBar();
+
+    function finishStep(stopQueue) {
+      saveInFlight = false;
+      renderWorkBar();
+      if (!stopQueue && pendingSave) drainSaveQueue();
+    }
+
+    var promise;
+    if (unsaved && unsaved.migrationFailed) {
+      promise = store.migrateLegacyDraft(safeLocalStorage()).then(function (mig) {
+        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (!mig.ok) {
+          unsaved = { reason:mig.reason, migrationFailed:true, pendingCreate:null };
+          announceStorageFailure(mig.reason);
+          return { stop:true };
+        }
+        var workPromise = mig.work
+          ? Promise.resolve({ ok:true, work:mig.work })
+          : (mig.workId ? store.getWork(mig.workId) : Promise.resolve({ ok:true, work:null }));
+        return workPromise.then(function (found) {
+          if (job.epoch !== contextEpoch) return { ignored:true };
+          if (found.ok && found.work) {
+            activeWork = found.work;
+            unsaved = null;
+            if (!stateModel.statesEqual(libraryModel.currentStateOf(activeWork), job.state)) {
+              pendingSave = job;
+            } else {
+              storageNotice = '';
+              clearShareParamAfterSave();
+              refreshWorksCache(true);
+            }
+            return { stop:false };
+          }
+          unsaved = null;
+          pendingSave = job;
+          return { stop:false };
+        });
+      });
+    } else if (preview || (unsaved && unsaved.pendingCreate)) {
+      var meta = preview || unsaved.pendingCreate;
+      var sameAsBase = stateModel.statesEqual(meta.baseState, job.state);
+      if (!job.explicitCreate && sameAsBase) {
+        finishStep(false);
+        return;
+      }
+      promise = store.createWork({
+        source: meta.kind || meta.source || 'editor',
+        baseState: meta.baseState,
+        baseLabel: meta.baseLabel || '初始状态',
+        currentState: job.explicitCreate ? null : job.state,
+        currentLabel: job.label,
+        setActive: true
+      }).then(function (res) {
+        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (res.ok) {
+          activeWork = res.work;
+          preview = null;
+          unsaved = null;
+          conflict = null;
+          storageNotice = '';
+          clearShareParamAfterSave();
+          document.documentElement.setAttribute('data-avatar-source', 'library');
+          broadcastLibraryChange(res.work.id);
+          refreshWorksCache(true);
+          if (job.explicitCreate) toast('已保存为新作品「' + res.work.title + '」');
+          return { stop:false };
+        }
+        unsaved = {
+          reason: res.reason,
+          migrationFailed: false,
+          pendingCreate: {
+            source: meta.kind || meta.source || 'editor',
+            baseState: meta.baseState,
+            baseLabel: meta.baseLabel || '初始状态'
+          }
+        };
+        announceStorageFailure(res.reason);
+        return { stop:true };
+      });
+    } else if (!activeWork) {
+      if (!job.explicitCreate && stateModel.statesEqual(freshBaseState, job.state)) {
+        finishStep(false);
+        return;
+      }
+      promise = store.createWork({
+        source: 'editor',
+        baseState: freshBaseState,
+        baseLabel: '初始形象',
+        currentState: job.state,
+        currentLabel: job.label,
+        setActive: true
+      }).then(function (res) {
+        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (res.ok) {
+          activeWork = res.work;
+          unsaved = null;
+          conflict = null;
+          storageNotice = '';
+          clearShareParamAfterSave();
+          document.documentElement.setAttribute('data-avatar-source', 'library');
+          broadcastLibraryChange(res.work.id);
+          refreshWorksCache(true);
+          return { stop:false };
+        }
+        unsaved = {
+          reason: res.reason,
+          migrationFailed: false,
+          pendingCreate: {
+            source: 'editor',
+            baseState: freshBaseState,
+            baseLabel: '初始形象'
+          }
+        };
+        announceStorageFailure(res.reason);
+        return { stop:true };
+      });
+    } else {
+      promise = store.saveWorkEdit({
+        id: activeWork.id,
+        expectedRev: activeWork.rev,
+        nextState: job.state,
+        label: job.label
+      }).then(function (res) {
+        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (res.ok) {
+          activeWork = res.work;
+          unsaved = null;
+          conflict = null;
+          storageNotice = '';
+          clearShareParamAfterSave();
+          broadcastLibraryChange(res.work.id);
+          refreshWorksCache(true);
+          return { stop:false };
+        }
+        if (res.reason === 'conflict') {
+          conflict = {
+            workId: activeWork.id,
+            workTitle: activeWork.title,
+            baseState: libraryModel.stepZeroStateOf(activeWork),
+            baseLabel: activeWork.snapshots[0] ? activeWork.snapshots[0].label : '初始状态',
+            latest: res.latest || null
+          };
+          pendingSave = null;
+          toast('此作品已在其他标签页更新，当前更改尚未保存');
+          return { stop:true };
+        }
+        unsaved = { reason:res.reason, migrationFailed:false, pendingCreate:null };
+        announceStorageFailure(res.reason);
+        return { stop:true };
+      });
+    }
+
+    promise.then(function (step) {
+      finishStep(!!(step && step.stop));
+    }, function () {
+      unsaved = { reason:'unavailable', migrationFailed:false, pendingCreate:null };
+      announceStorageFailure('unavailable');
+      finishStep(true);
+    });
+  }
+
+  /* ---------- 工具 ---------- */
   function toast(msg) {
     var t = $('#toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1900);
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
   }
   function clipboardApi() {
     try { return navigator.clipboard; } catch (e) { return null; }
@@ -1790,12 +3214,15 @@ if (typeof document !== 'undefined') (function () {
   var moreSummary = moreActions.querySelector('summary');
   var aboutButton = $('#btnAbout');
   var aboutDialog = $('#aboutDialog');
+  var libraryButton = $('#btnLibrary');
+  var libraryDialog = $('#libraryDialog');
+
   function closeMoreActions() {
     moreActions.open = false;
     moreSummary.focus({ preventScroll:true });
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape' || !moreActions.open || aboutDialog.open) return;
+    if (e.key !== 'Escape' || !moreActions.open || aboutDialog.open || libraryDialog.open) return;
     e.preventDefault();
     closeMoreActions();
   });
@@ -1807,6 +3234,26 @@ if (typeof document !== 'undefined') (function () {
   });
   aboutButton.addEventListener('click', function () { aboutDialog.showModal(); });
   aboutDialog.addEventListener('close', function () { aboutButton.focus({ preventScroll:true }); });
+  libraryButton.addEventListener('click', openLibraryDialog);
+  libraryDialog.addEventListener('cancel', function (e) {
+    if (!editingRenameId) return;
+    e.preventDefault();
+    var targetId = editingRenameId;
+    editingRenameId = null;
+    renderLibraryDialog();
+    var focusTarget = libraryDialog.querySelector('[data-rename-btn="' + targetId + '"]');
+    if (focusTarget) focusTarget.focus();
+  });
+  libraryDialog.addEventListener('close', function () {
+    editingRenameId = null;
+    libraryButton.focus({ preventScroll:true });
+  });
+  if (channel) {
+    channel.onmessage = function () {
+      refreshWorksCache(editingRenameId === null);
+    };
+  }
+
   $('#btnRandom').addEventListener('click', function () { randomize(); });
   var seedInput = $('#seed');
   seedInput.addEventListener('change', function () { randomize(seedInput.value.trim() || newSeed()); });
@@ -1836,20 +3283,127 @@ if (typeof document !== 'undefined') (function () {
   $('#viewSeg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-view]'); if (!b) return;
     state.view = b.dataset.view;
-    noteEdit();
+    noteEdit('切换裁切');
     refresh();
   });
-  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; noteEdit(); refresh(); });
-  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; noteEdit(); refresh(); });
+  $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; noteEdit('切换形状锁'); refresh(); });
+  $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; noteEdit('切换配色锁'); refresh(); });
 
-  /* ---------- 启动 ---------- */
-  document.documentElement.setAttribute('data-avatar-source', boot.source);
+  /* ---------- 启动与异步迁移恢复 ---------- */
+  function invalidShareFallbackNotice(reason, hasLocal) {
+    if (hasLocal) {
+      return reason === 'future'
+        ? '分享版本无法识别，已保留当前本地作品'
+        : '链接无效，已保留当前本地作品';
+    }
+    return reason === 'future'
+      ? '分享版本无法识别，已显示默认形象。当前页面不能还原更新的格式。'
+      : '链接无效，已显示默认形象';
+  }
+
+  function bootLibrary() {
+    var storageRef = safeLocalStorage();
+    return store.migrateLegacyDraft(storageRef).then(function (mig) {
+      if (!mig.ok) {
+        bootDone = true;
+        if (preview) {
+          if (mig.fallbackDraft) preview.returnState = stateModel.persistableState(mig.fallbackDraft);
+          renderWorkBar();
+        } else if (mig.fallbackDraft && !userActedBeforeBoot) {
+          state = stateModel.sanitizeState(mig.fallbackDraft);
+          freshBaseState = stateModel.persistableState(state);
+          unsaved = { reason:mig.reason, migrationFailed:true, pendingCreate:null };
+          document.documentElement.setAttribute('data-avatar-source', 'draft');
+          refresh();
+          renderWorkBar();
+          if (initialShareParam.present) {
+            toast(invalidShareFallbackNotice(initialShareRead && initialShareRead.reason, true));
+          } else {
+            toast('旧草稿迁移失败，已按原草稿展示；' + libraryModel.saveErrorMessage(mig.reason));
+          }
+        } else {
+          unsaved = { reason:mig.reason, migrationFailed:false, pendingCreate:null };
+          document.documentElement.setAttribute('data-avatar-source', 'default');
+          renderWorkBar();
+          if (initialShareParam.present) {
+            toast(invalidShareFallbackNotice(initialShareRead && initialShareRead.reason, false));
+          } else {
+            toast(libraryModel.saveErrorMessage(mig.reason));
+          }
+        }
+        document.documentElement.setAttribute('data-library-ready', 'true');
+        if (pendingSave) drainSaveQueue();
+        return;
+      }
+
+      return store.listWorks().then(function (list) {
+        bootDone = true;
+        if (!list.ok) {
+          unsaved = { reason:list.reason, migrationFailed:false, pendingCreate:null };
+          renderWorkBar();
+          document.documentElement.setAttribute('data-library-ready', 'true');
+          if (pendingSave) drainSaveQueue();
+          return;
+        }
+        worksCache = list.works;
+        updateWorkCountBadge();
+
+        var lastWork = null;
+        if (list.activeWorkId) {
+          lastWork = worksCache.find(function (w) { return w.id === list.activeWorkId; }) || null;
+        }
+        if (!lastWork && worksCache.length) lastWork = worksCache[0];
+
+        if (preview) {
+          preview.returnWorkId = lastWork ? lastWork.id : null;
+          renderWorkBar();
+        } else if (initialShareParam.present) {
+          var reason = initialShareRead ? initialShareRead.reason : 'invalid';
+          if (lastWork && !userActedBeforeBoot) {
+            activeWork = lastWork;
+            state = libraryModel.currentStateOf(lastWork);
+            document.documentElement.setAttribute('data-avatar-source', 'library');
+            refresh();
+            renderWorkBar();
+            toast(invalidShareFallbackNotice(reason, true));
+          } else {
+            document.documentElement.setAttribute('data-avatar-source', 'default');
+            renderWorkBar();
+            toast(invalidShareFallbackNotice(reason, false));
+          }
+        } else if (lastWork && !userActedBeforeBoot) {
+          activeWork = lastWork;
+          state = libraryModel.currentStateOf(lastWork);
+          document.documentElement.setAttribute('data-avatar-source', 'library');
+          refresh();
+          renderWorkBar();
+        } else {
+          document.documentElement.setAttribute('data-avatar-source', 'default');
+          renderWorkBar();
+          if (mig.draftError === 'corrupt') toast('本地草稿已损坏，已显示默认形象');
+          else if (mig.draftError === 'future') toast('本地草稿版本无法识别，已显示默认形象');
+        }
+
+        if (list.skippedFuture) {
+          toast('发现更高版本作品记录，当前页面已跳过显示');
+        }
+        document.documentElement.setAttribute('data-library-ready', 'true');
+        if (pendingSave) drainSaveQueue();
+      });
+    });
+  }
+
+  document.documentElement.setAttribute(
+    'data-avatar-source',
+    preview ? (preview.format === 'legacy' ? 'legacy-share' : 'share') : 'default'
+  );
   buildSlots();
   buildParams();
   buildColors();
   buildGallery();
   refresh();
-  if (boot.notice) toast(boot.notice);
+  renderWorkBar();
+  bootLibrary();
 
 })();
 </script>
