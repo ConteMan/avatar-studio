@@ -853,3 +853,163 @@ test("输出路径与祖先符号链接防御性回归：阻止绕过受保护�
     fs.rmSync(extSafeParent, { recursive: true, force: true });
   }
 });
+
+test("大小写不敏感受保护素材/母版路径校验与输出目录禁止重叠品牌素材目录（隔离夹具验证完整性）", async () => {
+  const { buildSelfhost } = await import("../scripts/build-selfhost.mjs");
+  const { verifySelfhost } = await import("../scripts/verify-selfhost.mjs");
+
+  const masterBytes = fs.readFileSync(path.join(PROJECT_ROOT, "rounds", "R05-2026-11-26", "shu.svg"));
+  const customPng = makeMinimalPng(32, 32);
+
+  const fixtureDir = createNoGitBundleFixture(
+    {
+      siteName: "自定义品牌",
+      title: "自定义品牌 · 工坊",
+      description: "验证素材目录保护与大小写无关路径拦截",
+      logo: "brand/logo.svg",
+      favicon: {
+        svg: "brand/logo.svg",
+        png: "brand/nested/fav.png",
+      },
+    },
+    {
+      "brand/logo.svg": SAMPLE_SVG,
+      "brand/nested/fav.png": customPng,
+      "brand/keep-source.txt": "keep-brand-source\n",
+      "brand/copied-master.svg": masterBytes,
+      "rounds/R05-2026-11-26/shu.svg": masterBytes,
+      "docs/sample.svg": SAMPLE_SVG,
+      "docs/keep.txt": "keep-docs\n",
+      "cfgdir/site.config.json": `${JSON.stringify(
+        {
+          siteName: "子目录配置",
+          title: "子目录配置",
+          description: "配置位于独立目录",
+          logo: "assets/mark.svg",
+          favicon: "assets/favicon-32.png",
+        },
+        null,
+        2,
+      )}\n`,
+    },
+  );
+
+  const brandLogoPath = path.join(fixtureDir, "brand", "logo.svg");
+  const brandFavPath = path.join(fixtureDir, "brand", "nested", "fav.png");
+  const brandKeepPath = path.join(fixtureDir, "brand", "keep-source.txt");
+  const docsKeepPath = path.join(fixtureDir, "docs", "keep.txt");
+  const cfgSubPath = path.join(fixtureDir, "cfgdir", "site.config.json");
+  const cfgSubContent = fs.readFileSync(cfgSubPath, "utf8");
+
+  try {
+    // 1. 大小写变体受保护素材路径与母版文件均始终禁止进入自建产物
+    const writeCfg = (patch) => {
+      const cfg = {
+        siteName: "测试站",
+        title: "测试站",
+        description: "测试描述",
+        logo: "assets/mark.svg",
+        favicon: "assets/favicon-32.png",
+        ...patch,
+      };
+      fs.writeFileSync(path.join(fixtureDir, "site.config.json"), `${JSON.stringify(cfg, null, 2)}\n`, "utf8");
+    };
+
+    writeCfg({ logo: "Rounds/R05-2026-11-26/shu.svg" });
+    assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /must not reference master logo directory "rounds\/"/);
+
+    writeCfg({ logo: "ROUNDS/R05-2026-11-26/shu.svg" });
+    assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /must not reference master logo directory "rounds\/"/);
+
+    writeCfg({ logo: "Docs/sample.svg" });
+    assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /forbidden repository path/);
+
+    // 即使经由目录符号链接指向 rounds/ 也必须拒绝
+    fs.symlinkSync(path.join(fixtureDir, "rounds", "R05-2026-11-26"), path.join(fixtureDir, "brand", "link-rounds"));
+    writeCfg({ logo: "brand/link-rounds/shu.svg" });
+    assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /must not reference master logo directory "rounds\/"/);
+
+    // 即使复制母版文件到 brand/ 下，母版内容仍禁止进入自建产物
+    writeCfg({ logo: "brand/copied-master.svg" });
+    assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /matches the protected master logo/);
+
+    // 大小写变体的受保护输出目录（Docs / DIST / Assets / ROUNDS）均拒绝，且不破坏原文件
+    writeCfg({ logo: "brand/logo.svg", favicon: { svg: "brand/logo.svg", png: "brand/nested/fav.png" } });
+    for (const protectedVariant of ["Docs", "DIST", "Assets", "ROUNDS"]) {
+      assert.throws(
+        () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, protectedVariant) }),
+        /protected directory/i,
+      );
+    }
+    assert.equal(fs.readFileSync(docsKeepPath, "utf8"), "keep-docs\n");
+
+    // 2. 自定义输出路径不得与配置引用的品牌素材目录重叠（相等、祖先、子目录、大小写变体），拒绝时保留全部源素材
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "brand") }),
+      /overlapping configured brand asset/,
+    );
+    assert.throws(
+      () => verifySelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "brand") }),
+      /overlapping configured brand asset/,
+    );
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "Brand") }),
+      /overlapping configured brand asset/,
+    );
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "brand", "nested") }),
+      /overlapping configured brand asset|inside configured brand asset directory/,
+    );
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "brand", "sub-out") }),
+      /inside configured brand asset directory/,
+    );
+    assert.equal(fs.existsSync(path.join(fixtureDir, "brand", "sub-out")), false);
+
+    // 仅 favicon 位于 brand/nested 时，--out brand/nested 与 --out brand 均直接命中重叠拦截
+    writeCfg({ logo: "assets/mark.svg", favicon: { png: "brand/nested/fav.png" } });
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "brand", "nested") }),
+      /overlapping configured brand asset "brand\/nested\/fav\.png"/,
+    );
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "brand") }),
+      /overlapping configured brand asset "brand\/nested\/fav\.png"/,
+    );
+    writeCfg({ logo: "brand/logo.svg", favicon: { svg: "brand/logo.svg", png: "brand/nested/fav.png" } });
+
+    // 配置位于自定义目录时，输出目录也不得与配置目录重叠
+    assert.throws(
+      () =>
+        buildSelfhost({
+          projectRoot: fixtureDir,
+          configPath: "cfgdir/site.config.json",
+          outDir: path.join(fixtureDir, "cfgdir"),
+        }),
+      /overlapping site config file/,
+    );
+    assert.equal(fs.readFileSync(cfgSubPath, "utf8"), cfgSubContent);
+
+    // 源素材全部完好无损
+    assert.equal(fs.readFileSync(brandLogoPath, "utf8"), SAMPLE_SVG);
+    assert.deepEqual(fs.readFileSync(brandFavPath), customPng);
+    assert.equal(fs.readFileSync(brandKeepPath, "utf8"), "keep-brand-source\n");
+
+    // 3. 名称相近但不重叠的兄弟输出目录（brand-out）与默认输出目录正常构建并通过校验
+    const siblingOut = path.join(fixtureDir, "brand-out");
+    const builtSibling = buildSelfhost({ projectRoot: fixtureDir, outDir: siblingOut });
+    assert.deepEqual(builtSibling.files, ["assets/favicon.png", "assets/logo.svg", "index.html"]);
+    verifySelfhost({ projectRoot: fixtureDir, outDir: siblingOut });
+
+    const builtDefault = buildSelfhost({ projectRoot: fixtureDir });
+    assert.deepEqual(builtDefault.files, ["assets/favicon.png", "assets/logo.svg", "index.html"]);
+    verifySelfhost({ projectRoot: fixtureDir });
+
+    // 构建后所有源素材依然完整
+    assert.equal(fs.readFileSync(brandLogoPath, "utf8"), SAMPLE_SVG);
+    assert.deepEqual(fs.readFileSync(brandFavPath), customPng);
+    assert.equal(fs.readFileSync(brandKeepPath, "utf8"), "keep-brand-source\n");
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});

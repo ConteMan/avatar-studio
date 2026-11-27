@@ -7,7 +7,7 @@
 ## 前置要求
 
 - Node.js 26（仅使用内置模块，无需执行 `npm install`，也不依赖 Git）。
-- 若使用源码压缩包（无 `.git`），包内至少需保留：`index.html`、`site.config.json`、你的图标文件、`scripts/build-selfhost.mjs`、`scripts/verify-selfhost.mjs`（本地预览还需 `scripts/preview-dist.mjs`）。
+- 若使用源码压缩包（无 `.git`），包内至少需保留：`index.html`、`site.config.json`、`assets/`（默认图标 `assets/mark.svg` 与 `assets/favicon-32.png`，以及你的自定义品牌图标文件）、`scripts/build-selfhost.mjs`、`scripts/verify-selfhost.mjs`（本地预览还需 `scripts/preview-dist.mjs`）。
 
 ## 首次换品牌（3 步）
 
@@ -107,4 +107,4 @@ dist-selfhost/
 - **无效字段（`Invalid site config`）**：检查是否漏填必填项、拼错字段名、含换行符、使用了外部 URL / `rounds/` 路径，或 SVG 含不安全标签 / 图片头损坏。
 - **产物漂移（`Artifact drift`）**：修改 `site.config.json`、源图标或 `index.html` 后未重新构建，或手工改过 `dist-selfhost/`；重新执行 `npm run build:selfhost && npm run verify:selfhost` 即可。
 - **多余文件（`Unexpected files in self-host output`）**：`dist-selfhost/` 被放入了白名单外的文件；重新运行 `npm run build:selfhost` 会自动清理重建。
-- **输出目录受拒（`Refusing ...`）**：`--out` 仅允许项目内非受保护目录（如默认 `dist-selfhost`、`out/site`）或项目外名为 `dist-selfhost` / `dist-selfhost-*` 的目录，且禁止经由符号链接（含符号链接祖先）指向受保护目录或越过项目边界。
+- **输出目录受拒（`Refusing ...`）**：`--out` 仅允许项目内非受保护目录（如默认 `dist-selfhost`、`out/site`）或项目外名为 `dist-selfhost` / `dist-selfhost-*` 的目录，且禁止经由符号链接（含符号链接祖先）指向受保护目录、越过项目边界，或与配置引用的品牌素材目录重叠。

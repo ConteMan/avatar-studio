@@ -24,6 +24,8 @@ export const ALLOWED_FAVICON_KEYS = Object.freeze(["svg", "png", "ico"]);
 const LOGO_EXTENSIONS = new Set([".svg", ".png", ".webp", ".jpg", ".jpeg"]);
 const FAVICON_STRING_EXTENSIONS = new Set([".svg", ".png", ".ico", ".webp"]);
 const MAX_ASSET_BYTES = 2 * 1024 * 1024; // 2 MiB
+// 定稿母版 rounds/R05-2026-11-26/shu.svg 的 SHA-256：母版始终禁止进入自建产物
+const LOGO_MASTER_SHA256 = "1376fb705bb7a10c74c2a8f6f746c93cb44313e4ddf86da3895c6b9569d4317f";
 
 const TEXT_LIMITS = Object.freeze({
   siteName: 80,
@@ -115,6 +117,32 @@ function validateTextField(obj, field, maxLen, errors) {
   return trimmed;
 }
 
+function checkForbiddenAssetPath(relPosix, fieldName, displayPath, errors) {
+  const segments = relPosix.split("/");
+  if (segments.some((seg) => seg.startsWith("."))) {
+    errors.push(`Config field "${fieldName}" must not reference hidden dotfiles/directories: ${displayPath}`);
+    return false;
+  }
+
+  // 统一转小写检查，兼容大小写不敏感文件系统（macOS/Windows）
+  const lower = relPosix.toLowerCase();
+  if (lower === "rounds" || lower.startsWith("rounds/")) {
+    errors.push(`Config field "${fieldName}" must not reference master logo directory "rounds/": ${displayPath}`);
+    return false;
+  }
+  for (const prefix of FORBIDDEN_PREFIXES) {
+    if (lower === prefix || lower.startsWith(prefix)) {
+      errors.push(`Config field "${fieldName}" points to a forbidden repository path: ${displayPath}`);
+      return false;
+    }
+  }
+  if (lower === "dist-selfhost" || lower.startsWith("dist-selfhost/")) {
+    errors.push(`Config field "${fieldName}" must not reference generated output directory "dist-selfhost/": ${displayPath}`);
+    return false;
+  }
+  return true;
+}
+
 function normalizeAssetRelPath(rawValue, fieldName, allowedExts, errors) {
   if (typeof rawValue !== "string") {
     errors.push(`Config field "${fieldName}" must be a relative local file path string`);
@@ -151,24 +179,9 @@ function normalizeAssetRelPath(rawValue, fieldName, allowedExts, errors) {
     errors.push(`Config field "${fieldName}" contains invalid path segments ("..", "." or empty): ${trimmed}`);
     return null;
   }
-  if (segments.some((seg) => seg.startsWith("."))) {
-    errors.push(`Config field "${fieldName}" must not reference hidden dotfiles/directories: ${trimmed}`);
-    return null;
-  }
 
   const normalized = segments.join("/");
-  if (normalized.startsWith("rounds/")) {
-    errors.push(`Config field "${fieldName}" must not reference master logo directory "rounds/": ${normalized}`);
-    return null;
-  }
-  for (const prefix of FORBIDDEN_PREFIXES) {
-    if (normalized === prefix || normalized.startsWith(prefix)) {
-      errors.push(`Config field "${fieldName}" points to a forbidden repository path: ${normalized}`);
-      return null;
-    }
-  }
-  if (normalized === "dist-selfhost" || normalized.startsWith("dist-selfhost/")) {
-    errors.push(`Config field "${fieldName}" must not reference generated output directory "dist-selfhost/": ${normalized}`);
+  if (!checkForbiddenAssetPath(normalized, fieldName, normalized, errors)) {
     return null;
   }
 
@@ -315,7 +328,20 @@ function readAndValidateAsset(projectRoot, projectRealRoot, fieldName, rawValue,
     return null;
   }
 
-  const buffer = fs.readFileSync(fullPath);
+  const realRelPosix = realRel.split(path.sep).join("/");
+  if (!checkForbiddenAssetPath(realRelPosix, fieldName, `${norm.normalized} -> ${realRelPosix}`, errors)) {
+    return null;
+  }
+
+  const buffer = fs.readFileSync(realFull);
+  const sha256 = sha256Buffer(buffer);
+  if (sha256 === LOGO_MASTER_SHA256) {
+    errors.push(
+      `Asset file for "${fieldName}" matches the protected master logo (rounds/R05-2026-11-26/shu.svg); use derived assets/mark.svg or a custom brand asset instead: ${norm.normalized}`,
+    );
+    return null;
+  }
+
   const beforeErrors = errors.length;
   const meta = validateAssetContent(buffer, norm.ext, fieldName, norm.normalized, errors);
   if (errors.length > beforeErrors) return null;
@@ -323,10 +349,11 @@ function readAndValidateAsset(projectRoot, projectRealRoot, fieldName, rawValue,
   return {
     fieldName,
     source: norm.normalized,
+    realPath: realFull,
     ext: norm.ext,
     mime: MIME_BY_EXT[norm.ext],
     buffer,
-    sha256: sha256Buffer(buffer),
+    sha256,
     bytes: buffer.length,
     ...meta,
   };
@@ -438,6 +465,7 @@ export function loadSiteConfig(options = {}) {
   outputAssets.set(logoDest, {
     dest: logoDest,
     source: logoAsset.source,
+    realPath: logoAsset.realPath,
     mime: logoAsset.mime,
     ext: logoAsset.ext,
     buffer: logoAsset.buffer,
@@ -456,6 +484,7 @@ export function loadSiteConfig(options = {}) {
       outputAssets.set(dest, {
         dest,
         source: fav.source,
+        realPath: fav.realPath,
         mime: fav.mime,
         ext: fav.ext,
         buffer: fav.buffer,
@@ -628,13 +657,19 @@ export function computeSelfhostBuildPlan(options = {}) {
     sha256: sha256Buffer(htmlBuffer),
   });
 
+  const sourceAssets = [];
   for (const [dest, asset] of resolved.outputAssets.entries()) {
     files.set(dest, {
       dest,
       source: asset.source,
+      realPath: asset.realPath,
       buffer: asset.buffer,
       bytes: asset.bytes,
       sha256: asset.sha256,
+    });
+    sourceAssets.push({
+      source: asset.source,
+      realPath: asset.realPath,
     });
   }
 
@@ -651,18 +686,27 @@ export function computeSelfhostBuildPlan(options = {}) {
     config: resolved.config,
     logo: resolved.logo,
     favicons: resolved.favicons,
+    sourceAssets,
     files,
     expectedFiles,
     digests,
   };
 }
 
+function isSameOrChildPath(parentDir, candidatePath) {
+  const normParent = path.resolve(parentDir).toLowerCase();
+  const normCandidate = path.resolve(candidatePath).toLowerCase();
+  if (normParent === normCandidate) return true;
+  const rel = path.relative(normParent, normCandidate);
+  return Boolean(rel && !rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 function checkRelativePathBoundary(rootPath, targetPath, displayTarget) {
-  if (targetPath === rootPath) {
+  if (targetPath.toLowerCase() === rootPath.toLowerCase()) {
     throw new Error(`Refusing to clean project root as self-host output directory: ${displayTarget}`);
   }
 
-  const relFromTargetToRoot = path.relative(targetPath, rootPath);
+  const relFromTargetToRoot = path.relative(targetPath.toLowerCase(), rootPath.toLowerCase());
   if (relFromTargetToRoot && !relFromTargetToRoot.startsWith("..") && !path.isAbsolute(relFromTargetToRoot)) {
     throw new Error(`Refusing to clean ancestor directory of project root: ${displayTarget}`);
   }
@@ -679,7 +723,7 @@ function checkRelativePathBoundary(rootPath, targetPath, displayTarget) {
   }
 
   const firstSegment = rel.split(path.sep)[0];
-  if (PROTECTED_ROOT_DIRS.has(firstSegment)) {
+  if (PROTECTED_ROOT_DIRS.has(firstSegment.toLowerCase())) {
     throw new Error(
       `Refusing to write self-host output into protected directory "${firstSegment}": ${displayTarget}`,
     );
@@ -821,6 +865,40 @@ export function assertSafeOutputDir(projectRoot, outDir) {
   return realOut;
 }
 
+export function assertOutputDoesNotOverlapSources(projectRoot, safeOutDir, displayOutDir, plan) {
+  const realRoot = fs.realpathSync(path.resolve(projectRoot));
+
+  for (const asset of plan.sourceAssets || []) {
+    const assetRealPath = asset.realPath;
+    const assetDir = path.dirname(assetRealPath);
+    if (isSameOrChildPath(safeOutDir, assetRealPath)) {
+      throw new Error(
+        `Refusing self-host output directory overlapping configured brand asset "${asset.source}": ${displayOutDir}`,
+      );
+    }
+    if (assetDir.toLowerCase() !== realRoot.toLowerCase() && isSameOrChildPath(assetDir, safeOutDir)) {
+      throw new Error(
+        `Refusing self-host output directory inside configured brand asset directory for "${asset.source}": ${displayOutDir}`,
+      );
+    }
+  }
+
+  if (plan.configPath && fs.existsSync(plan.configPath)) {
+    const realConfigPath = fs.realpathSync(plan.configPath);
+    const configDir = path.dirname(realConfigPath);
+    if (isSameOrChildPath(safeOutDir, realConfigPath)) {
+      throw new Error(
+        `Refusing self-host output directory overlapping site config file "${path.basename(realConfigPath)}": ${displayOutDir}`,
+      );
+    }
+    if (configDir.toLowerCase() !== realRoot.toLowerCase() && isSameOrChildPath(configDir, safeOutDir)) {
+      throw new Error(
+        `Refusing self-host output directory inside site config directory "${configDir}": ${displayOutDir}`,
+      );
+    }
+  }
+}
+
 export function buildSelfhost(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || PROJECT_ROOT);
   const outDir = path.resolve(
@@ -828,12 +906,13 @@ export function buildSelfhost(options = {}) {
     options.outDir || path.join(projectRoot, "dist-selfhost"),
   );
 
-  // 先完成输出路径真实目的地安全校验与构建计划计算，再执行任何目录清理或写入副作用
+  // 先完成输出路径真实目的地安全校验、构建计划计算及源素材目录重叠校验，再执行任何目录清理或写入副作用
   const safeOutDir = assertSafeOutputDir(projectRoot, outDir);
   const plan = computeSelfhostBuildPlan({
     projectRoot,
     configPath: options.configPath,
   });
+  assertOutputDoesNotOverlapSources(projectRoot, safeOutDir, outDir, plan);
 
   // 清除旧产物，保证可重现且无历史残留
   fs.rmSync(safeOutDir, { recursive: true, force: true });

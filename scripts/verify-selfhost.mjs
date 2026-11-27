@@ -6,6 +6,7 @@ import {
   DEFAULT_SELFHOST_DIR,
   FORBIDDEN_PREFIXES,
   PROJECT_ROOT,
+  assertOutputDoesNotOverlapSources,
   assertSafeOutputDir,
   computeSelfhostBuildPlan,
   escapeHtml,
@@ -63,6 +64,7 @@ export function verifySelfhost(options = {}) {
     projectRoot,
     configPath: options.configPath,
   });
+  assertOutputDoesNotOverlapSources(projectRoot, safeOutDir, outDir, plan);
 
   if (!fs.existsSync(safeOutDir)) {
     throw new Error(`Self-host output directory does not exist: ${outDir}. Run "npm run build:selfhost" first.`);
@@ -92,10 +94,11 @@ export function verifySelfhost(options = {}) {
     errors.push(`Missing whitelisted files in self-host output: ${missingFiles.join(", ")}`);
   }
 
-  // 4. 禁止泄露仓库内部目录、配置文件、源码或 Workers 控制文件
+  // 4. 禁止泄露仓库内部目录、配置文件、源码或 Workers 控制文件（大小写不敏感）
   for (const file of actualFiles) {
+    const lowerFile = file.toLowerCase();
     for (const prefix of FORBIDDEN_PREFIXES) {
-      if (file === prefix || file.startsWith(prefix)) {
+      if (lowerFile === prefix || lowerFile.startsWith(prefix)) {
         errors.push(`Forbidden path leaked into self-host output: ${file}`);
       }
     }
@@ -129,7 +132,7 @@ export function verifySelfhost(options = {}) {
     const refs = extractLocalAssetRefs(html);
 
     for (const ref of refs) {
-      if (ref.startsWith("rounds/")) {
+      if (ref.toLowerCase().startsWith("rounds/")) {
         errors.push(`Built index.html must not reference master asset path directly: ${ref}`);
       }
       if (!actualFiles.includes(ref)) {
