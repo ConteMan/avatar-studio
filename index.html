@@ -2002,13 +2002,37 @@ var WorkLibrary = (function () {
       return false;
     }
   }
+  function pendingHasFullHistory(entry) {
+    return !!(entry && Array.isArray(entry.snapshots) && entry.snapshots.length);
+  }
+  function pendingEditEqual(a, b) {
+    if (!a || !b) return false;
+    if (a.tabId !== b.tabId || a.kind !== b.kind || a.workId !== b.workId) return false;
+    if (a.expectedRev !== b.expectedRev || a.at !== b.at) return false;
+    if (!!a.explicitCreate !== !!b.explicitCreate) return false;
+    if (a.currentIndex !== b.currentIndex) return false;
+    if (!!a.snapshots !== !!b.snapshots) return false;
+    if (a.snapshots) {
+      if (a.snapshots.length !== b.snapshots.length) return false;
+      for (var i = 0; i < a.snapshots.length; i++) {
+        if (!a.snapshots[i] || !b.snapshots[i]) return false;
+        if (!AvatarState.statesEqual(a.snapshots[i].state, b.snapshots[i].state)) return false;
+      }
+    }
+    return AvatarState.statesEqual(a.nextState, b.nextState);
+  }
   function readPendingEdit(storage, tabId, nowTs) {
     var map = readPendingMap(storage, nowTs);
     var keys = Object.keys(map);
     if (!keys.length) return null;
     if (tabId && map[tabId]) return map[tabId];
     keys.sort(function (a, b) { return map[b].at - map[a].at; });
-    return map[keys[0]];
+    // 完整历史只允许拥有该暂存的标签恢复；旧格式暂存保留原先的跨标签回放兼容。
+    for (var i = 0; i < keys.length; i++) {
+      if (!pendingHasFullHistory(map[keys[i]])) return map[keys[i]];
+    }
+    if (!tabId) return map[keys[0]];
+    return null;
   }
   function writePendingEdit(storage, entry) {
     try {
@@ -2036,6 +2060,35 @@ var WorkLibrary = (function () {
     } catch (e) {
       return false;
     }
+  }
+  function clearPendingEditIfCurrent(storage, expected, nowTs) {
+    if (!expected || !expected.tabId) return false;
+    try {
+      if (!storage) return false;
+      var map = readPendingMap(storage, nowTs);
+      var current = map[expected.tabId];
+      if (!current) return true;
+      if (!pendingEditEqual(current, expected)) return false;
+      delete map[expected.tabId];
+      return savePendingMap(storage, map);
+    } catch (e) {
+      return false;
+    }
+  }
+  function conflictCopyId(workId, history) {
+    var snaps = history && Array.isArray(history.snapshots) ? history.snapshots : [];
+    var parts = [String(workId || ''), String(history && typeof history.currentIndex === 'number' ? history.currentIndex : snaps.length - 1)];
+    for (var i = 0; i < snaps.length; i++) {
+      var san = AvatarState.sanitizeState(snaps[i] && snaps[i].state);
+      parts.push(san ? JSON.stringify(AvatarState.persistableState(san)) : '');
+    }
+    var text = parts.join('\n');
+    var hash = 2166136261;
+    for (var ci = 0; ci < text.length; ci++) {
+      hash ^= text.charCodeAt(ci);
+      hash = Math.imul(hash, 16777619);
+    }
+    return 'copy-' + ((hash >>> 0).toString(16)) + '-' + snaps.length;
   }
 
   function createStore(env) {
@@ -2561,14 +2614,54 @@ var WorkLibrary = (function () {
     }
 
     function replayPendingEdit(storage, tabId) {
+      function latestPending() {
+        return readPendingEdit(storage, owner, nowFn());
+      }
+      function pendingChangedResult() {
+        var latest = latestPending();
+        return { ok:false, reason:'pending-changed', pending:latest || pending, latest:null };
+      }
+      function stillCurrent() {
+        var latest = latestPending();
+        return !!(latest && pendingEditEqual(latest, pending));
+      }
+      function clearIfCurrent() {
+        return clearPendingEditIfCurrent(storage, pending, nowFn());
+      }
+      function findConflictCopy(latestWork) {
+        if (!hasFullHistory) {
+          return Promise.resolve({ ok:false, reason:'conflict', latest:latestWork, pending:pending });
+        }
+        var copyId = conflictCopyId(pending.workId, { snapshots:pending.snapshots, currentIndex:pending.currentIndex });
+        return getWork(copyId).then(function (copyRes) {
+          if (copyRes.ok && copyRes.work && historiesEqual(copyRes.work, pending)) {
+            var cleared = clearIfCurrent();
+            return {
+              ok:true,
+              recovered:true,
+              copiedBeforeUnload:true,
+              pendingCleared:cleared,
+              work:copyRes.work,
+              pending:pending
+            };
+          }
+          return { ok:false, reason:'conflict', latest:latestWork, pending:pending };
+        });
+      }
+
       var tsNow = nowFn();
       var pending = readPendingEdit(storage, tabId, tsNow);
       if (!pending) return Promise.resolve({ ok:true, recovered:false, none:true });
       var owner = pending.tabId;
       var hasFullHistory = Array.isArray(pending.snapshots) && pending.snapshots.length > 0;
+      // 完整历史只能由写入它的标签回放；旧格式暂存继续支持原跨标签兼容。
+      if (hasFullHistory && tabId && owner !== tabId) {
+        return Promise.resolve({ ok:true, recovered:false, foreign:true, pending:pending });
+      }
       if (pending.kind === 'edit') {
         return getWork(pending.workId).then(function (found) {
           if (!found.ok) return { ok:false, reason:found.reason, pending:pending };
+          if (!stillCurrent()) return pendingChangedResult();
           if (!found.work) {
             return createWork({
               source: pending.source || 'editor',
@@ -2581,7 +2674,7 @@ var WorkLibrary = (function () {
               setActive: true
             }).then(function (created) {
               if (created.ok) {
-                clearPendingEdit(storage, owner, tsNow);
+                clearIfCurrent();
                 return { ok:true, recovered:true, work:created.work, pending:pending };
               }
               return { ok:false, reason:created.reason, pending:pending };
@@ -2589,11 +2682,11 @@ var WorkLibrary = (function () {
           }
           if (hasFullHistory) {
             if (historiesEqual(found.work, pending)) {
-              clearPendingEdit(storage, owner, tsNow);
+              clearIfCurrent();
               return { ok:true, recovered:false, committedBeforeUnload:true, work:found.work, pending:pending };
             }
             if (found.work.rev !== pending.expectedRev) {
-              return { ok:false, reason:'conflict', latest:found.work, pending:pending };
+              return findConflictCopy(found.work);
             }
             return syncWorkHistory({
               id: found.work.id,
@@ -2602,14 +2695,14 @@ var WorkLibrary = (function () {
               currentIndex: pending.currentIndex
             }).then(function (saved) {
               if (saved.ok) {
-                clearPendingEdit(storage, owner, tsNow);
+                clearIfCurrent();
                 return { ok:true, recovered:!saved.skipped, work:saved.work, pending:pending };
               }
               return { ok:false, reason:saved.reason, latest:saved.latest || found.work, pending:pending };
             });
           }
           if (AvatarState.statesEqual(currentStateOf(found.work), pending.nextState)) {
-            clearPendingEdit(storage, owner, tsNow);
+            clearIfCurrent();
             return { ok:true, recovered:false, work:found.work, pending:pending };
           }
           if (found.work.rev !== pending.expectedRev) {
@@ -2622,7 +2715,7 @@ var WorkLibrary = (function () {
             label: pending.label
           }).then(function (saved) {
             if (saved.ok) {
-              clearPendingEdit(storage, owner, tsNow);
+              clearIfCurrent();
               return { ok:true, recovered:true, work:saved.work, pending:pending };
             }
             return { ok:false, reason:saved.reason, latest:saved.latest || found.work, pending:pending };
@@ -2632,10 +2725,11 @@ var WorkLibrary = (function () {
       if (pending.workId) {
         return getWork(pending.workId).then(function (foundById) {
           if (!foundById.ok) return { ok:false, reason:foundById.reason, pending:pending };
+          if (!stillCurrent()) return pendingChangedResult();
           if (foundById.work) {
             if (hasFullHistory && !historiesEqual(foundById.work, pending)) {
               if (foundById.work.rev !== 1) {
-                return { ok:false, reason:'conflict', latest:foundById.work, pending:pending };
+                return findConflictCopy(foundById.work);
               }
               return syncWorkHistory({
                 id: foundById.work.id,
@@ -2644,13 +2738,13 @@ var WorkLibrary = (function () {
                 currentIndex: pending.currentIndex
               }).then(function (synced) {
                 if (synced.ok) {
-                  clearPendingEdit(storage, owner, tsNow);
+                  clearIfCurrent();
                   return { ok:true, recovered:true, committedBeforeUnload:false, work:synced.work, pending:pending };
                 }
                 return { ok:false, reason:synced.reason, latest:synced.latest || foundById.work, pending:pending };
               });
             }
-            clearPendingEdit(storage, owner, tsNow);
+            clearIfCurrent();
             return { ok:true, recovered:false, committedBeforeUnload:true, work:foundById.work, pending:pending };
           }
           return createWork({
@@ -2665,7 +2759,7 @@ var WorkLibrary = (function () {
             setActive: true
           }).then(function (created) {
             if (created.ok) {
-              clearPendingEdit(storage, owner, tsNow);
+              clearIfCurrent();
               return {
                 ok: true,
                 recovered: !created.deduplicated,
@@ -2680,6 +2774,7 @@ var WorkLibrary = (function () {
       }
       return listWorks().then(function (list) {
         if (!list.ok) return { ok:false, reason:list.reason, pending:pending };
+        if (!stillCurrent()) return pendingChangedResult();
         var existing = list.works.find(function (w) {
           if (hasFullHistory) return w.updatedAt >= pending.at - 2000 && historiesEqual(w, pending);
           return w.updatedAt >= pending.at - 2000 &&
@@ -2687,7 +2782,7 @@ var WorkLibrary = (function () {
             AvatarState.statesEqual(currentStateOf(w), pending.nextState);
         });
         if (existing) {
-          clearPendingEdit(storage, owner, tsNow);
+          clearIfCurrent();
           return { ok:true, recovered:false, work:existing, pending:pending };
         }
         return createWork({
@@ -2701,7 +2796,7 @@ var WorkLibrary = (function () {
           setActive: true
         }).then(function (created) {
           if (created.ok) {
-            clearPendingEdit(storage, owner, tsNow);
+            clearIfCurrent();
             return { ok:true, recovered:true, work:created.work, pending:pending };
           }
           return { ok:false, reason:created.reason, pending:pending };
@@ -2771,6 +2866,10 @@ var WorkLibrary = (function () {
     readPendingEdit: readPendingEdit,
     writePendingEdit: writePendingEdit,
     clearPendingEdit: clearPendingEdit,
+    pendingEditEqual: pendingEditEqual,
+    clearPendingEditIfCurrent: clearPendingEditIfCurrent,
+    pendingHasFullHistory: pendingHasFullHistory,
+    conflictCopyId: conflictCopyId,
     shouldAdoptShareReplay: shouldAdoptShareReplay,
     generateWorkId: defaultRandomId,
     createStore: createStore
@@ -2914,11 +3013,26 @@ if (typeof document !== 'undefined') (function () {
   }
   function resolveTabId() {
     var key = 'avatar-studio.tab-id';
+    var navType = '';
+    try {
+      var entries = typeof performance !== 'undefined' && performance.getEntriesByType
+        ? performance.getEntriesByType('navigation')
+        : null;
+      if (entries && entries.length) navType = entries[0].type || '';
+    } catch (e) {}
     try {
       var ss = window.sessionStorage;
       if (ss && typeof ss.getItem === 'function') {
         var existing = ss.getItem(key);
-        if (existing && existing.trim()) return existing.trim().slice(0, 80);
+        if (existing && existing.trim()) {
+          // 复制标签或 window.open 会继承 sessionStorage；只有刷新/前进后退沿用原归属。
+          if (!navType || navType === 'reload' || navType === 'back_forward') {
+            return existing.trim().slice(0, 80);
+          }
+          var copied = 'tab-' + libraryModel.generateWorkId();
+          ss.setItem(key, copied);
+          return copied;
+        }
         var fresh = 'tab-' + libraryModel.generateWorkId();
         ss.setItem(key, fresh);
         return fresh;
@@ -2965,6 +3079,8 @@ if (typeof document !== 'undefined') (function () {
   var drainPromise = null;
   var drainResolve = null;
   var continuousSaveTimer = null;
+  var copyInFlight = false;
+  var pendingWriteFailed = false;
   var coalesceSession = null;
   var coalesceIdleTimer = null;
   var activePointerKey = null;
@@ -3129,14 +3245,29 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function clearOwnPendingEdit() {
-    libraryModel.clearPendingEdit(safeLocalStorage(), tabId);
+    var cleared = libraryModel.clearPendingEdit(safeLocalStorage(), tabId);
+    if (cleared) pendingWriteFailed = false;
+    return cleared;
+  }
+  function clearOwnPendingEditIfCurrent(expected) {
+    var cleared = libraryModel.clearPendingEditIfCurrent(safeLocalStorage(), expected);
+    if (cleared) pendingWriteFailed = false;
+    return cleared;
+  }
+  function writeOwnPendingEdit(entry) {
+    var written = libraryModel.writePendingEdit(safeLocalStorage(), entry);
+    pendingWriteFailed = !written;
+    return written;
+  }
+  function currentOwnPendingEdit() {
+    return libraryModel.readPendingEdit(safeLocalStorage(), tabId);
   }
   function ensurePendingCreateId() {
     if (!pendingCreateId) pendingCreateId = libraryModel.generateWorkId();
     return pendingCreateId;
   }
-  function recordPendingEdit() {
-    if (conflict) return;
+  function recordPendingEdit(force) {
+    if (conflict && !force) return;
     var hist = cloneHistory(localHistory);
     var curSnap = hist.snapshots[hist.currentIndex];
     var baseSnap = hist.snapshots[0];
@@ -3147,7 +3278,7 @@ if (typeof document !== 'undefined') (function () {
         clearOwnPendingEdit();
         return;
       }
-      libraryModel.writePendingEdit(safeLocalStorage(), {
+      writeOwnPendingEdit({
         tabId: tabId,
         kind: 'create',
         workId: ensurePendingCreateId(),
@@ -3168,7 +3299,7 @@ if (typeof document !== 'undefined') (function () {
         clearOwnPendingEdit();
         return;
       }
-      libraryModel.writePendingEdit(safeLocalStorage(), {
+      writeOwnPendingEdit({
         tabId: tabId,
         kind: 'create',
         workId: ensurePendingCreateId(),
@@ -3188,7 +3319,7 @@ if (typeof document !== 'undefined') (function () {
       clearOwnPendingEdit();
       return;
     }
-    libraryModel.writePendingEdit(safeLocalStorage(), {
+    writeOwnPendingEdit({
       tabId: tabId,
       kind: 'edit',
       workId: activeWork.id,
@@ -3309,7 +3440,11 @@ if (typeof document !== 'undefined') (function () {
     return st;
   }
   function enterExamplePreview(seed) {
-    var ready = (!conflict && !unsaved) ? flushAndWaitForSave() : Promise.resolve();
+    if (conflict || unsaved) {
+      toast('请先处理当前未保存的更改，再切换示例');
+      return Promise.resolve();
+    }
+    var ready = flushAndWaitForSave();
     return ready.then(function () {
       var returnWorkId = preview ? preview.returnWorkId : (activeWork ? activeWork.id : null);
       var returnState = preview ? preview.returnState : (activeWork ? null : stateModel.persistableState(stateModel.sanitizeState(state)));
@@ -3529,9 +3664,15 @@ if (typeof document !== 'undefined') (function () {
       bar.classList.add('is-error');
       bar.setAttribute('role', 'alert');
       titleEl.textContent = libraryModel.saveErrorMessage('conflict');
-      statusEl.textContent = '其他标签页已保存新版，当前画面未覆盖原进度。';
-      actionsEl.appendChild(makeActionButton('btnConflictReload', '重新载入新版', false, resolveConflictReload));
-      actionsEl.appendChild(makeActionButton('btnConflictCopy', '保存为副本', true, resolveConflictCopy));
+      statusEl.textContent = pendingWriteFailed
+        ? '其他标签页已保存新版，当前画面未覆盖原进度。浏览器无法写入恢复暂存，刷新会丢失当前分支；请先导出配置 JSON。'
+        : '其他标签页已保存新版，当前画面未覆盖原进度；刷新后仍可继续处理。';
+      var reloadBtn = makeActionButton('btnConflictReload', '重新载入新版', false, resolveConflictReload);
+      reloadBtn.disabled = copyInFlight;
+      actionsEl.appendChild(reloadBtn);
+      var copyBtn = makeActionButton('btnConflictCopy', copyInFlight ? '正在保存副本…' : '保存为副本', true, resolveConflictCopy);
+      copyBtn.disabled = copyInFlight;
+      actionsEl.appendChild(copyBtn);
       actionsEl.appendChild(makeActionButton('btnConflictExport', '导出配置 JSON', false, exportConfigJsonFile));
       syncHistoryControls();
       return;
@@ -3544,7 +3685,9 @@ if (typeof document !== 'undefined') (function () {
       titleEl.textContent = unsaved.migrationFailed
         ? ('旧草稿迁移失败 · ' + libraryModel.saveErrorMessage(unsaved.reason))
         : libraryModel.saveErrorMessage(unsaved.reason);
-      statusEl.textContent = '当前画面与上次已保存版本均保留，可重试或导出备份。';
+      statusEl.textContent = pendingWriteFailed
+        ? '当前画面与上次已保存版本均保留，但浏览器无法写入恢复暂存，刷新会丢失当前分支；可重试或导出配置 JSON。'
+        : '当前画面与上次已保存版本均保留，可重试或导出备份；刷新后仍可继续处理。';
       actionsEl.appendChild(makeActionButton('btnRetrySave', '重试保存', true, retrySave));
       actionsEl.appendChild(makeActionButton('btnExportUnsavedJson', '导出配置 JSON', false, exportConfigJsonFile));
       syncHistoryControls();
@@ -3793,7 +3936,13 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function openWorkById(id) {
-    var ready = (!conflict && !unsaved) ? flushAndWaitForSave() : Promise.resolve();
+    if (conflict || unsaved) {
+      libraryAlertMsg = '当前有未保存的更改，请先重试保存、保存为副本或导出配置 JSON。';
+      renderLibraryDialog();
+      toast('请先处理当前未保存的更改，再切换作品');
+      return Promise.resolve();
+    }
+    var ready = flushAndWaitForSave();
     return ready.then(function () {
       return store.setActiveWork(id);
     }).then(function (res) {
@@ -3880,7 +4029,7 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function resolveConflictReload() {
-    if (!conflict) return;
+    if (!conflict || copyInFlight) return;
     var targetId = conflict.workId;
     store.getWork(targetId).then(function (res) {
       if (!res.ok) {
@@ -3888,20 +4037,19 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
       if (!res.work) {
-        conflict = null;
-        activeWork = null;
-        clearOwnPendingEdit();
+        toast('原作品已不存在，当前分支仍保留；可保存为副本或导出配置 JSON');
         renderWorkBar();
-        toast('原作品已不存在，请另存为副本');
         return;
       }
       contextEpoch += 1;
+      copyInFlight = false;
       historyDirty = false;
       explicitCreatePending = false;
       pendingCreateId = null;
       if (continuousSaveTimer !== null) { clearTimeout(continuousSaveTimer); continuousSaveTimer = null; }
       unsaved = null;
       conflict = null;
+      // 用户明确选择载入新版，放弃本标签未保存分支后才清理暂存。
       clearOwnPendingEdit();
       activeWork = res.work;
       state = libraryModel.currentStateOf(res.work);
@@ -3914,17 +4062,26 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function resolveConflictCopy() {
-    if (!conflict) return;
+    if (!conflict || copyInFlight) return;
+    var target = conflict;
     var snap = stateModel.persistableState(stateModel.sanitizeState(state));
-    var baseState = conflict.baseState || snap;
-    var baseLabel = conflict.baseLabel || '初始状态';
-    var copyFromTitle = conflict.workTitle || '未命名作品';
-    var copySnapshots = Array.isArray(conflict.localSnapshots) && conflict.localSnapshots.length
-      ? cloneSnapshots(conflict.localSnapshots)
+    var baseState = target.baseState || snap;
+    var baseLabel = target.baseLabel || '初始状态';
+    var copyFromTitle = target.workTitle || '未命名作品';
+    var copySnapshots = Array.isArray(target.localSnapshots) && target.localSnapshots.length
+      ? cloneSnapshots(target.localSnapshots)
       : null;
-    var copyIndex = typeof conflict.localCurrentIndex === 'number' ? conflict.localCurrentIndex : null;
+    var copyIndex = typeof target.localCurrentIndex === 'number' ? target.localCurrentIndex : null;
+    var copyHistory = copySnapshots
+      ? { snapshots: copySnapshots, currentIndex: copyIndex }
+      : { snapshots: [{ state: snap, label: '保存为副本', at: Date.now() }], currentIndex: 0 };
+    if (!target.copyId) target.copyId = libraryModel.conflictCopyId(target.workId, copyHistory);
+    var copyPending = target.pending || currentOwnPendingEdit();
     var epoch = contextEpoch;
+    copyInFlight = true;
+    renderWorkBar();
     store.createWork({
+      id: target.copyId,
       copyFromTitle: copyFromTitle,
       source: 'duplicate',
       baseState: baseState,
@@ -3935,7 +4092,16 @@ if (typeof document !== 'undefined') (function () {
       currentIndex: copyIndex,
       setActive: true
     }).then(function (res) {
-      if (epoch !== contextEpoch) return;
+      copyInFlight = false;
+      if (res.ok) {
+        // 副本已实际落盘，只有此时才安全清理对应的本标签暂存。
+        if (copyPending) clearOwnPendingEditIfCurrent(copyPending);
+        else clearOwnPendingEdit();
+      }
+      if (epoch !== contextEpoch) {
+        renderWorkBar();
+        return;
+      }
       if (res.ok) {
         activeWork = res.work;
         conflict = null;
@@ -3945,7 +4111,6 @@ if (typeof document !== 'undefined') (function () {
         storageNotice = '';
         pendingCreateId = null;
         setLocalHistoryFromWork(res.work);
-        clearOwnPendingEdit();
         clearShareParamAfterSave();
         document.documentElement.setAttribute('data-avatar-source', 'library');
         broadcastLibraryChange(res.work.id);
@@ -3955,7 +4120,13 @@ if (typeof document !== 'undefined') (function () {
       } else {
         announceStorageFailure(res.reason);
         renderWorkBar();
+        toast('副本尚未保存，可重试；当前分支仍保留');
       }
+    }, function () {
+      copyInFlight = false;
+      announceStorageFailure('unavailable');
+      renderWorkBar();
+      toast('副本尚未保存，可重试；当前分支仍保留');
     });
   }
 
@@ -4128,23 +4299,30 @@ if (typeof document !== 'undefined') (function () {
     var desired = cloneHistory(localHistory);
     var desiredExplicit = explicitCreatePending;
     var jobEpoch = contextEpoch;
+    var jobPending = currentOwnPendingEdit();
     historyDirty = false;
     explicitCreatePending = false;
     saveInFlight = true;
     renderWorkBar();
 
-    function finishStep(stopQueue) {
+    function finishStep(step) {
+      step = step || {};
       saveInFlight = false;
-      renderWorkBar();
-      if (!stopQueue && historyDirty) {
+      if (!step.stop && historyDirty) {
         recordPendingEdit();
+        renderWorkBar();
         drainSaveQueue();
-      } else {
-        if (stopQueue || continuousSaveTimer === null) {
-          clearOwnPendingEdit();
-        }
-        finishDrainPromise();
+        return;
       }
+      if (step.retainPending) {
+        recordPendingEdit(true);
+        if (conflict) conflict.pending = currentOwnPendingEdit();
+      } else if (!step.stop && step.saved) {
+        if (jobPending) clearOwnPendingEditIfCurrent(jobPending);
+        else pendingWriteFailed = false;
+      }
+      renderWorkBar();
+      finishDrainPromise();
     }
 
     var promise;
@@ -4154,7 +4332,7 @@ if (typeof document !== 'undefined') (function () {
         if (!mig.ok) {
           unsaved = { reason:mig.reason, migrationFailed:true, pendingCreate:null };
           announceStorageFailure(mig.reason);
-          return { stop:true };
+          return { stop:true, retainPending:false };
         }
         var workPromise = mig.work
           ? Promise.resolve({ ok:true, work:mig.work })
@@ -4171,7 +4349,7 @@ if (typeof document !== 'undefined') (function () {
               clearShareParamAfterSave();
               refreshWorksCache(true);
             }
-            return { stop:false };
+            return { stop:false, saved:true };
           }
           unsaved = null;
           historyDirty = true;
@@ -4213,7 +4391,7 @@ if (typeof document !== 'undefined') (function () {
           refreshWorksCache(true);
           syncHistoryControls();
           if (desiredExplicit) toast('已保存为新作品「' + res.work.title + '」');
-          return { stop:false };
+          return { stop:false, saved:true };
         }
         unsaved = {
           reason: res.reason,
@@ -4225,7 +4403,7 @@ if (typeof document !== 'undefined') (function () {
           }
         };
         announceStorageFailure(res.reason);
-        return { stop:true };
+        return { stop:true, retainPending:true };
       });
     } else if (!activeWork) {
       if (!desiredExplicit && desired.snapshots.length <= 1 && stateModel.statesEqual(freshBaseState, desired.snapshots[0].state)) {
@@ -4258,7 +4436,7 @@ if (typeof document !== 'undefined') (function () {
           broadcastLibraryChange(res.work.id);
           refreshWorksCache(true);
           syncHistoryControls();
-          return { stop:false };
+          return { stop:false, saved:true };
         }
         unsaved = {
           reason: res.reason,
@@ -4270,7 +4448,7 @@ if (typeof document !== 'undefined') (function () {
           }
         };
         announceStorageFailure(res.reason);
-        return { stop:true };
+        return { stop:true, retainPending:true };
       });
     } else {
       promise = store.syncWorkHistory({
@@ -4294,7 +4472,7 @@ if (typeof document !== 'undefined') (function () {
           broadcastLibraryChange(res.work.id);
           refreshWorksCache(true);
           syncHistoryControls();
-          return { stop:false };
+          return { stop:false, saved:true };
         }
         if (res.reason === 'conflict') {
           conflict = {
@@ -4310,20 +4488,20 @@ if (typeof document !== 'undefined') (function () {
           explicitCreatePending = false;
           syncHistoryControls({ preserveFocus: true });
           toast('此作品已在其他标签页更新，当前更改尚未保存');
-          return { stop:true };
+          return { stop:true, retainPending:true };
         }
         unsaved = { reason:res.reason, migrationFailed:false, pendingCreate:null };
         announceStorageFailure(res.reason);
-        return { stop:true };
+        return { stop:true, retainPending:true };
       });
     }
 
     promise.then(function (step) {
-      finishStep(!!(step && step.stop));
+      finishStep(step || {});
     }, function () {
       unsaved = { reason:'unavailable', migrationFailed:false, pendingCreate:null };
       announceStorageFailure('unavailable');
-      finishStep(true);
+      finishStep({ stop:true, retainPending:true });
     });
   }
 
@@ -4519,6 +4697,77 @@ if (typeof document !== 'undefined') (function () {
       : '链接无效，已显示默认形象';
   }
 
+  function pendingHistoryFromReplay(pending) {
+    if (Array.isArray(pending.snapshots) && pending.snapshots.length) {
+      return cloneHistory({ snapshots: pending.snapshots, currentIndex: pending.currentIndex });
+    }
+    return cloneHistory({
+      snapshots: [
+        { state: pending.baseState, label: pending.baseLabel || '初始状态', at: pending.at },
+        { state: pending.nextState, label: pending.label || '编辑', at: pending.at }
+      ],
+      currentIndex: 1
+    });
+  }
+  function restorePendingBranch(pending, reason, works, fallbackWork) {
+    if (!pending) return false;
+    var latest = null;
+    if (pending.workId) {
+      latest = (works || []).find(function (w) { return w.id === pending.workId; }) || null;
+      if (!latest && fallbackWork && fallbackWork.id === pending.workId) latest = fallbackWork;
+    }
+    var hist = pendingHistoryFromReplay(pending);
+    localHistory = hist;
+    state = stateModel.sanitizeState(hist.snapshots[hist.currentIndex].state);
+    historyDirty = false;
+    if (pending.kind === 'edit') {
+      activeWork = latest;
+      preview = null;
+      pendingCreateId = null;
+      explicitCreatePending = false;
+      if (reason === 'conflict') {
+        conflict = {
+          workId: pending.workId,
+          workTitle: latest ? latest.title : '未命名作品',
+          baseState: pending.baseState,
+          baseLabel: pending.baseLabel,
+          latest: latest,
+          localSnapshots: cloneSnapshots(hist.snapshots),
+          localCurrentIndex: hist.currentIndex,
+          pending: pending
+        };
+        unsaved = null;
+        toast('此作品已在其他标签页更新，已恢复未保存编辑；刷新后仍可处理');
+      } else {
+        conflict = null;
+        unsaved = { reason:reason, migrationFailed:false, pendingCreate:null };
+        toast(libraryModel.saveErrorMessage(reason) + '；当前分支将在刷新后继续保留');
+      }
+      document.documentElement.setAttribute('data-avatar-source', 'library');
+    } else {
+      activeWork = null;
+      preview = null;
+      pendingCreateId = pending.workId || null;
+      explicitCreatePending = !!pending.explicitCreate;
+      conflict = null;
+      unsaved = {
+        reason: reason,
+        migrationFailed: false,
+        pendingCreate: {
+          source: pending.source || 'editor',
+          baseState: pending.baseState,
+          baseLabel: pending.baseLabel
+        }
+      };
+      document.documentElement.setAttribute('data-avatar-source', 'default');
+      toast(libraryModel.saveErrorMessage(reason) + '；新作品分支将在刷新后继续保留');
+    }
+    syncHistoryControls();
+    refresh({ syncFocusedInputs: true });
+    renderWorkBar();
+    return true;
+  }
+
   function bootLibrary() {
     var storageRef = safeLocalStorage();
     return store.migrateLegacyDraft(storageRef).then(function (mig) {
@@ -4564,8 +4813,12 @@ if (typeof document !== 'undefined') (function () {
         return store.listWorks().then(function (list) {
           bootDone = true;
           if (!list.ok) {
-            unsaved = { reason:list.reason, migrationFailed:false, pendingCreate:null };
-            renderWorkBar();
+            if (replayed && !replayed.ok && replayed.pending && !preview && !userActedBeforeBoot) {
+              restorePendingBranch(replayed.pending, replayed.reason, [], replayed.latest || null);
+            } else {
+              unsaved = { reason:list.reason, migrationFailed:false, pendingCreate:null };
+              renderWorkBar();
+            }
             document.documentElement.setAttribute('data-library-ready', 'true');
             if (historyDirty) drainSaveQueue();
             return;
@@ -4579,35 +4832,9 @@ if (typeof document !== 'undefined') (function () {
           }
           if (!lastWork && worksCache.length) lastWork = worksCache[0];
 
-          if (replayed && !replayed.ok && replayed.reason === 'conflict' && replayed.pending && !preview && !userActedBeforeBoot) {
-            var latest = replayed.latest || lastWork;
-            activeWork = latest;
-            state = stateModel.sanitizeState(replayed.pending.nextState);
-            var conflictSnaps = Array.isArray(replayed.pending.snapshots) && replayed.pending.snapshots.length
-              ? cloneSnapshots(replayed.pending.snapshots)
-              : null;
-            var conflictIdx = typeof replayed.pending.currentIndex === 'number'
-              ? replayed.pending.currentIndex
-              : null;
-            if (conflictSnaps) {
-              localHistory = cloneHistory({ snapshots: conflictSnaps, currentIndex: conflictIdx });
-            } else {
-              setLocalHistoryFromBase(state, replayed.pending.label || '编辑');
-            }
-            conflict = {
-              workId: replayed.pending.workId,
-              workTitle: latest ? latest.title : '未命名作品',
-              baseState: replayed.pending.baseState,
-              baseLabel: replayed.pending.baseLabel,
-              latest: latest || null,
-              localSnapshots: conflictSnaps,
-              localCurrentIndex: conflictIdx
-            };
-            libraryModel.clearPendingEdit(storageRef, replayed.pending.tabId);
-            document.documentElement.setAttribute('data-avatar-source', 'library');
-            refresh({ syncFocusedInputs: true });
-            renderWorkBar();
-            toast('此作品已在其他标签页更新，已恢复未保存编辑');
+          if (replayed && !replayed.ok && replayed.pending && !preview && !userActedBeforeBoot) {
+            // 启动回放失败也保留本标签暂存和完整分支，刷新后还能继续处理。
+            restorePendingBranch(replayed.pending, replayed.reason, worksCache, replayed.latest || lastWork);
             document.documentElement.setAttribute('data-library-ready', 'true');
             if (historyDirty) drainSaveQueue();
             return;
