@@ -1,0 +1,10 @@
+{
+  "siteName": "星尘头像工坊",
+  "title": "星尘头像工坊 · 自建半身像",
+  "description": "面向团队与社区的纯静态半身头像生成器，支持自定义品牌并导出 SVG 或 PNG。",
+  "logo": "assets/mark.svg",
+  "favicon": {
+    "svg": "assets/mark.svg",
+    "png": "assets/favicon-32.png"
+  }
+}
