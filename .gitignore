@@ -1,4 +1,5 @@
 /dist/
+/dist-selfhost/
 /.cloudflare/
 /node_modules/
 .DS_Store

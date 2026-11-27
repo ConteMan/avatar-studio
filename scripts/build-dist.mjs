@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPackageVersion as readPkgVersion } from "./package-version.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,10 @@ export const EXPECTED_DIST_FILES = Object.freeze(
 
 function sha256Buffer(buf) {
   return createHash("sha256").update(buf).digest("hex");
+}
+
+export function readPackageVersion(projectRoot = PROJECT_ROOT) {
+  return readPkgVersion(projectRoot);
 }
 
 export function readReleaseManifest(projectRoot = PROJECT_ROOT) {
@@ -151,18 +156,7 @@ export function buildDist(options = {}) {
   }
 
   const gitInfo = readGitInfo(projectRoot);
-  const pkgPath = path.join(projectRoot, "package.json");
-  let packageVersion = "0.1.0-candidate.0";
-  if (fs.existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-      if (typeof pkg.version === "string" && pkg.version) {
-        packageVersion = pkg.version;
-      }
-    } catch {
-      // Keep default version if package.json is unavailable
-    }
-  }
+  const packageVersion = readPackageVersion(projectRoot);
 
   // 静态预发布产物始终保持 released=false：是否上线只能在实际部署并复测公开地址后确认，
   // 绝不在静态构建阶段提前宣称已发布。

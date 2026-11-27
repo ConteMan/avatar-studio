@@ -29,6 +29,16 @@ npm run preview
 
 需要运行 Cloudflare `cf` 无上传干跑校验或正式发布校验时，安装锁定依赖后执行 `npm run verify:release -- --expect-commit "$(git rev-parse HEAD)"`、`npm run cf:dry-run` 与 `npm run cf:triggers:dry-run`，详见 [打包与发布指南](docs/RELEASING.md)。
 
+自建静态部署（自定义站名、标题、描述、Logo 与 favicon，输出至独立目录 `dist-selfhost/`，支持无 Git 源码包且无需 `npm install`）：
+
+```sh
+npm run build:selfhost
+npm run verify:selfhost
+npm run preview:selfhost
+```
+
+首次换品牌与上传文件说明见 [自建静态部署指南](docs/SELFHOST.md)，配置模板见 [site.config.example.json](site.config.example.json)。
+
 ## 随机与锁定
 
 「随机生成」重抽未锁的部件、参数和配色。输入种子后按回车或离开输入框也遵守同一规则。部件锁保留选择及其随机轮廓细节；参数锁和配色锁独立，未锁参数或颜色仍可影响已锁部件。全部锁定后，重复随机保持同一 SVG。手动点选和「换一个」仍可更换锁定部件。
@@ -43,6 +53,7 @@ npm run preview
 - [开发与首发安排](docs/development-plan.md)：已批准的架构、维护流程、开发切片和发布验收；`0.1.0` 正式上线记录见 [RELEASING.md](docs/RELEASING.md)。
 - [设计基线](docs/DESIGN.md)：当前 11 层、状态字段、分享格式与后续目标。
 - [打包与发布指南](docs/RELEASING.md)：显式白名单构建、本地预览、`cf` dry-run、授权后发布与回退撤下步骤。
+- [自建静态部署指南](docs/SELFHOST.md)：通过 `site.config.json` 更换品牌、构建校验 `dist-selfhost/` 及静态上传说明。
 - [开发安排可视化](docs/development-overview.html)：可离线打开的流程与开发顺序。
 - [指挥者注意事项](docs/commander-notes.md)：继续开发前先读的约束与已定决策。
 

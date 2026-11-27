@@ -95,6 +95,7 @@ function createIsolatedRepoFixture(overrides = {}) {
     "deploy/release.json",
     "cloudflare.config.ts",
     "package.json",
+    "scripts/package-version.mjs",
     "scripts/build-dist.mjs",
     "scripts/verify-dist.mjs",
     "scripts/preview-dist.mjs",
@@ -309,7 +310,7 @@ test("显式 release 模式与 verify:ci 清单门禁放行干净授权发布提
       /does not match expected commit/,
     );
 
-    // 4. 伪造 released=true 必须失败（预发布产物不得提前宣称已发布）
+    // 4. 伪造 released=true 或篡改 packageVersion 必须失败（预发布产物不得提前宣称已发布或偏离 package.json）
     const metaPath = path.join(releaseFixture.dir, "dist/build-meta.json");
     const origMeta = fs.readFileSync(metaPath, "utf8");
     const tampered = JSON.parse(origMeta);
@@ -322,6 +323,13 @@ test("显式 release 模式与 verify:ci 清单门禁放行干净授权发布提
     assert.throws(
       () => runManifestGate({ projectRoot: releaseFixture.dir }),
       /Pre-deploy build-meta\.json must keep released=false/,
+    );
+    const wrongVer = JSON.parse(origMeta);
+    wrongVer.packageVersion = "9.9.9";
+    fs.writeFileSync(metaPath, `${JSON.stringify(wrongVer, null, 2)}\n`, "utf8");
+    assert.throws(
+      () => verifyDist({ projectRoot: releaseFixture.dir, mode: "release" }),
+      /does not match package\.json version/,
     );
     fs.writeFileSync(metaPath, origMeta, "utf8");
 
