@@ -34,12 +34,9 @@
   }
   .brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
   .brand .mark{width:32px;height:32px;flex:none;display:block}
-  .brand-text{display:flex;align-items:baseline;gap:10px;min-width:0}
   .brand h1{font-size:17px;margin:0;letter-spacing:.02em;font-weight:650;line-height:1.2;white-space:nowrap}
-  .brand span{font-size:12px;color:var(--label)}
-  .brand a{font-size:12px;color:var(--muted);text-decoration:none;margin-left:8px}
-  .brand a:hover{color:var(--brand)}
-  .brand a:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+  .btn.about{border-color:transparent;background:transparent;color:var(--label)}
+  .btn.about:hover{background:var(--brand-soft);color:var(--brand)}
   .seedbox{display:flex;align-items:center;gap:6px}
   .seedbox label{font-size:12px;color:var(--muted);white-space:nowrap}
   input[type=text]{
@@ -54,7 +51,6 @@
   .btn:hover{border-color:#c9c4bb;background:#faf9f6}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn.primary:hover{background:#932a24}
-  .btn.sm{padding:5px 9px;font-size:11px;border-radius:7px}
   main{
     display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start;
     padding:24px 28px 48px;max-width:1500px;margin:0 auto;
@@ -67,16 +63,23 @@
     aspect-ratio:1/1;box-shadow:0 12px 40px rgba(30,25,20,.05);position:relative;
   }
   .canvas svg{width:100%;height:100%;display:block}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  .preview-actions,.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .more-actions{position:relative}
+  details.more-actions > summary{letter-spacing:normal;text-transform:none;font-size:13px;font-weight:500;line-height:1.2;display:grid;place-items:center}
+  .more-options{
+    position:absolute;z-index:1;top:calc(100% + 6px);left:0;display:grid;gap:4px;width:max-content;
+    padding:6px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  }
+  .more-options .btn{text-align:left}
   .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
   .seg button{border:0;background:transparent;padding:8px 13px;font-size:12px;color:var(--muted)}
+  .seg button:focus-visible{outline-offset:-3px}
   .seg button.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
   .spacer{flex:1}
-  .stat{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
-  .plain{margin-top:12px;font-size:12px;color:#5c574f;line-height:1.7;max-width:40rem}
-  .stat b{color:var(--ink);font-weight:600}
-  .gallery{margin-top:22px}
-  .gallery h2{font-size:12px;font-weight:600;color:var(--label);margin:0 0 10px;letter-spacing:.04em}
+  .plain{margin:12px 0 4px;font-size:13px;color:var(--label);line-height:1.65;max-width:40rem}
+  .stage > details{margin-top:8px}
+  .stage > details summary{display:flex;align-items:center;gap:4px;width:fit-content;min-height:32px;letter-spacing:normal}
+  .ggrid,.seedbox{margin-top:8px}
   .ggrid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
   .ggrid button{
     aspect-ratio:1/1;padding:0;border:1px solid var(--line);border-radius:10px;
@@ -88,7 +91,7 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
   .card > h2{
     display:flex;align-items:center;justify-content:space-between;gap:8px;
-    font-size:12px;font-weight:650;letter-spacing:.06em;color:var(--label);margin:0 0 14px;text-transform:uppercase;
+    font-size:22px;font-weight:650;color:var(--ink);margin:0 0 14px;
   }
   .card > h2 .mini{float:none;margin:0}
   .slot{padding:12px 0;border-top:1px dashed var(--line)}
@@ -96,6 +99,7 @@
   .slot-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
   .slot-head .name{font-size:13px;font-weight:600}
   .slot-head .count{font-size:11px;color:var(--muted);font-weight:400}
+  .legacy-bg{margin:0 0 8px;color:var(--label);font-size:12px}
   .slot-head .spacer{flex:1}
   .mini{font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);white-space:nowrap}
   .mini:hover{color:var(--ink)}
@@ -136,8 +140,17 @@
   details summary::-webkit-details-marker{display:none}
   details summary::before{content:"＋ ";color:var(--brand)}
   details[open] summary::before{content:"－ "}
+  details.more-actions > summary::before{content:none}
   details p{margin:12px 0 0}
-  details code{background:#f2f0eb;padding:1px 5px;border-radius:4px;font-size:11px;color:var(--ink)}
+  dialog{
+    color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    width:min(36rem,calc(100% - 32px));max-height:calc(100% - 32px);padding:24px;overflow:auto;overscroll-behavior:contain;
+  }
+  dialog::backdrop{background:rgba(27,26,24,.5)}
+  .about-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .about-head h2{font-size:20px;margin:0}
+  dialog h3{font-size:15px;margin:22px 0 6px}
+  dialog p{line-height:1.7;color:var(--label);margin:10px 0 0}
   .toast{
     position:fixed;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translate(-50%,16px);opacity:0;pointer-events:none;
     background:#1b1a18;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:99;transition:.22s
@@ -148,12 +161,14 @@
     .left{position:static;max-width:560px}
     .opts{grid-template-columns:repeat(6,1fr)}
   }
+  @media(min-width:1081px){
+    .left{max-width:min(600px,max(300px,calc(100dvh - var(--header-h) - 185px)))}
+  }
   @media(max-width:620px){
     header{padding:14px 16px}
     main{padding:16px;gap:16px}
     .opts{grid-template-columns:repeat(4,1fr)}
     .ggrid{grid-template-columns:repeat(4,1fr)}
-    .brand span{display:none}
   }
   /* 窄屏：144px 预览贴在页头下。main 用块级而不是格子，预览才能在整页滚动时留住；控件排在预览下面。 */
   @media(max-width:720px){
@@ -169,17 +184,24 @@
     .left{display:contents;max-width:none;margin:0}
     .live-dock{
       position:sticky;top:var(--header-h);z-index:15;max-width:none;width:auto;
+      display:flex;align-items:center;gap:12px;justify-content:center;
       margin:0 -16px;padding:10px 16px 12px;border-bottom:1px solid var(--line);
     }
-    .canvas{width:144px;height:144px;max-width:144px;aspect-ratio:auto;margin:0 auto;box-shadow:0 8px 24px rgba(30,25,20,.06)}
-    .stage{padding-top:14px}
+    .canvas{width:144px;height:144px;flex:none;aspect-ratio:auto;box-shadow:0 8px 24px rgba(30,25,20,.06)}
+    .preview-actions{display:grid;gap:6px;margin:0;width:min(11rem,calc(100% - 156px))}
+    .preview-actions .btn{width:100%;padding-inline:6px}
+    .more-options{right:0;left:auto}
+    .more-options .btn{padding-inline:14px}
+    .stage{margin-bottom:16px}
+    .stage > details summary{min-height:40px}
     html{scroll-padding-top:calc(var(--header-h) + var(--dock-h) + 12px)}
     .btn,.seg button,.pal{min-height:44px}
     .mini{min-height:40px;padding:8px 10px}
     .row{min-height:44px}
     .row input[type=range]{height:28px}
-    .brand,.seedbox{flex:1 1 100%;margin-right:0}
-    .seedbox input[type=text]{flex:1 1 auto;width:0;min-width:0}
+    .brand{gap:6px}
+    header .btn{padding-inline:8px}
+    .seedbox input[type=text]{width:min(15rem,100%);min-width:0;min-height:44px}
   }
   @media(prefers-reduced-motion:reduce){
     *,*::before,*::after{transition:none !important;scroll-behavior:auto !important}
@@ -191,20 +213,27 @@
 <header>
   <div class="brand">
     <img class="mark" src="assets/mark.svg" width="32" height="32" alt="">
-    <div class="brand-text">
-      <h1>半身像工坊</h1>
-      <span>分层槽位 · 参数化部件 · 确定性种子</span>
-    </div>
+    <h1>半身像工坊</h1>
   </div>
-  <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false" autocomplete="off" maxlength="160" title="输入后按回车或离开输入框，按锁定状态生成"></div>
-  <button class="btn primary" id="btnRandom" type="button" title="生成新种子，重抽未锁定的部件、参数和配色">随机生成</button>
-  <button class="btn" id="btnShare" type="button" title="复制能再次打开同一张图的链接">复制分享链接</button>
+  <button class="btn" id="btnRandom" type="button" title="随机更换未锁定的部件、参数和配色">随机生成</button>
+  <button class="btn about" id="btnAbout" type="button" aria-haspopup="dialog">关于</button>
 </header>
 
 <main>
   <div class="left">
     <div class="live-dock">
       <div class="canvas" id="canvas" role="img" aria-label="当前半身像预览"></div>
+      <div class="preview-actions" role="group" aria-label="下载与分享">
+        <button class="btn primary" id="btnPng" type="button" title="下载 1024 × 1024 像素的图片">下载 PNG</button>
+        <button class="btn" id="btnShare" type="button">复制分享链接</button>
+        <details class="more-actions" id="moreActions">
+          <summary class="btn">更多操作</summary>
+          <div class="more-options">
+            <button class="btn" id="btnSvg" type="button">下载 SVG</button>
+            <button class="btn" id="btnJson" type="button">复制配置</button>
+          </div>
+        </details>
+      </div>
     </div>
     <section class="stage">
       <div class="toolbar">
@@ -213,29 +242,28 @@
           <button type="button" data-view="bust" aria-pressed="false">胸像</button>
           <button type="button" data-view="head" aria-pressed="false">头像</button>
         </div>
-        <div class="spacer"></div>
-        <button class="btn" id="btnSvg" type="button" title="把当前这张图下载成自包含的矢量文件">导出 SVG</button>
-        <button class="btn" id="btnPng" type="button" title="把当前这张图下载成 1024 像素的图片">导出 PNG</button>
-        <button class="btn" id="btnJson" type="button" title="复制当前的种子、部件、参数和配色">复制配置</button>
       </div>
-      <p class="plain" id="howto">「随机生成」生成新种子，重抽未锁定的部件、参数和配色；输入种子后按回车或离开输入框也遵守锁定。部件锁保留选择和随机轮廓细节，未锁参数与配色仍可影响外观；全部锁定后随机不会改变图形。手动点选或「换一个」仍可更换已锁部件。刷新会恢复本机草稿。打开分享链接时先显示分享内容，不会立刻改掉已有草稿。开始编辑并成功保存后，地址栏会去掉旧的分享参数，刷新恢复刚才的编辑。新的分享链接只在点击「复制分享链接」时生成；也可导出 SVG、PNG 或复制配置。</p>
-      <div class="stat" id="stat"></div>
-      <div class="gallery">
-        <h2>不同部件的例子 · 点击载入</h2>
+      <p class="plain">随机生成一个头像，再挑选部件、调整形状和配色。锁定喜欢的部件，下次随机时会保留它。</p>
+      <details>
+        <summary>从示例开始</summary>
         <div class="ggrid" id="gallery"></div>
-      </div>
-      <p class="plain" id="boundary">打开后即可生成、调整、导出。这里不收集账号。导出的图由使用者自己保存。</p>
+      </details>
+      <details>
+        <summary>按种子生成</summary>
+        <div class="seedbox"><label for="seed">种子</label><input id="seed" type="text" spellcheck="false" autocomplete="off" maxlength="160" aria-describedby="seedHelp"></div>
+        <p id="seedHelp">输入后按回车或离开输入框。已锁定的设置会保留。</p>
+      </details>
     </section>
   </div>
 
   <aside class="panel">
     <div class="card">
-      <h2>部件槽位</h2>
+      <h2>部件</h2>
       <div id="slots"></div>
     </div>
 
     <div class="card">
-      <h2><span>连续参数</span><button class="mini" id="lockParams" type="button" aria-pressed="false" title="锁定后，随机生成不会改变这些滑块">锁定</button></h2>
+      <h2><span>形状</span><button class="mini" id="lockParams" type="button" aria-pressed="false" title="锁定后，随机生成不会改变这些滑块">锁定</button></h2>
       <div id="params"></div>
     </div>
 
@@ -245,18 +273,20 @@
       <div class="colorrow" id="colors"></div>
     </div>
 
-    <div class="card">
-      <details>
-        <summary>这套组合模型是怎么设计的</summary>
-        <p><b>11 个绘制层</b>：背景纹样 → 脖子 → 衣服廓形 → 后层长发 → 脸 → 主发型 → 眼睛/眼镜 → 嘴巴 → 衣服前景 → 配饰 → 头顶搭档。背景底色先于这些图层绘制；发型和衣服拆成前后层以表达遮挡关系。</p>
-        <p><b>部件不是素材，是函数</b>：头发的轮廓由半径、扇贝数、鼓包幅度、发梢长度、刘海斜度实时算出来，所以 9 种发型 × 6 个滑块是连续空间，而不是 9 张固定图。想加新发型只要加一组参数，不用画新 SVG。</p>
-        <p><b>确定性</b>：种子按槽位分别抽签，发型另存绘图种子。随机时保留已锁槽位及其随机细节输入，参数和配色由各自的锁控制。当前引擎下，相同完整绘图配置生成相同 SVG；部分锁定时，仅凭抽签种子不能还原保留的输入，请保存分享链接、配置或导出的图。分享和草稿使用格式版本 1。无法识别的更新版本会提示并回到默认形象，不保证将来的绘图引擎仍能还原今天的链接。</p>
-        <p><b>一图三用</b>：同一份 SVG 换 viewBox 就得到半身 / 胸像 / 头像，不需要维护三套素材。</p>
-        <p><b>颜色通道</b>：描边、肤色、发色、衣色、点缀色、背景色互相独立，换色不重绘结构。</p>
-      </details>
-    </div>
   </aside>
 </main>
+
+<dialog id="aboutDialog" aria-labelledby="aboutTitle">
+  <div class="about-head">
+    <h2 id="aboutTitle">关于</h2>
+    <form method="dialog"><button class="btn" type="submit" autofocus>关闭</button></form>
+  </div>
+  <p>在浏览器里搭配发型、五官、服装与配饰，再选择半身、胸像或头像裁切。图像在本机生成，打开即可使用。</p>
+  <h3>草稿和分享</h3>
+  <p>编辑后的草稿保存在当前浏览器。打开分享链接时会先显示链接里的头像，开始编辑后会保存为当前草稿。</p>
+  <h3>头像如何生成</h3>
+  <p>头像由 11 个绘制层叠成。发型和服装的前后层负责遮挡，形状与颜色可以独立调整。若想复现同一个头像，请保存完整配置或分享链接。</p>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -856,6 +886,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
    ============================================================ */
 var AvatarState = (function () {
   var E = Engine;
+  var EDITOR_SLOTS = E.SLOTS.map(function (slot) {
+    if (slot.key !== 'bg') return slot;
+    return Object.assign({}, slot, { options:slot.options.filter(function (value) { return value !== 'rays'; }) });
+  });
 
   var PARAMS = [
     { key:'volume',    name:'蓬松度', min:0.72, max:1.34, step:0.01 },
@@ -1143,11 +1177,15 @@ var AvatarState = (function () {
     next.palette = index;
     return next;
   }
+  function generatedSlot(seed, key) {
+    var value = E.fromSeed(seed, key);
+    return key === 'bg' && value === 'rays' ? 'plain' : value;
+  }
   function randomize(current, seed) {
     var next = sanitizeState(current);
     next.seed = cleanSeed(seed, next.seed);
     E.SLOTS.forEach(function (slot) {
-      if (!next.locks[slot.key]) next.slots[slot.key] = E.fromSeed(next.seed, slot.key);
+      if (!next.locks[slot.key]) next.slots[slot.key] = generatedSlot(next.seed, slot.key);
     });
     if (!next.locks.hair) next.drawingSeed = next.seed;
     if (!next.locks.params) {
@@ -1163,14 +1201,14 @@ var AvatarState = (function () {
   }
   function selectSlot(current, key, value) {
     var next = sanitizeState(current);
-    var slot = E.SLOTS.find(function (item) { return item.key === key; });
+    var slot = EDITOR_SLOTS.find(function (item) { return item.key === key; });
     if (!slot || slot.options.indexOf(value) === -1) return next;
     next.slots[key] = value;
     if (value !== 'none') next.locks[key] = true;
     return next;
   }
   function shuffleSlot(current, key) {
-    var slot = E.SLOTS.find(function (item) { return item.key === key; });
+    var slot = EDITOR_SLOTS.find(function (item) { return item.key === key; });
     var next = sanitizeState(current);
     if (!slot) return next;
     var choices = slot.options.filter(function (value) { return value !== next.slots[key]; });
@@ -1183,7 +1221,7 @@ var AvatarState = (function () {
     return E.LABELS[value];
   }
   return {
-    PARAMS:PARAMS, COLOR_KEYS:COLOR_KEYS, MAX_SHARE_PARAM:MAX_SHARE_PARAM,
+    PARAMS:PARAMS, COLOR_KEYS:COLOR_KEYS, EDITOR_SLOTS:EDITOR_SLOTS, MAX_SHARE_PARAM:MAX_SHARE_PARAM,
     FORMAT_VERSION:FORMAT_VERSION, DRAFT_KEY:DRAFT_KEY,
     defaultState:defaultState, sanitizeState:sanitizeState, encodeState:encodeState, decodeState:decodeState,
     readEncoded:readEncoded, shareParam:shareParam, stripShareSearch:stripShareSearch,
@@ -1191,7 +1229,7 @@ var AvatarState = (function () {
     historyClearNotice:historyClearNotice, readDraft:readDraft, saveDraft:saveDraft,
     storageWriteNotice:storageWriteNotice, resolveInitial:resolveInitial,
     render:render, randomize:randomize, applyPalette:applyPalette,
-    selectSlot:selectSlot, shuffleSlot:shuffleSlot, labelFor:labelFor
+    selectSlot:selectSlot, shuffleSlot:shuffleSlot, generatedSlot:generatedSlot, labelFor:labelFor
   };
 })();
 
@@ -1484,12 +1522,13 @@ if (typeof document !== 'undefined') (function () {
   /* ---------- 面板构建 ---------- */
   function buildSlots() {
     var host = $('#slots');
-    host.innerHTML = E.SLOTS.map(function (s) {
+    host.innerHTML = stateModel.EDITOR_SLOTS.map(function (s) {
       return '<div class="slot" data-slot="' + s.key + '">' +
         '<div class="slot-head"><span class="name">' + s.name + '</span>' +
         '<span class="count">' + s.options.length + ' 款</span><span class="spacer"></span>' +
         '<button type="button" class="mini lock" data-lock="' + s.key + '" aria-pressed="false" title="整体随机时保留部件与随机细节；未锁参数和配色仍可改变外观">锁定</button>' +
         '<button type="button" class="mini" data-shuffle="' + s.key + '" aria-label="换一个' + s.name + '" title="只更换这一项">换一个</button></div>' +
+        (s.key === 'bg' ? '<p class="legacy-bg" id="legacyBg" hidden>当前头像使用旧版背景。可在下方更换。</p>' : '') +
         '<div class="opts" data-opts="' + s.key + '"></div></div>';
     }).join('');
     host.addEventListener('click', function (e) {
@@ -1511,7 +1550,7 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function buildThumbs() {
-    E.SLOTS.forEach(function (s) {
+    stateModel.EDITOR_SLOTS.forEach(function (s) {
       var box = document.querySelector('[data-opts="' + s.key + '"]');
       if (!box) return;
       if (!box.children.length) {
@@ -1581,7 +1620,7 @@ if (typeof document !== 'undefined') (function () {
     var st = stateModel.defaultState();
     st.seed = seed;
     st.drawingSeed = seed;
-    E.SLOTS.forEach(function (d) { st.slots[d.key] = E.fromSeed(seed, d.key); });
+    stateModel.EDITOR_SLOTS.forEach(function (slot) { st.slots[slot.key] = stateModel.generatedSlot(seed, slot.key); });
     var pi = E.paletteIndex(seed);
     st.palette = pi;
     var colors = E.PALETTES[pi].colors;
@@ -1618,7 +1657,7 @@ if (typeof document !== 'undefined') (function () {
     lp.classList.toggle('on', paramsOn);
     lp.textContent = paramsOn ? '已锁定' : '锁定';
     lp.setAttribute('aria-pressed', paramsOn ? 'true' : 'false');
-    lp.setAttribute('aria-label', paramsOn ? '已锁定连续参数' : '锁定连续参数');
+    lp.setAttribute('aria-label', paramsOn ? '已锁定形状设置' : '锁定形状设置');
     var lc = $('#lockColors');
     var colorsOn = !!state.locks.colors;
     lc.classList.toggle('on', colorsOn);
@@ -1661,9 +1700,7 @@ if (typeof document !== 'undefined') (function () {
     buildThumbs();
     syncControls();
     syncLocks();
-    var c = E.comboCount();
-    $('#stat').innerHTML = '离散部件组合 <b>' + c.toLocaleString('zh-CN') + '</b> 种 × 6 个连续参数 × 任意配色 × 3 种裁切视图。' +
-      '渲染为自包含 SVG，无外部字体与图片；当前引擎下，相同完整绘图配置得到相同图形。';
+    $('#legacyBg').hidden = state.slots.bg !== 'rays';
   }
   function scheduleRefresh() {
     if (refreshFrame === null) refreshFrame = requestAnimationFrame(function () {
@@ -1749,8 +1786,33 @@ if (typeof document !== 'undefined') (function () {
   }
 
   /* ---------- 事件 ---------- */
+  var moreActions = $('#moreActions');
+  var moreSummary = moreActions.querySelector('summary');
+  var aboutButton = $('#btnAbout');
+  var aboutDialog = $('#aboutDialog');
+  function closeMoreActions() {
+    moreActions.open = false;
+    moreSummary.focus({ preventScroll:true });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !moreActions.open || aboutDialog.open) return;
+    e.preventDefault();
+    closeMoreActions();
+  });
+  moreActions.addEventListener('focusout', function (e) {
+    if (e.relatedTarget && !moreActions.contains(e.relatedTarget)) moreActions.open = false;
+  });
+  document.addEventListener('click', function (e) {
+    if (!moreActions.contains(e.target)) moreActions.open = false;
+  });
+  aboutButton.addEventListener('click', function () { aboutDialog.showModal(); });
+  aboutDialog.addEventListener('close', function () { aboutButton.focus({ preventScroll:true }); });
   $('#btnRandom').addEventListener('click', function () { randomize(); });
-  $('#seed').addEventListener('change', function () { randomize($('#seed').value.trim() || newSeed()); });
+  var seedInput = $('#seed');
+  seedInput.addEventListener('change', function () { randomize(seedInput.value.trim() || newSeed()); });
+  seedInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.isComposing) seedInput.blur();
+  });
   $('#btnShare').addEventListener('click', function () {
     var url = shareUrl();
     if (!url) { toast('分享链接生成失败'); return; }
@@ -1760,6 +1822,7 @@ if (typeof document !== 'undefined') (function () {
     copyText(url, '分享链接已复制');
   });
   $('#btnSvg').addEventListener('click', function () {
+    closeMoreActions();
     var name = fileStem() + '.svg';
     var svg = stateModel.render(state);
     download(name, svg, 'image/svg+xml;charset=utf-8');
@@ -1767,6 +1830,7 @@ if (typeof document !== 'undefined') (function () {
   });
   $('#btnPng').addEventListener('click', exportPng);
   $('#btnJson').addEventListener('click', function () {
+    closeMoreActions();
     copyText(Export.jsonText(state), '配置 JSON 已复制');
   });
   $('#viewSeg').addEventListener('click', function (e) {

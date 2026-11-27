@@ -1,6 +1,6 @@
 # 半身像工坊 · 设计基线
 
-记录日期：2026-11-26。以下当前行为直接对照根目录 `index.html`；原引擎黄金基线来源的 HTML SHA-256 为 `409acac39c73a415f755bce9a63dd4fbef2292edf07c4a6dc8c039dd520e4b2c`，不是本轮修改后的整页哈希。后续目标已批准，尚未实现的行为不作为当前保证。
+更新日期：2026-11-27。以下当前行为直接对照根目录 `index.html` 的本地编辑器候选。原引擎黄金基线来源的 HTML SHA-256 为 `409acac39c73a415f755bce9a63dd4fbef2292edf07c4a6dc8c039dd520e4b2c`。正式部署记录见 [发布指南](RELEASING.md)。
 
 ## 本轮状态合同
 
@@ -55,7 +55,7 @@ SVG 先输出背景底色矩形，再按以下顺序连接层函数返回的片�
 
 | 槽位 | 默认 | 当前选项 |
 | --- | --- | --- |
-| `bg` | `plain` | `plain`, `circle`, `dots`, `grid`, `rays`, `blob` |
+| `bg` | `plain` | `plain`, `circle`, `dots`, `grid`, `blob`；`rays` 仅用于恢复已有配置 |
 | `body` | `hoodie` | `hoodie`, `crew`, `tee`, `jacket`, `turtleneck`, `overalls` |
 | `hair` | `cloud` | `cloud`, `curly`, `bob`, `long`, `short`, `bun`, `pigtails`, `buzz`, `bald` |
 | `eyes` | `round` | `round`, `square`, `dots`, `closed`, `shades`, `monocle`, `wink` |
@@ -63,7 +63,7 @@ SVG 先输出背景底色矩形，再按以下顺序连接层函数返回的片�
 | `extra` | `none` | `none`, `headphones`, `earrings`, `scarf`, `badge`, `freckles` |
 | `topper` | `cat` | `none`, `cat`, `calico`, `dog`, `bird`, `plant`, `cap`, `bow` |
 
-共 48 选项；离散组合乘积 653184。原 Engine 全局 `LABELS` 的重名值保持接口兼容，UI 按槽位显示背景 `dots` 为「圆点」、眼睛 `dots` 为「点眼」、嘴巴 `cat` 为「猫嘴」、头顶 `cat` 为「黑猫」。
+编辑器共 47 个可选项。Engine 仍识别 48 个值，以还原含 `rays` 的旧草稿和分享。UI 按槽位显示背景 `dots` 为「圆点」、眼睛 `dots` 为「点眼」、嘴巴 `cat` 为「猫嘴」、头顶 `cat` 为「黑猫」。
 
 | 参数 | 默认 | UI / URL 恢复范围 | UI 步长 |
 | --- | --- | --- | --- |
@@ -79,6 +79,8 @@ SVG 先输出背景底色矩形，再按以下顺序连接层函数返回的片�
 `half`、`bust`、`head` 的 viewBox 分别为 `0 0 600 600`、`60 60 480 480`、`140 60 320 340`。SVG 尺寸属性始终 600×600；PNG 通过 SVG Blob → Image → Canvas 导出 1024×1024。
 
 ## 当前复制与导出
+
+预览旁的主按钮下载 PNG，旁边可复制分享链接。「更多操作」提供 SVG 下载和配置复制，支持用键盘展开、用 Escape 关闭并回到摘要按钮。
 
 分享链接和配置 JSON 先走异步剪贴板。只有 `writeText` 成功后才提示已复制。接口不存在、同步抛错，或 Promise 被拒绝时，改用临时文本框调用 `document.execCommand('copy')`，并在结束时移除文本框、把焦点还给点击前的元素。只有返回值严格为 `true` 才提示成功；返回 `false` 或抛错时提示「复制失败，请手动复制」。拒绝尚未结束时不显示成功。
 
@@ -120,11 +122,15 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 随机按钮生成新 seed；手动输入后按回车或离开输入框提交，也调用同一 `randomize`。未锁槽位由 `fromSeed` 抽签；发型未锁时同时更新 `drawingSeed`，锁定时保留。参数锁和颜色锁分别控制随机化。全部锁定时 seed 仍会变化，SVG 逐字节不变。手动操作可改变锁定部件；锁的作用域是整体随机流程。
 
+整体随机、输入种子和例图把引擎原本抽到的 `rays` 映射成 `plain`，其余抽签结果沿用原规则。「换一个」从可选背景中抽取，排除当前值。旧草稿和分享仍按原样绘制放射背景，并提示可以更换。背景已锁定时，整体随机保留原背景。
+
 手动编辑后的主图、缩略图和选中态统一刷新。复制和 PNG 的失败提示按上一节处理；系统剪贴板是否真正写入、真实读屏器、Safari、微信内置浏览器和真机仍需单独验证。历史复现与浏览器证据见 [实现评估](implementation-review-2026-11-26.md)，其中锁定、同步、分享、导出及手机编辑与基础可访问性已随对应切片落地，其余未测项目不计作已完成。
 
 ## 当前响应式布局与可访问性
 
-桌面宽屏（`> 1080px`）保持左预览、右编辑面板的双栏布局；左侧预览列使用粘性定位并留出页头下方间距（`calc(var(--header-h) + 16px)`），滚动时不与页头重叠。中等宽度（`721px–1080px`）转为单栏。窄屏（`<= 720px`）采用块级主容器与 `144×144px` 紧凑粘性预览停靠区（`.live-dock`），紧贴页头下方并通过 `ResizeObserver`（不支持时回退 `resize`）实时同步 `--header-h` 与 `--dock-h`，滚动编辑部件、参数和配色时预览保持可见，同时在根滚动容器设置 `scroll-padding-top` 避免粘性区域遮挡聚焦或定位目标。窄屏主要交互控件提供不低于 40–44px 的触控高度，并适配 `viewport-fit=cover` 安全区及 `prefers-reduced-motion: reduce`。
+桌面宽屏（`> 1080px`）保持左预览、右编辑面板的双栏布局，左侧预览列在页头下方粘性定位。中等宽度（`721px–1080px`）转为单栏。窄屏（`<= 720px`）在页头下方保留 `144×144px` 粘性预览，下载、分享与更多操作排在右侧。`ResizeObserver`（回退为 `resize`）同步页头和预览区高度，根容器用 `scroll-padding-top` 为聚焦和定位目标留出滚动空间。窄屏主要交互控件触控高度为 40–44px，并适配安全区与 `prefers-reduced-motion`。
+
+编辑区提供一行从随机生成到下载的指引，例图与种子输入各自折叠。页头的「关于」打开原生对话框，可用关闭按钮或 Escape 回到编辑器。
 
 基础可访问性覆盖：
 
