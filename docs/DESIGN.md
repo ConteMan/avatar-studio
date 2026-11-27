@@ -130,7 +130,7 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 桌面宽屏（`> 1080px`）保持左预览、右编辑面板的双栏布局，左侧预览列在页头下方粘性定位。中等宽度（`721px–1080px`）转为单栏。窄屏（`<= 720px`）在页头下方保留 `144×144px` 粘性预览，下载、分享与更多操作排在右侧。`ResizeObserver`（回退为 `resize`）同步页头和预览区高度，根容器用 `scroll-padding-top` 为聚焦和定位目标留出滚动空间。窄屏主要交互控件触控高度为 40–44px，并适配安全区与 `prefers-reduced-motion`。
 
-编辑区提供一行从随机生成到下载的指引，例图与种子输入各自折叠。页头的「关于」打开原生对话框，可用关闭按钮或 Escape 回到编辑器；弹窗标题下方显示当前应用版本状态：优先读取内联版本元数据（`<meta name="app-version">` 或 `html[data-app-version]`，便于自建链路零额外文件注入且兼容 `file://`），否则在 `http:`/`https:` 环境下通过相对路径读取同源 `build-meta.json` 的 `packageVersion`（兼容 `version`）并显示「版本 `<semver>`」；直接打开源码（`file://`）或元数据缺失/异常时安静回退显示「源码预览」。官方构建与校验以 `package.json` 的 `version` 为唯一权威来源并校验 `build-meta.json` 一致性，同时保持根目录 `index.html` 与 `dist/index.html` 逐字节一致。
+编辑区提供一行从随机生成到下载的指引，例图与种子输入各自折叠。页头的「关于」打开原生对话框，可用关闭按钮或 Escape 回到编辑器；弹窗标题下方显示当前应用版本状态：优先读取内联版本元数据（`<meta name="app-version">` 或 `html[data-app-version]`，自建构建 `build:selfhost` 自动从 `package.json` 校验并注入唯一 `<meta name="app-version">`，由 `verify:selfhost` 校验一致性且不增加 `build-meta.json`，同时兼容 `file://` 直接打开），否则在 `http:`/`https:` 环境下通过相对路径读取同源 `build-meta.json` 的 `packageVersion`（兼容 `version`）并显示「版本 `<semver>`」；直接打开根目录源码（`file://`）或元数据缺失/异常时安静回退显示「源码预览」。官方构建与校验以 `package.json` 的 `version` 为唯一权威来源并校验 `build-meta.json` 一致性，同时保持根目录 `index.html` 与 `dist/index.html` 逐字节一致。
 
 基础可访问性覆盖：
 

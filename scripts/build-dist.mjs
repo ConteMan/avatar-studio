@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPackageVersion as readPkgVersion } from "./package-version.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,7 +25,6 @@ export const ASSET_WHITELIST = Object.freeze([
 export const RELEASE_MANIFEST_REL = "deploy/release.json";
 export const VALID_STAGES = Object.freeze(["candidate", "release"]);
 export const META_FILENAME = "build-meta.json";
-const SEMVER_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 export const EXPECTED_DIST_FILES = Object.freeze(
   [...ASSET_WHITELIST.map((item) => item.dest), META_FILENAME].sort(),
@@ -35,24 +35,7 @@ function sha256Buffer(buf) {
 }
 
 export function readPackageVersion(projectRoot = PROJECT_ROOT) {
-  const pkgPath = path.join(path.resolve(projectRoot), "package.json");
-  if (!fs.existsSync(pkgPath)) {
-    throw new Error("Missing package.json");
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-  } catch (err) {
-    throw new Error(`Invalid JSON in package.json: ${err.message}`);
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("package.json must be a JSON object");
-  }
-  const version = typeof parsed.version === "string" ? parsed.version.trim() : "";
-  if (!version || version.length > 64 || !SEMVER_RE.test(version)) {
-    throw new Error(`package.json version must be a valid SemVer string (got: ${String(parsed.version)})`);
-  }
-  return version;
+  return readPkgVersion(projectRoot);
 }
 
 export function readReleaseManifest(projectRoot = PROJECT_ROOT) {

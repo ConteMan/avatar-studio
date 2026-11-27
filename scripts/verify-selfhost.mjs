@@ -163,6 +163,29 @@ export function verifySelfhost(options = {}) {
       errors.push('Built index.html <meta name="description"> does not match configured description');
     }
 
+    // 核对 <head> 中存在唯一 <meta name="app-version"> 且与 package.json version 一致
+    const headMatch = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i);
+    if (!headMatch) {
+      errors.push("Built index.html is missing <head> section");
+    } else {
+      const appVersionMetas = [
+        ...headMatch[1].matchAll(/<meta\b[^>]*\bname\s*=\s*(?:"app-version"|'app-version')[^>]*>/gi),
+      ];
+      if (appVersionMetas.length !== 1) {
+        errors.push(
+          `Built index.html <head> must contain exactly 1 <meta name="app-version"> tag (found ${appVersionMetas.length})`,
+        );
+      } else {
+        const contentMatch = appVersionMetas[0][0].match(/\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+        const actualVersion = contentMatch ? (contentMatch[1] ?? contentMatch[2] ?? "") : null;
+        if (actualVersion !== plan.appVersion) {
+          errors.push(
+            `Built index.html <meta name="app-version"> content="${actualVersion}" does not match package.json version="${plan.appVersion}"`,
+          );
+        }
+      }
+    }
+
     const expectedH1 = `<h1>${escapeHtml(plan.config.siteName)}</h1>`;
     const h1Match = html.match(/<header\b[^>]*>[\s\S]*?<h1\b[^>]*>([\s\S]*?)<\/h1>[\s\S]*?<\/header>/i);
     if (!h1Match || h1Match[1] !== escapeHtml(plan.config.siteName)) {
@@ -192,6 +215,7 @@ export function verifySelfhost(options = {}) {
     outDir,
     configPath: plan.configPath,
     config: plan.config,
+    appVersion: plan.appVersion,
     files: actualFiles,
     digests: plan.digests,
   };

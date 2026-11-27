@@ -95,6 +95,7 @@ function createIsolatedRepoFixture(overrides = {}) {
     "deploy/release.json",
     "cloudflare.config.ts",
     "package.json",
+    "scripts/package-version.mjs",
     "scripts/build-dist.mjs",
     "scripts/verify-dist.mjs",
     "scripts/preview-dist.mjs",
