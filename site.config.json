@@ -1,0 +1,10 @@
+{
+  "siteName": "半身像工坊",
+  "title": "半身像工坊 · Avatar Studio",
+  "description": "用种子拼出半身头像，调整五官、发型和配色，再导出 SVG 或 PNG。同一份配置得到同一张图。",
+  "logo": "assets/mark.svg",
+  "favicon": {
+    "svg": "assets/mark.svg",
+    "png": "assets/favicon-32.png"
+  }
+}

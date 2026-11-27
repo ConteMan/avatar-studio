@@ -19,6 +19,9 @@ const MIME_TYPES = Object.freeze({
   ".js": "text/javascript; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
   ".ico": "image/x-icon",
+  ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
 });
 
 // Workers Static Assets 内部配置文件，绝不直接向客户端提供
