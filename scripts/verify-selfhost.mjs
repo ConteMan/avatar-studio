@@ -6,6 +6,7 @@ import {
   DEFAULT_SELFHOST_DIR,
   FORBIDDEN_PREFIXES,
   PROJECT_ROOT,
+  assertSafeOutputDir,
   computeSelfhostBuildPlan,
   escapeHtml,
   parseCliArgs,
@@ -56,16 +57,17 @@ export function verifySelfhost(options = {}) {
     options.outDir || path.join(projectRoot, "dist-selfhost"),
   );
 
-  // 1. 校验配置、源资产和源 index.html，并在内存中计算预期白名单产物
+  // 1. 校验输出目录安全边界、配置、源资产和源 index.html，并在内存中计算预期白名单产物
+  const safeOutDir = assertSafeOutputDir(projectRoot, outDir);
   const plan = computeSelfhostBuildPlan({
     projectRoot,
     configPath: options.configPath,
   });
 
-  if (!fs.existsSync(outDir)) {
+  if (!fs.existsSync(safeOutDir)) {
     throw new Error(`Self-host output directory does not exist: ${outDir}. Run "npm run build:selfhost" first.`);
   }
-  const outStat = fs.lstatSync(outDir);
+  const outStat = fs.lstatSync(safeOutDir);
   if (outStat.isSymbolicLink() || !outStat.isDirectory()) {
     throw new Error(`Self-host output path must be a regular directory: ${outDir}`);
   }
@@ -75,7 +77,7 @@ export function verifySelfhost(options = {}) {
   // 2. 遍历实际输出目录（拒绝符号链接和特殊文件）
   let actualFiles;
   try {
-    actualFiles = walkFiles(outDir);
+    actualFiles = walkFiles(safeOutDir);
   } catch (err) {
     throw new Error(`selfhost verification failed:\n- ${err.message}`);
   }
@@ -102,7 +104,7 @@ export function verifySelfhost(options = {}) {
   // 5. 逐字节比对所有白名单文件，检测配置修改/资产变更/手动篡改导致的漂移
   const configLabel = path.relative(projectRoot, plan.configPath) || path.basename(plan.configPath);
   for (const rel of plan.expectedFiles) {
-    const actualPath = path.join(outDir, rel);
+    const actualPath = path.join(safeOutDir, rel);
     if (!fs.existsSync(actualPath)) continue;
     const actualBuf = fs.readFileSync(actualPath);
     const actualHash = sha256Buffer(actualBuf);
@@ -121,7 +123,7 @@ export function verifySelfhost(options = {}) {
   }
 
   // 6. 检查产物 index.html 的全部本地引用与品牌字段渲染结果
-  const builtIndexPath = path.join(outDir, "index.html");
+  const builtIndexPath = path.join(safeOutDir, "index.html");
   if (fs.existsSync(builtIndexPath)) {
     const html = fs.readFileSync(builtIndexPath, "utf8");
     const refs = extractLocalAssetRefs(html);

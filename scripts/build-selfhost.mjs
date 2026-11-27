@@ -657,43 +657,168 @@ export function computeSelfhostBuildPlan(options = {}) {
   };
 }
 
-export function assertSafeOutputDir(projectRoot, outDir) {
-  const resolvedRoot = path.resolve(projectRoot);
-  const resolvedOut = path.resolve(outDir);
-
-  if (resolvedOut === resolvedRoot) {
-    throw new Error("Refusing to clean project root as self-host output directory.");
+function checkRelativePathBoundary(rootPath, targetPath, displayTarget) {
+  if (targetPath === rootPath) {
+    throw new Error(`Refusing to clean project root as self-host output directory: ${displayTarget}`);
   }
 
-  const relFromOutToRoot = path.relative(resolvedOut, resolvedRoot);
-  if (relFromOutToRoot && !relFromOutToRoot.startsWith("..") && !path.isAbsolute(relFromOutToRoot)) {
-    throw new Error(`Refusing to clean ancestor directory of project root: ${resolvedOut}`);
+  const relFromTargetToRoot = path.relative(targetPath, rootPath);
+  if (relFromTargetToRoot && !relFromTargetToRoot.startsWith("..") && !path.isAbsolute(relFromTargetToRoot)) {
+    throw new Error(`Refusing to clean ancestor directory of project root: ${displayTarget}`);
   }
 
-  const rel = path.relative(resolvedRoot, resolvedOut);
+  const rel = path.relative(rootPath, targetPath);
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
-    const base = path.basename(resolvedOut);
+    const base = path.basename(targetPath);
     if (base !== "dist-selfhost" && !base.startsWith("dist-selfhost-")) {
       throw new Error(
-        `Refusing to clean unexpected directory outside project root: ${resolvedOut} (basename must be "dist-selfhost" or "dist-selfhost-*")`,
+        `Refusing to clean unexpected directory outside project root: ${displayTarget} (basename must be "dist-selfhost" or "dist-selfhost-*")`,
       );
     }
-  } else {
-    const firstSegment = rel.split(path.sep)[0];
-    if (PROTECTED_ROOT_DIRS.has(firstSegment)) {
-      throw new Error(`Refusing to write self-host output into protected directory "${firstSegment}": ${resolvedOut}`);
+    return { insideRoot: false, rel: null };
+  }
+
+  const firstSegment = rel.split(path.sep)[0];
+  if (PROTECTED_ROOT_DIRS.has(firstSegment)) {
+    throw new Error(
+      `Refusing to write self-host output into protected directory "${firstSegment}": ${displayTarget}`,
+    );
+  }
+  return { insideRoot: true, rel };
+}
+
+function assertNoSymlinkSegmentsInsideRoot(rootPath, rel, displayTarget) {
+  const segments = rel.split(path.sep).filter(Boolean);
+  let current = rootPath;
+  for (const seg of segments) {
+    current = path.join(current, seg);
+    let stat;
+    try {
+      stat = fs.lstatSync(current);
+    } catch (err) {
+      if (err && err.code === "ENOENT") {
+        // 后续末段尚未创建，停止逐段检查
+        break;
+      }
+      if (err && err.code === "ENOTDIR") {
+        throw new Error(`Cannot use self-host output path because an ancestor is not a directory: ${displayTarget}`);
+      }
+      if (err && err.code === "ELOOP") {
+        throw new Error(`Refusing self-host output path with symlink loop: ${displayTarget}`);
+      }
+      throw err;
+    }
+    if (stat.isSymbolicLink()) {
+      throw new Error(`Refusing self-host output path containing symlink "${seg}": ${displayTarget}`);
+    }
+  }
+}
+
+function resolveRealTargetPath(resolvedOut) {
+  let leafStat = null;
+  try {
+    leafStat = fs.lstatSync(resolvedOut);
+  } catch (err) {
+    if (err && err.code === "ENOTDIR") {
+      throw new Error(`Cannot use self-host output path because an ancestor is not a directory: ${resolvedOut}`);
+    }
+    if (err && err.code === "ELOOP") {
+      throw new Error(`Refusing self-host output path with symlink loop: ${resolvedOut}`);
+    }
+    if (!err || err.code !== "ENOENT") {
+      throw err;
     }
   }
 
-  if (fs.existsSync(resolvedOut)) {
-    const stat = fs.lstatSync(resolvedOut);
-    if (stat.isSymbolicLink()) {
+  if (leafStat) {
+    if (leafStat.isSymbolicLink()) {
       throw new Error(`Refusing to clean symlinked output directory: ${resolvedOut}`);
     }
-    if (!stat.isDirectory()) {
+    if (!leafStat.isDirectory()) {
       throw new Error(`Expected self-host output path to be a directory: ${resolvedOut}`);
     }
+    return fs.realpathSync(resolvedOut);
   }
+
+  // 输出末段尚不存在：向上回溯至最近已存在祖先，解析真实目的地再拼接未创建后缀
+  let cursor = resolvedOut;
+  const missingSegments = [];
+  while (true) {
+    let stat = null;
+    try {
+      stat = fs.lstatSync(cursor);
+    } catch (err) {
+      if (err && err.code === "ENOENT") {
+        const parent = path.dirname(cursor);
+        if (parent === cursor) {
+          throw new Error(`Cannot resolve existing ancestor for self-host output path: ${resolvedOut}`);
+        }
+        missingSegments.unshift(path.basename(cursor));
+        cursor = parent;
+        continue;
+      }
+      if (err && err.code === "ENOTDIR") {
+        throw new Error(`Cannot use self-host output path because an ancestor is not a directory: ${resolvedOut}`);
+      }
+      if (err && err.code === "ELOOP") {
+        throw new Error(`Refusing self-host output path with symlink loop: ${resolvedOut}`);
+      }
+      throw err;
+    }
+
+    if (stat.isSymbolicLink()) {
+      let resolvedAncestor;
+      try {
+        resolvedAncestor = fs.realpathSync(cursor);
+      } catch {
+        throw new Error(`Refusing self-host output path with broken symlink ancestor "${cursor}": ${resolvedOut}`);
+      }
+      const targetStat = fs.statSync(resolvedAncestor);
+      if (!targetStat.isDirectory()) {
+        throw new Error(`Cannot use self-host output path because an ancestor is not a directory: ${resolvedOut}`);
+      }
+      return path.join(resolvedAncestor, ...missingSegments);
+    }
+
+    if (!stat.isDirectory()) {
+      throw new Error(`Cannot use self-host output path because an ancestor is not a directory: ${resolvedOut}`);
+    }
+
+    const resolvedAncestor = fs.realpathSync(cursor);
+    return path.join(resolvedAncestor, ...missingSegments);
+  }
+}
+
+export function assertSafeOutputDir(projectRoot, outDir) {
+  const resolvedRoot = path.resolve(projectRoot);
+  if (!fs.existsSync(resolvedRoot) || !fs.statSync(resolvedRoot).isDirectory()) {
+    throw new Error(`Project root directory does not exist: ${resolvedRoot}`);
+  }
+  const realRoot = fs.realpathSync(resolvedRoot);
+  const resolvedOut = path.resolve(resolvedRoot, outDir);
+
+  // 1. 先检查逻辑路径边界与项目内逐段符号链接（覆盖已存在与未创建末段）
+  const logicalCheck = checkRelativePathBoundary(resolvedRoot, resolvedOut, resolvedOut);
+  if (logicalCheck.insideRoot) {
+    assertNoSymlinkSegmentsInsideRoot(resolvedRoot, logicalCheck.rel, resolvedOut);
+  }
+
+  // 2. 解析输出路径（含未创建末段）对应的真实目的地，拦截末段符号链接、断链祖先与非目录祖先
+  const realOut = resolveRealTargetPath(resolvedOut);
+  const displayTarget = realOut === resolvedOut ? resolvedOut : `${resolvedOut} -> ${realOut}`;
+
+  // 3. 对真实目的地再次执行完整的项目边界与受保护目录校验
+  const realCheck = checkRelativePathBoundary(realRoot, realOut, displayTarget);
+
+  // 4. 禁止位于项目内的逻辑路径通过符号链接逃逸到项目之外，且确保真实路径在项目内不含符号链接段
+  if (logicalCheck.insideRoot && !realCheck.insideRoot) {
+    throw new Error(`Refusing self-host output path that escapes project root via symlink: ${displayTarget}`);
+  }
+  if (realCheck.insideRoot) {
+    assertNoSymlinkSegmentsInsideRoot(realRoot, realCheck.rel, displayTarget);
+  }
+
+  return realOut;
 }
 
 export function buildSelfhost(options = {}) {
@@ -703,19 +828,20 @@ export function buildSelfhost(options = {}) {
     options.outDir || path.join(projectRoot, "dist-selfhost"),
   );
 
-  assertSafeOutputDir(projectRoot, outDir);
+  // 先完成输出路径真实目的地安全校验与构建计划计算，再执行任何目录清理或写入副作用
+  const safeOutDir = assertSafeOutputDir(projectRoot, outDir);
   const plan = computeSelfhostBuildPlan({
     projectRoot,
     configPath: options.configPath,
   });
 
   // 清除旧产物，保证可重现且无历史残留
-  fs.rmSync(outDir, { recursive: true, force: true });
-  fs.mkdirSync(outDir, { recursive: true });
+  fs.rmSync(safeOutDir, { recursive: true, force: true });
+  fs.mkdirSync(safeOutDir, { recursive: true });
 
   for (const rel of plan.expectedFiles) {
     const entry = plan.files.get(rel);
-    const destPath = path.join(outDir, rel);
+    const destPath = path.join(safeOutDir, rel);
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
     fs.writeFileSync(destPath, entry.buffer);
   }

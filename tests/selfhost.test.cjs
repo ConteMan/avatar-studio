@@ -721,3 +721,135 @@ test("漂移、白名单、缺失产物与引用检测：配置/源码/图标/�
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("输出路径与祖先符号链接防御性回归：阻止绕过受保护目录与项目边界，拒绝时受保护文件与外部文件保持完整且无副作用", async () => {
+  const { buildSelfhost } = await import("../scripts/build-selfhost.mjs");
+  const { verifySelfhost } = await import("../scripts/verify-selfhost.mjs");
+
+  const fixtureDir = createNoGitBundleFixture();
+  const outsideVictimDir = fs.mkdtempSync(path.join(os.tmpdir(), "avatar-studio-outside-victim-"));
+  const extLinkDir = fs.mkdtempSync(path.join(os.tmpdir(), "avatar-studio-ext-links-"));
+  const extSafeParent = fs.mkdtempSync(path.join(os.tmpdir(), "avatar-studio-ext-safe-"));
+
+  try {
+    // 准备隔离夹具内的受保护目录与受保护文件
+    const docsKeepPath = path.join(fixtureDir, "docs", "important", "keep.txt");
+    const docsDistKeepPath = path.join(fixtureDir, "docs", "dist-selfhost", "keep.txt");
+    fs.mkdirSync(path.dirname(docsKeepPath), { recursive: true });
+    fs.mkdirSync(path.dirname(docsDistKeepPath), { recursive: true });
+    fs.writeFileSync(docsKeepPath, "protected-doc-content\n", "utf8");
+    fs.writeFileSync(docsDistKeepPath, "protected-docs-dist-content\n", "utf8");
+
+    // 准备工作区外文件（普通子目录 + 恰好名为 dist-selfhost 的外部目录）
+    const outsidePreciousKeep = path.join(outsideVictimDir, "precious", "keep.txt");
+    const outsideDistKeep = path.join(outsideVictimDir, "dist-selfhost", "keep.txt");
+    fs.mkdirSync(path.dirname(outsidePreciousKeep), { recursive: true });
+    fs.mkdirSync(path.dirname(outsideDistKeep), { recursive: true });
+    fs.writeFileSync(outsidePreciousKeep, "outside-precious-content\n", "utf8");
+    fs.writeFileSync(outsideDistKeep, "outside-dist-selfhost-content\n", "utf8");
+
+    // 1. 项目内祖先符号链接指向受保护目录 docs/（覆盖已存在末段与未创建末段）
+    fs.symlinkSync(path.join(fixtureDir, "docs"), path.join(fixtureDir, "output-link"));
+
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "output-link", "important") }),
+      /containing symlink "output-link"|protected directory "docs"/,
+    );
+    assert.throws(
+      () => verifySelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "output-link", "important") }),
+      /containing symlink "output-link"|protected directory "docs"/,
+    );
+    assert.equal(fs.readFileSync(docsKeepPath, "utf8"), "protected-doc-content\n");
+
+    const uncreatedDocsTarget = path.join(fixtureDir, "docs", "uncreated-sub");
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "output-link", "uncreated-sub") }),
+      /containing symlink "output-link"|protected directory "docs"/,
+    );
+    assert.equal(fs.existsSync(uncreatedDocsTarget), false);
+
+    // 2. 项目内祖先符号链接逃逸到工作区外（无论末段是否为 dist-selfhost、无论是否存在）
+    fs.symlinkSync(outsideVictimDir, path.join(fixtureDir, "escape-link"));
+
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "escape-link", "precious") }),
+      /containing symlink "escape-link"|escapes project root/,
+    );
+    assert.equal(fs.readFileSync(outsidePreciousKeep, "utf8"), "outside-precious-content\n");
+
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "escape-link", "dist-selfhost") }),
+      /containing symlink "escape-link"|escapes project root/,
+    );
+    assert.equal(fs.readFileSync(outsideDistKeep, "utf8"), "outside-dist-selfhost-content\n");
+
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "escape-link", "uncreated-escape") }),
+      /containing symlink "escape-link"|escapes project root/,
+    );
+    assert.equal(fs.existsSync(path.join(outsideVictimDir, "uncreated-escape")), false);
+
+    // 3. 工作区外符号链接祖先回指受保护目录 docs/（即使末段叫 dist-selfhost / dist-selfhost-new）
+    fs.symlinkSync(path.join(fixtureDir, "docs"), path.join(extLinkDir, "to-docs"));
+
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(extLinkDir, "to-docs", "dist-selfhost") }),
+      /protected directory "docs"/,
+    );
+    assert.equal(fs.readFileSync(docsDistKeepPath, "utf8"), "protected-docs-dist-content\n");
+
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(extLinkDir, "to-docs", "dist-selfhost-new") }),
+      /protected directory "docs"/,
+    );
+    assert.equal(fs.existsSync(path.join(fixtureDir, "docs", "dist-selfhost-new")), false);
+
+    // 4. 末段本身是符号链接（指向外部目录）、断链祖先、普通文件祖先均拒绝且无副作用
+    fs.symlinkSync(path.join(outsideVictimDir, "precious"), path.join(fixtureDir, "dist-selfhost-sym"));
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fixtureDir, "dist-selfhost-sym") }),
+      /symlink/,
+    );
+    assert.equal(fs.readFileSync(outsidePreciousKeep, "utf8"), "outside-precious-content\n");
+
+    fs.symlinkSync(path.join(outsideVictimDir, "missing-target"), path.join(extLinkDir, "broken-link"));
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(extLinkDir, "broken-link", "dist-selfhost") }),
+      /broken symlink ancestor/,
+    );
+
+    const fileAncestor = path.join(fixtureDir, "regular-file");
+    fs.writeFileSync(fileAncestor, "keep-file\n", "utf8");
+    assert.throws(
+      () => buildSelfhost({ projectRoot: fixtureDir, outDir: path.join(fileAncestor, "dist-selfhost") }),
+      /ancestor is not a directory/,
+    );
+    assert.equal(fs.readFileSync(fileAncestor, "utf8"), "keep-file\n");
+
+    // 5. 保留默认与自定义安全输出路径（项目内嵌套未创建目录与项目外 dist-selfhost-* 目录）
+    const defaultBuilt = buildSelfhost({ projectRoot: fixtureDir });
+    assert.deepEqual(defaultBuilt.files, ["assets/favicon.png", "assets/logo.svg", "index.html"]);
+    verifySelfhost({ projectRoot: fixtureDir });
+
+    const nestedSafeOut = path.join(fixtureDir, "custom-out", "site-a");
+    const nestedBuilt = buildSelfhost({ projectRoot: fixtureDir, outDir: nestedSafeOut });
+    assert.deepEqual(nestedBuilt.files, ["assets/favicon.png", "assets/logo.svg", "index.html"]);
+    verifySelfhost({ projectRoot: fixtureDir, outDir: nestedSafeOut });
+
+    const extSafeOut = path.join(extSafeParent, "dist-selfhost-custom");
+    const extBuilt = buildSelfhost({ projectRoot: fixtureDir, outDir: extSafeOut });
+    assert.deepEqual(extBuilt.files, ["assets/favicon.png", "assets/logo.svg", "index.html"]);
+    verifySelfhost({ projectRoot: fixtureDir, outDir: extSafeOut });
+
+    // 所有受保护文件与工作区外文件全程完好
+    assert.equal(fs.readFileSync(docsKeepPath, "utf8"), "protected-doc-content\n");
+    assert.equal(fs.readFileSync(docsDistKeepPath, "utf8"), "protected-docs-dist-content\n");
+    assert.equal(fs.readFileSync(outsidePreciousKeep, "utf8"), "outside-precious-content\n");
+    assert.equal(fs.readFileSync(outsideDistKeep, "utf8"), "outside-dist-selfhost-content\n");
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+    fs.rmSync(outsideVictimDir, { recursive: true, force: true });
+    fs.rmSync(extLinkDir, { recursive: true, force: true });
+    fs.rmSync(extSafeParent, { recursive: true, force: true });
+  }
+});
