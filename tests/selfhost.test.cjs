@@ -109,6 +109,7 @@ function createNoGitBundleFixture(configOverride, extraFiles = {}) {
     "assets/mark.svg",
     "assets/favicon-32.png",
     "package.json",
+    "scripts/package-version.mjs",
     "scripts/build-selfhost.mjs",
     "scripts/verify-selfhost.mjs",
     "scripts/preview-dist.mjs",
@@ -1009,6 +1010,115 @@ test("大小写不敏感受保护素材/母版路径校验与输出目录禁止�
     assert.equal(fs.readFileSync(brandLogoPath, "utf8"), SAMPLE_SVG);
     assert.deepEqual(fs.readFileSync(brandFavPath), customPng);
     assert.equal(fs.readFileSync(brandKeepPath, "utf8"), "keep-brand-source\n");
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("自建构建注入唯一 app-version meta，覆盖默认/换牌、无 Git、非法版本与版本篡改拦截", async () => {
+  const { buildSelfhost } = await import("../scripts/build-selfhost.mjs");
+  const { verifySelfhost } = await import("../scripts/verify-selfhost.mjs");
+
+  const pkgVersion = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, "package.json"), "utf8")).version;
+  const fixtureDir = createNoGitBundleFixture(undefined, {
+    "brand/logo.svg": SAMPLE_SVG,
+    "brand/favicon-32.png": makeMinimalPng(32, 32),
+  });
+
+  try {
+    // 1. 无 Git 源码包默认品牌构建：白名单无 build-meta.json，<head> 含唯一 app-version
+    const defaultBuilt = buildSelfhost({ projectRoot: fixtureDir });
+    assert.equal(defaultBuilt.files.includes("build-meta.json"), false);
+    const defaultVerified = verifySelfhost({ projectRoot: fixtureDir });
+    assert.equal(defaultVerified.appVersion, pkgVersion);
+
+    const defaultHtml = fs.readFileSync(path.join(fixtureDir, "dist-selfhost/index.html"), "utf8");
+    const defaultHead = defaultHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)[1];
+    const defaultMetas = [...defaultHead.matchAll(/<meta\b[^>]*\bname="app-version"[^>]*>/gi)];
+    assert.equal(defaultMetas.length, 1);
+    assert.equal(defaultMetas[0][0], `<meta name="app-version" content="${pkgVersion}">`);
+
+    // 2. 换品牌构建同样注入唯一 app-version 且白名单不变
+    const rebrandCfgPath = path.join(fixtureDir, "site.rebrand.json");
+    fs.writeFileSync(
+      rebrandCfgPath,
+      `${JSON.stringify(
+        {
+          siteName: "星尘头像工坊",
+          title: "星尘头像工坊 · 定制版",
+          description: "自定义品牌描述",
+          logo: "brand/logo.svg",
+          favicon: { svg: "brand/logo.svg", png: "brand/favicon-32.png" },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    const rebrandOut = path.join(fixtureDir, "dist-selfhost-rebrand");
+    const rebrandBuilt = buildSelfhost({ projectRoot: fixtureDir, configPath: "site.rebrand.json", outDir: rebrandOut });
+    assert.deepEqual(rebrandBuilt.files, ["assets/favicon.png", "assets/logo.svg", "index.html"]);
+    const rebrandVerified = verifySelfhost({ projectRoot: fixtureDir, configPath: "site.rebrand.json", outDir: rebrandOut });
+    assert.equal(rebrandVerified.appVersion, pkgVersion);
+
+    // 3. 篡改产物中的 app-version 内容、重复注入或删除都必须被 verifySelfhost 拦截
+    const builtIndexPath = path.join(fixtureDir, "dist-selfhost/index.html");
+    const origBuiltHtml = fs.readFileSync(builtIndexPath, "utf8");
+
+    fs.writeFileSync(
+      builtIndexPath,
+      origBuiltHtml.replace(`<meta name="app-version" content="${pkgVersion}">`, `<meta name="app-version" content="9.9.9">`),
+      "utf8",
+    );
+    assert.throws(
+      () => verifySelfhost({ projectRoot: fixtureDir }),
+      /does not match package\.json version/,
+    );
+
+    fs.writeFileSync(
+      builtIndexPath,
+      origBuiltHtml.replace(
+        `<meta name="app-version" content="${pkgVersion}">`,
+        `<meta name="app-version" content="${pkgVersion}">\n<meta name="app-version" content="${pkgVersion}">`,
+      ),
+      "utf8",
+    );
+    assert.throws(
+      () => verifySelfhost({ projectRoot: fixtureDir }),
+      /must contain exactly 1 <meta name="app-version"> tag \(found 2\)/,
+    );
+
+    fs.writeFileSync(
+      builtIndexPath,
+      origBuiltHtml.replace(`<meta name="app-version" content="${pkgVersion}">`, ""),
+      "utf8",
+    );
+    assert.throws(
+      () => verifySelfhost({ projectRoot: fixtureDir }),
+      /must contain exactly 1 <meta name="app-version"> tag \(found 0\)/,
+    );
+    fs.writeFileSync(builtIndexPath, origBuiltHtml, "utf8");
+
+    // 4. package.json 版本变更未重建或非法 SemVer / 缺失时必须拦截
+    const pkgPath = path.join(fixtureDir, "package.json");
+    const origPkg = fs.readFileSync(pkgPath, "utf8");
+    const parsedPkg = JSON.parse(origPkg);
+
+    fs.writeFileSync(pkgPath, `${JSON.stringify({ ...parsedPkg, version: "0.2.1" }, null, 2)}\n`, "utf8");
+    assert.throws(
+      () => verifySelfhost({ projectRoot: fixtureDir }),
+      /does not match package\.json version="0\.2\.1"/,
+    );
+
+    for (const badVer of ["", "v0.2.0", "0.2", "0.2.0<script>"]) {
+      fs.writeFileSync(pkgPath, `${JSON.stringify({ ...parsedPkg, version: badVer }, null, 2)}\n`, "utf8");
+      assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /valid SemVer string/);
+      assert.throws(() => verifySelfhost({ projectRoot: fixtureDir }), /valid SemVer string/);
+    }
+
+    fs.rmSync(pkgPath);
+    assert.throws(() => buildSelfhost({ projectRoot: fixtureDir }), /Missing package\.json/);
+    assert.throws(() => verifySelfhost({ projectRoot: fixtureDir }), /Missing package\.json/);
   } finally {
     fs.rmSync(fixtureDir, { recursive: true, force: true });
   }

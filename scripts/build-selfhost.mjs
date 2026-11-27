@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizePackageVersion, readPackageVersion } from "./package-version.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -538,7 +539,14 @@ function replaceExactlyOnce(source, regex, replacer, label) {
   return source.replace(regex, replacer);
 }
 
-export function renderBrandedHtml(sourceHtml, resolved) {
+const APP_VERSION_META_RE = /<meta\b[^>]*\bname\s*=\s*(?:"app-version"|'app-version')[^>]*>/gi;
+
+export function renderBrandedHtml(sourceHtml, resolved, appVersion) {
+  const normalizedVersion = normalizePackageVersion(appVersion ?? resolved?.appVersion);
+  if (!normalizedVersion) {
+    throw new Error(`Self-host build requires a valid SemVer appVersion (got: ${String(appVersion ?? resolved?.appVersion)})`);
+  }
+
   const headMatches = [...sourceHtml.matchAll(/<head\b[^>]*>[\s\S]*?<\/head>/gi)];
   if (headMatches.length !== 1) {
     throw new Error(`Expected exactly 1 <head>...</head> section in source index.html, found ${headMatches.length}`);
@@ -548,6 +556,10 @@ export function renderBrandedHtml(sourceHtml, resolved) {
   const headEnd = headStart + headMatches[0][0].length;
   let headBlock = headMatches[0][0];
 
+  if ([...headBlock.matchAll(APP_VERSION_META_RE)].length > 0) {
+    throw new Error('Source index.html <head> must not predefine <meta name="app-version">');
+  }
+
   // 1. 替换浏览器标题 <title>
   headBlock = replaceExactlyOnce(
     headBlock,
@@ -556,11 +568,12 @@ export function renderBrandedHtml(sourceHtml, resolved) {
     "<title> tag in <head>",
   );
 
-  // 2. 替换页面描述 <meta name="description">
+  // 2. 替换页面描述 <meta name="description">，并紧随其后注入唯一 <meta name="app-version">
   headBlock = replaceExactlyOnce(
     headBlock,
-    /<meta\b[^>]*\bname\s*=\s*(?:"description"|'description')[^>]*>/gi,
-    () => `<meta name="description" content="${escapeHtml(resolved.config.description)}">`,
+    /([ \t]*)<meta\b[^>]*\bname\s*=\s*(?:"description"|'description')[^>]*>/gi,
+    (_full, indent = "") =>
+      `${indent}<meta name="description" content="${escapeHtml(resolved.config.description)}">\n${indent}<meta name="app-version" content="${escapeHtml(normalizedVersion)}">`,
     '<meta name="description"> tag in <head>',
   );
 
@@ -643,9 +656,10 @@ export function computeSelfhostBuildPlan(options = {}) {
     projectRoot,
     configPath: options.configPath,
   });
+  const appVersion = readPackageVersion(projectRoot);
 
   const sourceHtml = fs.readFileSync(indexPath, "utf8");
-  const brandedHtml = renderBrandedHtml(sourceHtml, resolved);
+  const brandedHtml = renderBrandedHtml(sourceHtml, resolved, appVersion);
   const htmlBuffer = Buffer.from(brandedHtml, "utf8");
 
   const files = new Map();
@@ -684,6 +698,7 @@ export function computeSelfhostBuildPlan(options = {}) {
     projectRoot,
     configPath: resolved.configPath,
     config: resolved.config,
+    appVersion,
     logo: resolved.logo,
     favicons: resolved.favicons,
     sourceAssets,

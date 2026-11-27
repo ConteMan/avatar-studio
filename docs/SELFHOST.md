@@ -7,7 +7,7 @@
 ## 前置要求
 
 - Node.js 26（仅使用内置模块，无需执行 `npm install`，也不依赖 Git）。
-- 若使用源码压缩包（无 `.git`），包内至少需保留：`index.html`、`site.config.json`、`assets/`（默认图标 `assets/mark.svg` 与 `assets/favicon-32.png`，以及你的自定义品牌图标文件）、`scripts/build-selfhost.mjs`、`scripts/verify-selfhost.mjs`（本地预览还需 `scripts/preview-dist.mjs`）。
+- 若使用源码压缩包（无 `.git`），包内至少需保留：`index.html`、`package.json`、`site.config.json`、`assets/`（默认图标 `assets/mark.svg` 与 `assets/favicon-32.png`，以及你的自定义品牌图标文件）、`scripts/package-version.mjs`、`scripts/build-selfhost.mjs`、`scripts/verify-selfhost.mjs`（本地预览还需 `scripts/preview-dist.mjs`）。
 
 ## 首次换品牌（3 步）
 
@@ -83,11 +83,13 @@ node scripts/preview-dist.mjs --dist dist-selfhost --port 8788
 
 ```text
 dist-selfhost/
-├── index.html          # 已注入站名、标题、描述与图标引用的单页入口
+├── index.html          # 已注入站名、标题、描述、图标引用与唯一 app-version 的单页入口
 └── assets/
     ├── logo.<ext>      # 页头 Logo（若 favicon 与 logo 同源则自动复用此文件）
     └── favicon.<ext>   # 浏览器图标（仅当与 logo 不同源文件时单独生成）
 ```
+
+> 应用版本由构建脚本从 `package.json` 严格校验 SemVer 后注入自建 `index.html` 的 `<meta name="app-version">`，供「关于」弹窗在静态托管和 `file://` 直接打开时稳定显示「版本 `<semver>`」，无需额外生成 `build-meta.json`。
 
 **不要上传**以下内容：
 

@@ -12,6 +12,7 @@ import {
   RELEASE_MANIFEST_REL,
   VALID_STAGES,
   readGitInfo,
+  readPackageVersion,
   readReleaseManifest,
 } from "./build-dist.mjs";
 import { parseHeadersFile } from "./preview-dist.mjs";
@@ -309,7 +310,14 @@ export function verifyDist(options = {}) {
     }
   }
 
-  // 7. 校验 build-meta.json 安全、阶段一致且永不在预发布产物中伪造已发布
+  // 7. 校验 build-meta.json 安全、版本权威一致、阶段一致且永不在预发布产物中伪造已发布
+  let expectedPackageVersion = null;
+  try {
+    expectedPackageVersion = readPackageVersion(projectRoot);
+  } catch (err) {
+    errors.push(err.message);
+  }
+
   const metaPath = path.join(distDir, META_FILENAME);
   let meta = null;
   if (fs.existsSync(metaPath)) {
@@ -320,6 +328,11 @@ export function verifyDist(options = {}) {
     try {
       meta = JSON.parse(rawMeta);
       if (meta.app !== "avatar-studio") errors.push(`Unexpected meta.app: ${meta.app}`);
+      if (expectedPackageVersion && meta.packageVersion !== expectedPackageVersion) {
+        errors.push(
+          `build-meta.json packageVersion="${meta.packageVersion}" does not match package.json version="${expectedPackageVersion}"`,
+        );
+      }
       if (meta.stage !== mode) {
         errors.push(`build-meta.json stage="${meta.stage}" does not match verification mode="${mode}"`);
       }
