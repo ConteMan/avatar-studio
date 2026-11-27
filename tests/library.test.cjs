@@ -692,3 +692,78 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
   lib.clearPendingEdit(storage, 'tab-A', tick + 350);
   assert.equal(storage.raw.has(lib.PENDING_KEY), false);
 });
+
+test('R1 显式分享另存后立即刷新：已提交未回调与未提交均按确定 workId 接管，不猜测历史独立导入', async () => {
+  const idb = createMockIDB();
+  let tick = 40000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `r1-${++seq}` });
+  const storage = memoryStorage();
+
+  const shareBase = app.randomize(app.defaultState(), 'R1分享原稿🎨');
+  const otherShare = app.randomize(app.defaultState(), '另一份分享🌱');
+  const sharePreview = { kind: 'share', baseState: app.persistableState(shareBase) };
+  const otherPreview = { kind: 'share', baseState: app.persistableState(otherShare) };
+
+  // 1. 事务已提交但 UI 回调未执行（暂存仍存在，workId 已落库）
+  const preCommitted = await store.createWork({
+    id: 'share-save-op-1',
+    source: 'share',
+    baseState: shareBase,
+    baseLabel: '分享原稿',
+    currentState: null,
+    setActive: true,
+  });
+  assert.equal(preCommitted.ok, true);
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-r1',
+    kind: 'create',
+    workId: 'share-save-op-1',
+    source: 'share',
+    baseState: shareBase,
+    baseLabel: '分享原稿',
+    nextState: shareBase,
+    label: '分享原稿',
+    explicitCreate: true,
+    at: tick,
+  });
+
+  const replayCommitted = await store.replayPendingEdit(storage, 'tab-r1');
+  assert.equal(replayCommitted.ok, true);
+  assert.equal(replayCommitted.recovered, false);
+  assert.equal(replayCommitted.committedBeforeUnload, true);
+  assert.equal(replayCommitted.work.id, 'share-save-op-1');
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+
+  // 同标签同预览应接管；不同标签或不同分享预览绝不接管
+  assert.equal(lib.shouldAdoptShareReplay(sharePreview, replayCommitted, 'tab-r1'), true);
+  assert.equal(lib.shouldAdoptShareReplay(sharePreview, replayCommitted, 'tab-other'), false);
+  assert.equal(lib.shouldAdoptShareReplay(otherPreview, replayCommitted, 'tab-r1'), false);
+  assert.equal((await store.listWorks()).works.length, 1);
+
+  // 2. 刷新后再次打开同一分享（无暂存）-> 不按内容/时间猜测接管既有作品，可再建独立作品
+  const normalOpenReplay = await store.replayPendingEdit(storage, 'tab-r1');
+  assert.equal(normalOpenReplay.none, true);
+  assert.equal(lib.shouldAdoptShareReplay(sharePreview, normalOpenReplay, 'tab-r1'), false);
+
+  // 3. 事务尚未提交时立即刷新 -> 回放建档为第 2 件独立作品并接管
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-r1',
+    kind: 'create',
+    workId: 'share-save-op-2',
+    source: 'share',
+    baseState: shareBase,
+    baseLabel: '分享原稿',
+    nextState: shareBase,
+    label: '分享原稿',
+    explicitCreate: true,
+    at: tick + 500,
+  });
+  const replayUncommitted = await store.replayPendingEdit(storage, 'tab-r1');
+  assert.equal(replayUncommitted.ok, true);
+  assert.equal(replayUncommitted.recovered, true);
+  assert.equal(replayUncommitted.committedBeforeUnload, false);
+  assert.equal(replayUncommitted.work.id, 'share-save-op-2');
+  assert.equal(lib.shouldAdoptShareReplay(sharePreview, replayUncommitted, 'tab-r1'), true);
+  assert.equal((await store.listWorks()).works.length, 2);
+});

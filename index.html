@@ -2315,7 +2315,7 @@ var WorkLibrary = (function () {
           if (!foundById.ok) return { ok:false, reason:foundById.reason, pending:pending };
           if (foundById.work) {
             clearPendingEdit(storage, owner, tsNow);
-            return { ok:true, recovered:false, work:foundById.work };
+            return { ok:true, recovered:false, committedBeforeUnload:true, work:foundById.work, pending:pending };
           }
           return createWork({
             id: pending.workId,
@@ -2328,7 +2328,13 @@ var WorkLibrary = (function () {
           }).then(function (created) {
             if (created.ok) {
               clearPendingEdit(storage, owner, tsNow);
-              return { ok:true, recovered:!created.deduplicated, work:created.work };
+              return {
+                ok: true,
+                recovered: !created.deduplicated,
+                committedBeforeUnload: !!created.deduplicated,
+                work: created.work,
+                pending: pending
+              };
             }
             return { ok:false, reason:created.reason, pending:pending };
           });
@@ -2376,6 +2382,20 @@ var WorkLibrary = (function () {
     };
   }
 
+  function shouldAdoptShareReplay(preview, replayed, currentTabId) {
+    if (!preview || preview.kind !== 'share') return false;
+    if (!replayed || !replayed.ok || !replayed.work || !replayed.pending) return false;
+    if (!replayed.recovered && !replayed.committedBeforeUnload) return false;
+    var pending = replayed.pending;
+    if (pending.kind !== 'create' || pending.source !== 'share') return false;
+    if (typeof pending.workId !== 'string' || !pending.workId || replayed.work.id !== pending.workId) return false;
+    if (currentTabId && pending.tabId !== currentTabId) return false;
+    if (replayed.work.source !== 'share') return false;
+    if (!AvatarState.statesEqual(pending.baseState, preview.baseState)) return false;
+    if (!AvatarState.statesEqual(stepZeroStateOf(replayed.work), preview.baseState)) return false;
+    return true;
+  }
+
   return {
     DB_NAME: DB_NAME,
     DB_VERSION: DB_VERSION,
@@ -2401,6 +2421,7 @@ var WorkLibrary = (function () {
     readPendingEdit: readPendingEdit,
     writePendingEdit: writePendingEdit,
     clearPendingEdit: clearPendingEdit,
+    shouldAdoptShareReplay: shouldAdoptShareReplay,
     generateWorkId: defaultRandomId,
     createStore: createStore
   };
@@ -3914,10 +3935,7 @@ if (typeof document !== 'undefined') (function () {
             return;
           }
 
-          if (preview && replayed && replayed.ok && replayed.recovered && replayed.work &&
-              replayed.work.source === 'share' &&
-              stateModel.statesEqual(libraryModel.stepZeroStateOf(replayed.work), preview.baseState) &&
-              !userActedBeforeBoot) {
+          if (preview && libraryModel.shouldAdoptShareReplay(preview, replayed, tabId) && !userActedBeforeBoot) {
             preview = null;
             activeWork = replayed.work;
             state = libraryModel.currentStateOf(replayed.work);
