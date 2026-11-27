@@ -1144,7 +1144,7 @@ test('待保存暂存支持完整历史回放、撤销位置恢复与旧格式�
   assert.equal((await store.listWorks()).works.filter(w => w.id === 'history-create-1').length, 1);
 });
 
-test('完整历史暂存仅由拥有标签回放，旧格式保留兼容，异步交错不删新暂存', async () => {
+test('完整历史与旧格式暂存都只由确认归属的标签回放，异步交错不删新暂存', async () => {
   const idb = createMockIDB();
   let tick = 70000;
   let seq = 0;
@@ -1197,7 +1197,7 @@ test('完整历史暂存仅由拥有标签回放，旧格式保留兼容，异�
   assert.equal(afterOwned.work.currentIndex, 1);
   assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
 
-  // 旧格式（无 snapshots）仍允许其他标签按下一步追加回放
+  // 旧格式（无 snapshots）也不能被不同 tab id 的文档自动消费；拥有标签确认后才能追加
   lib.writePendingEdit(storage, {
     tabId: 'tab-A',
     kind: 'edit',
@@ -1211,7 +1211,14 @@ test('完整历史暂存仅由拥有标签回放，旧格式保留兼容，异�
     at: tick,
   });
   assert.ok(lib.readPendingEdit(storage, 'tab-B', tick + 1000));
-  const legacy = await store.replayPendingEdit(storage, 'tab-B');
+  const blockedLegacy = await store.replayPendingEdit(storage, 'tab-B');
+  assert.equal(blockedLegacy.ok, false);
+  assert.equal(blockedLegacy.reason, 'ownership-unconfirmed');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const afterBlockedLegacy = await store.getWork('own-work');
+  assert.equal(afterBlockedLegacy.work.rev, 2);
+  assert.equal(afterBlockedLegacy.work.currentIndex, 1);
+  const legacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: true });
   assert.equal(legacy.ok, true);
   assert.equal(legacy.recovered, true);
   const afterLegacy = await store.getWork('own-work');
@@ -1520,7 +1527,7 @@ test('暂存写入失败返回 false，不清除已有其他标签记录', () =>
   assert.equal(lib.readPendingEdit(storage, 'tab-A'), null);
 });
 
-test('未确认活跃文档归属时不自动提交完整历史，旧格式仍兼容', async () => {
+test('未确认活跃文档归属时不自动提交完整历史或旧格式暂存', async () => {
   const idb = createMockIDB();
   let tick = 95000;
   let seq = 0;
@@ -1587,7 +1594,14 @@ test('未确认活跃文档归属时不自动提交完整历史，旧格式仍�
     label: '旧格式步C',
     at: tick,
   });
-  const legacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: false });
+  const blockedLegacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: false });
+  assert.equal(blockedLegacy.ok, false);
+  assert.equal(blockedLegacy.reason, 'ownership-unconfirmed');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const afterBlockedLegacy = await store.getWork('owner-check');
+  assert.equal(afterBlockedLegacy.work.rev, 2);
+  assert.equal(afterBlockedLegacy.work.currentIndex, 2);
+  const legacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: true });
   assert.equal(legacy.ok, true);
   assert.equal(legacy.recovered, true);
   const afterLegacy = await store.getWork('owner-check');
@@ -1595,4 +1609,38 @@ test('未确认活跃文档归属时不自动提交完整历史，旧格式仍�
   assert.equal(afterLegacy.work.currentIndex, 3);
   assert.equal(app.render(lib.currentStateOf(afterLegacy.work)), app.render(c));
   assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+});
+
+test('写租约撤销后 readwrite 被阻止，恢复后才允许重新写入', async () => {
+  const idb = createMockIDB();
+  let tick = 100000;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => 'lease-work' });
+  const base = historyState(1);
+  const a = historyState(0.8);
+
+  store.setWriteBlocked(true);
+  const blocked = await store.createWork({
+    id: 'lease-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1)],
+    currentIndex: 0,
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, 'unavailable');
+  assert.equal((await store.listWorks()).works.length, 0);
+
+  store.setWriteBlocked(false);
+  const created = await store.createWork({
+    id: 'lease-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  assert.equal(created.ok, true);
+  assert.equal(created.work.rev, 1);
+  assert.equal((await store.listWorks()).works.length, 1);
 });

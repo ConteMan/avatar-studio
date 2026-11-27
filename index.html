@@ -2106,6 +2106,8 @@ var WorkLibrary = (function () {
     var maxSnapshots = maxUndoSteps + 1;
     var dbPromise = null;
     var activeDb = null;
+    var activeWrites = [];
+    var writeBlocked = false;
 
     function closeDb() {
       if (activeDb) {
@@ -2173,14 +2175,20 @@ var WorkLibrary = (function () {
     function runTx(stores, mode, runner) {
       return open().then(function (opened) {
         if (!opened.ok) return { ok:false, reason:opened.reason };
+        if (mode === 'readwrite' && writeBlocked) return { ok:false, reason:'unavailable' };
         var db = opened.db;
         return new Promise(function (resolve) {
           var settled = false;
           var outcome = null;
           var tx;
+          var writeEntry = null;
           function done(res) {
             if (settled) return;
             settled = true;
+            if (writeEntry) {
+              var wi = activeWrites.indexOf(writeEntry);
+              if (wi >= 0) activeWrites.splice(wi, 1);
+            }
             resolve(res);
           }
           try {
@@ -2189,6 +2197,10 @@ var WorkLibrary = (function () {
             if (e && e.name === 'InvalidStateError') closeDb();
             done({ ok:false, reason:storageReason(e), error:e });
             return;
+          }
+          if (mode === 'readwrite') {
+            writeEntry = { tx:tx };
+            activeWrites.push(writeEntry);
           }
           tx.oncomplete = function () {
             done(outcome || { ok:false, reason:'unavailable' });
@@ -2215,6 +2227,16 @@ var WorkLibrary = (function () {
           }
         });
       });
+    }
+
+    function setWriteBlocked(blocked) {
+      writeBlocked = !!blocked;
+    }
+    function cancelActiveWrites() {
+      var entries = activeWrites.slice();
+      for (var i = 0; i < entries.length; i++) {
+        try { entries[i].tx.abort(); } catch (e) {}
+      }
     }
 
     function migrateLegacyDraft(storage) {
@@ -2655,12 +2677,12 @@ var WorkLibrary = (function () {
       if (!pending) return Promise.resolve({ ok:true, recovered:false, none:true });
       var owner = pending.tabId;
       var hasFullHistory = Array.isArray(pending.snapshots) && pending.snapshots.length > 0;
-      // 完整历史只能由写入它的标签回放；旧格式暂存继续支持原跨标签兼容。
-      if (hasFullHistory && tabId && owner !== tabId) {
-        return Promise.resolve({ ok:true, recovered:false, foreign:true, pending:pending });
+      // 只有在明确持有该 tabId 的活跃文档锁、且暂存属于本标签时才自动消费。
+      // 旧格式暂存同样不能被归属不确定的其他文档追加或删除。
+      if (tabId && owner !== tabId) {
+        return Promise.resolve({ ok:false, reason:'ownership-unconfirmed', pending:pending });
       }
-      // 同一 tab id 也可能来自复制标签/BFCache；未确认活跃文档归属时不自动提交。
-      if (hasFullHistory && !ownerConfirmed) {
+      if (!ownerConfirmed) {
         return Promise.resolve({ ok:false, reason:'ownership-unconfirmed', pending:pending });
       }
       if (pending.kind === 'edit') {
@@ -2821,7 +2843,9 @@ var WorkLibrary = (function () {
       saveWorkEdit: saveWorkEdit,
       stepWorkHistory: stepWorkHistory,
       syncWorkHistory: syncWorkHistory,
-      renameWork: renameWork
+      renameWork: renameWork,
+      cancelActiveWrites: cancelActiveWrites,
+      setWriteBlocked: setWriteBlocked
     };
   }
 
@@ -3049,16 +3073,29 @@ if (typeof document !== 'undefined') (function () {
     return 'tab-' + libraryModel.generateWorkId();
   }
 
+  var lockApiSupported = !!(typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function');
   var tabId = resolveTabId();
   var ownerLockState = 'pending';
   var ownerLockPromise = null;
   var ownerLockRelease = null;
+  var writeLeaseRevoked = false;
+  var ownershipAmbiguous = false;
+  function ownershipWriteAllowed() {
+    if (writeLeaseRevoked || ownershipAmbiguous) return false;
+    if (ownerLockState === 'held') return true;
+    if (!lockApiSupported && ownerLockState === 'unavailable') return true;
+    return false;
+  }
+  function ownershipEditsAllowed() {
+    if (conflict || writeLeaseRevoked) return false;
+    return ownershipWriteAllowed() || ownerLockState === 'pending';
+  }
   function acquireTabOwnershipLock() {
     var targetId = tabId;
     var navType = navigationTypeOf();
     var retries = (navType === 'reload' || navType === 'back_forward') ? 6 : 0;
     ownerLockState = 'pending';
-    if (typeof navigator === 'undefined' || !navigator.locks || typeof navigator.locks.request !== 'function') {
+    if (!lockApiSupported) {
       ownerLockState = 'unavailable';
       return Promise.resolve(ownerLockState);
     }
@@ -3111,9 +3148,46 @@ if (typeof document !== 'undefined') (function () {
     var fresh = 'tab-' + libraryModel.generateWorkId();
     tabId = fresh;
     ownerLockState = 'pending';
+    ownershipAmbiguous = false;
     try { window.sessionStorage.setItem('avatar-studio.tab-id', fresh); } catch (e) {}
-    ownerLockPromise = acquireTabOwnershipLock();
+    ownerLockPromise = acquireTabOwnershipLock().then(function (state) {
+      if (state === 'held') {
+        if (!writeLeaseRevoked && bootDone && historyDirty && !conflict) {
+          recordPendingEdit();
+          drainSaveQueue();
+        }
+      } else if (lockApiSupported && bootDone && !conflict) {
+        enterAmbiguousOwnershipWarning();
+      }
+      return state;
+    });
     return fresh;
+  }
+  function enterAmbiguousOwnershipWarning() {
+    if (conflict) return;
+    var pending = currentOwnPendingEdit();
+    if (pending) {
+      restorePendingBranch(pending, 'ownership-unconfirmed', worksCache, activeWork);
+      return;
+    }
+    ownershipAmbiguous = true;
+    var baseSnap = localHistory.snapshots[0];
+    conflict = {
+      workId: activeWork ? activeWork.id : null,
+      workTitle: activeWork ? activeWork.title : '未保存的新作品',
+      baseState: activeWork ? libraryModel.stepZeroStateOf(activeWork) : baseSnap.state,
+      baseLabel: activeWork && activeWork.snapshots[0] ? activeWork.snapshots[0].label : (baseSnap.label || '初始状态'),
+      latest: activeWork || null,
+      localSnapshots: cloneSnapshots(localHistory.snapshots),
+      localCurrentIndex: localHistory.currentIndex,
+      pending: null,
+      ambiguous: true,
+      kind: activeWork ? 'edit' : 'create'
+    };
+    unsaved = null;
+    syncHistoryControls();
+    renderWorkBar();
+    toast('无法确认此页的编辑归属；已暂停自动保存，可保存副本或导出');
   }
   ownerLockPromise = acquireTabOwnershipLock();
   var store = libraryModel.createStore();
@@ -3319,11 +3393,13 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function clearOwnPendingEdit() {
+    if (!ownershipWriteAllowed()) return false;
     var cleared = libraryModel.clearPendingEdit(safeLocalStorage(), tabId);
     if (cleared) pendingWriteFailed = false;
     return cleared;
   }
   function clearOwnPendingEditIfCurrent(expected) {
+    if (!ownershipWriteAllowed()) return false;
     var cleared = libraryModel.clearPendingEditIfCurrent(safeLocalStorage(), expected);
     if (cleared) pendingWriteFailed = false;
     return cleared;
@@ -3341,6 +3417,7 @@ if (typeof document !== 'undefined') (function () {
     return pendingCreateId;
   }
   function recordPendingEdit(force) {
+    if (!ownershipWriteAllowed()) return;
     if (conflict && !force) return;
     var hist = cloneHistory(localHistory);
     var curSnap = hist.snapshots[hist.currentIndex];
@@ -4121,6 +4198,7 @@ if (typeof document !== 'undefined') (function () {
     if (!conflict || !conflict.ambiguous || !conflict.latest || copyInFlight) return;
     var latest = conflict.latest;
     // 只切换本页身份，不清除原标签暂存；原标签仍可在刷新后恢复自己的分支。
+    ownershipAmbiguous = false;
     rotateTabId();
     contextEpoch += 1;
     historyDirty = false;
@@ -4134,6 +4212,7 @@ if (typeof document !== 'undefined') (function () {
     setLocalHistoryFromWork(latest);
     document.documentElement.setAttribute('data-avatar-source', 'library');
     refresh({ syncFocusedInputs: true });
+    clearShareParamAfterSave();
     renderWorkBar();
     refreshWorksCache(false);
     toast('已使用已保存版本；原标签未保存分支仍保留在暂存中');
@@ -4208,6 +4287,7 @@ if (typeof document !== 'undefined') (function () {
       if (res.ok) {
         if (ambiguous) {
           // 归属不明时副本已安全落盘，但不能删除原标签仍可能使用的暂存；本页换用新身份继续编辑。
+          ownershipAmbiguous = false;
           rotateTabId();
         } else if (copyPending) {
           // 归属明确时副本已实际落盘，才安全清理对应的本标签暂存。
@@ -4229,6 +4309,8 @@ if (typeof document !== 'undefined') (function () {
         storageNotice = '';
         pendingCreateId = null;
         setLocalHistoryFromWork(res.work);
+        state = libraryModel.currentStateOf(res.work);
+        refresh({ syncFocusedInputs: true });
         clearShareParamAfterSave();
         document.documentElement.setAttribute('data-avatar-source', 'library');
         broadcastLibraryChange(res.work.id);
@@ -4251,7 +4333,7 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function retrySave() {
-    if (conflict) return;
+    if (conflict || !ownershipWriteAllowed()) return;
     if (continuousSaveTimer !== null) {
       clearTimeout(continuousSaveTimer);
       continuousSaveTimer = null;
@@ -4309,7 +4391,11 @@ if (typeof document !== 'undefined') (function () {
     var coalesceKey = opts.coalesceKey || null;
     var deferSave = !!opts.deferSave;
     var explicitCreate = !!opts.explicitCreate;
-    if (conflict) {
+    if (!ownershipEditsAllowed()) {
+      // 归属不明、离页或冲突时，控件可能已经在调用前改了 state；回到当前历史快照，避免画面与已存分支分叉。
+      state = stateModel.sanitizeState(localHistory.snapshots[localHistory.currentIndex].state);
+      refresh({ syncFocusedInputs:true });
+      syncHistoryControls();
       renderWorkBar();
       return;
     }
@@ -4373,6 +4459,10 @@ if (typeof document !== 'undefined') (function () {
       toast('当前存在跨标签冲突，请先处理冲突');
       return;
     }
+    if (!ownershipEditsAllowed()) {
+      toast('当前标签页没有编辑归属，已暂停撤销和重做');
+      return;
+    }
     if (continuousSaveTimer !== null) {
       clearTimeout(continuousSaveTimer);
       continuousSaveTimer = null;
@@ -4409,6 +4499,10 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function drainSaveQueue() {
+    if (!ownershipWriteAllowed()) {
+      if (!saveInFlight) finishDrainPromise();
+      return;
+    }
     if (saveInFlight || !historyDirty) {
       if (!saveInFlight && !historyDirty) finishDrainPromise();
       return;
@@ -4801,7 +4895,14 @@ if (typeof document !== 'undefined') (function () {
   $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; noteEdit('切换形状锁'); refresh(); });
   $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; noteEdit('切换配色锁'); refresh(); });
   window.addEventListener('pagehide', function () {
-    flushContinuousEdit();
+    // 离开当前文档后立即失去写入租约：取消定时保存和在途事务，直到 pageshow 重新确认归属。
+    writeLeaseRevoked = true;
+    try { store.setWriteBlocked(true); } catch (e) {}
+    if (continuousSaveTimer !== null) {
+      clearTimeout(continuousSaveTimer);
+      continuousSaveTimer = null;
+    }
+    try { store.cancelActiveWrites(); } catch (e) {}
     if (ownerLockRelease) {
       var release = ownerLockRelease;
       ownerLockRelease = null;
@@ -4810,30 +4911,50 @@ if (typeof document !== 'undefined') (function () {
     }
   });
   window.addEventListener('pageshow', function (e) {
-    if (!e.persisted) return;
+    if (!e.persisted || !bootDone) return;
+    var storedTabId = '';
+    try { storedTabId = window.sessionStorage.getItem('avatar-studio.tab-id') || ''; } catch (err) {}
     ownerLockPromise = acquireTabOwnershipLock();
     ownerLockPromise.then(function (state) {
-      if (state === 'held' || !bootDone || conflict || unsaved) return;
-      var pending = currentOwnPendingEdit();
-      if (pending) {
-        restorePendingBranch(pending, 'ownership-unconfirmed', worksCache, activeWork);
-      } else if (activeWork) {
-        conflict = {
-          workId: activeWork.id,
-          workTitle: activeWork.title,
-          baseState: libraryModel.stepZeroStateOf(activeWork),
-          baseLabel: activeWork.snapshots[0] ? activeWork.snapshots[0].label : '初始状态',
-          latest: activeWork,
-          localSnapshots: cloneSnapshots(localHistory.snapshots),
-          localCurrentIndex: localHistory.currentIndex,
-          pending: null,
-          ambiguous: true
-        };
-        unsaved = null;
-        syncHistoryControls();
-        renderWorkBar();
-        toast('无法确认此页是否仍拥有未保存分支；已暂停自动保存，可保存副本或导出');
+      var mismatch = !!(storedTabId && storedTabId !== tabId);
+      function resumeOwned() {
+        if (mismatch) {
+          try { window.sessionStorage.setItem('avatar-studio.tab-id', tabId); } catch (err) {
+            enterAmbiguousOwnershipWarning();
+            return;
+          }
+        }
+        writeLeaseRevoked = false;
+        ownershipAmbiguous = false;
+        try { store.setWriteBlocked(false); } catch (err) {}
+        if (historyDirty && !conflict) {
+          recordPendingEdit();
+          drainSaveQueue();
+        } else {
+          syncHistoryControls();
+          renderWorkBar();
+        }
       }
+      if (state === 'held') {
+        resumeOwned();
+        return;
+      }
+      if (!lockApiSupported) {
+        // 无 Web Locks 的普通新会话仍可继续编辑；只有仍有本 id 暂存时才走安全恢复。
+        var pending = currentOwnPendingEdit();
+        if (!pending) {
+          resumeOwned();
+        } else {
+          // 歧义下仍需允许显式安全副本；普通保存由 ownershipAmbiguous 阻止。
+          try { window.sessionStorage.setItem('avatar-studio.tab-id', tabId); } catch (err) {}
+          try { store.setWriteBlocked(false); } catch (err) {}
+          enterAmbiguousOwnershipWarning();
+        }
+        return;
+      }
+      try { window.sessionStorage.setItem('avatar-studio.tab-id', tabId); } catch (err) {}
+      try { store.setWriteBlocked(false); } catch (err) {}
+      enterAmbiguousOwnershipWarning();
     });
   });
   document.addEventListener('visibilitychange', function () {
@@ -4873,6 +4994,7 @@ if (typeof document !== 'undefined') (function () {
     }
     var hist = pendingHistoryFromReplay(pending);
     var ambiguous = reason === 'ownership-unconfirmed';
+    ownershipAmbiguous = ambiguous;
     localHistory = hist;
     state = stateModel.sanitizeState(hist.snapshots[hist.currentIndex].state);
     historyDirty = false;
@@ -4991,7 +5113,17 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
 
+      var bootWriteBlocked = false;
+      var bootPending = libraryModel.readPendingEdit(storageRef, tabId);
       return ownerLockPromise.then(function (lockState) {
+        if (lockState !== 'held' && lockApiSupported && !bootPending) {
+          // 没有本 id 暂存需要保护：给这个无法取得活跃锁的新文档一个明确的新身份，再重新取锁。
+          rotateTabId();
+          return ownerLockPromise;
+        }
+        return lockState;
+      }).then(function (lockState) {
+        if (lockApiSupported && !ownershipWriteAllowed() && !writeLeaseRevoked) bootWriteBlocked = true;
         return store.replayPendingEdit(storageRef, tabId, { ownerConfirmed: lockState === 'held' });
       }).then(function (replayed) {
         return store.listWorks().then(function (list) {
@@ -5070,6 +5202,9 @@ if (typeof document !== 'undefined') (function () {
             else if (mig.draftError === 'future') toast('本地草稿版本无法识别，已显示默认形象');
           }
 
+          if (bootWriteBlocked && !conflict && !unsaved) {
+            enterAmbiguousOwnershipWarning();
+          }
           if (list.skippedFuture) {
             toast('发现更高版本作品记录，当前页面已跳过显示');
           }
