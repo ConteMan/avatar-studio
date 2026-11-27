@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.2.0
+
+- 在预览旁提供下载 PNG 和分享，把 SVG 下载和配置复制放入「更多」。
+- 缩短编辑区引导，把产品介绍和数据说明放入「关于」，保留手机端粘性预览。
+- 新作品的背景选择与随机生成移除放射背景。旧分享、草稿和锁定的放射背景仍可还原。
+
 ## 0.1.0（2026-11-27 +08:00）
 
 - 已于 `2026-11-27 06:35 +08:00` 经 Cloudflare Workers Static Assets 正式上线，公开入口 <https://avatar.conteman.com/>（Worker `avatar-studio`，部署源码 `main` SHA `97fe0c9577403f4913fbad9db4ac840b0b3ce5b1`，Version `11e3a3c8-f04f-443b-83c4-42cf5e32210b`，Deployment `d2aa156d-e7ca-4e0d-8c6a-9b6f9cc92864`，100% 流量），并于 `2026-11-27 06:39–06:40 +08:00` 完成公开地址核心流程验收（详见 `docs/RELEASING.md`）。
