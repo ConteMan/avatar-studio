@@ -51,6 +51,10 @@
   .work-bar-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px}
   .work-bar-title-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
   .work-bar-title{font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  .work-step-badge{
+    flex:none;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;
+    padding:1px 7px;border:1px solid var(--line);border-radius:999px;background:#f7f5ef;color:var(--label);line-height:1.45;
+  }
   .work-bar-status{font-size:12px;color:var(--label);line-height:1.45}
   .work-bar.is-error .work-bar-title,.work-bar.is-error .work-bar-status{color:#7c221d}
   .work-bar-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -102,9 +106,10 @@
     padding:8px 14px;border:1px solid var(--line);border-radius:9px;background:#fff;
     color:var(--ink);font-size:13px;font-weight:500;transition:.15s;white-space:nowrap;
   }
-  .btn:hover{border-color:#c9c4bb;background:#faf9f6}
+  .btn:hover:not(:disabled){border-color:#c9c4bb;background:#faf9f6}
+  .btn:disabled{opacity:.48;cursor:not-allowed;color:var(--muted);background:#faf9f6;border-color:var(--line)}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
-  .btn.primary:hover{background:#932a24}
+  .btn.primary:hover:not(:disabled){background:#932a24}
   main{
     display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start;
     padding:24px 28px 48px;max-width:1500px;margin:0 auto;
@@ -129,6 +134,9 @@
   .seg button{border:0;background:transparent;padding:8px 13px;font-size:12px;color:var(--muted)}
   .seg button:focus-visible{outline-offset:-3px}
   .seg button.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+  .history-controls{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+  .btn.history-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 11px;font-size:12px}
+  .btn.history-btn svg{width:14px;height:14px;flex:none;display:block}
   .spacer{flex:1}
   .plain{margin:12px 0 4px;font-size:13px;color:var(--label);line-height:1.65;max-width:40rem}
   .stage > details{margin-top:8px}
@@ -267,6 +275,10 @@
     .seedbox input[type=text]{width:min(15rem,100%);min-width:0;min-height:44px}
     .work-bar{padding:10px}
     .work-bar .btn{min-height:40px;padding:8px 10px}
+    .toolbar{justify-content:space-between;gap:8px}
+    .seg button{padding:8px 10px}
+    .history-controls{margin-left:0;gap:6px}
+    .btn.history-btn{min-height:44px;padding:8px 10px;font-size:12px}
     .library-dialog{width:calc(100% - 20px);max-height:calc(100dvh - 24px);padding:18px}
     .library-list{grid-template-columns:1fr}
     .work-rename-form input[type=text]{min-height:40px}
@@ -279,6 +291,8 @@
     header .btn{padding-inline:5px;font-size:11px}
     header .btn.about{padding-inline:4px}
     .work-count{padding:0 4px;font-size:10px}
+    .seg button{padding:8px 8px}
+    .btn.history-btn{padding:8px 8px;gap:4px}
   }
   @media(prefers-reduced-motion:reduce){
     *,*::before,*::after{transition:none !important;scroll-behavior:auto !important}
@@ -318,6 +332,7 @@
         <div class="work-bar-main">
           <div class="work-bar-title-row">
             <span class="work-bar-title" id="workBarTitle"></span>
+            <span class="work-step-badge" id="workStepBadge" hidden></span>
           </div>
           <span class="work-bar-status" id="workBarStatus"></span>
         </div>
@@ -328,6 +343,16 @@
           <button type="button" data-view="half" class="on" aria-pressed="true">半身</button>
           <button type="button" data-view="bust" aria-pressed="false">胸像</button>
           <button type="button" data-view="head" aria-pressed="false">头像</button>
+        </div>
+        <div class="history-controls" id="historyControls" role="group" aria-label="编辑历史">
+          <button class="btn history-btn" id="btnUndo" type="button" disabled aria-label="撤销（暂无可撤销步骤）" aria-keyshortcuts="Control+Z Meta+Z" title="暂无可撤销步骤（Ctrl/⌘+Z）">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5H10a3.25 3.25 0 1 1 0 6.5H8"/><path d="M7 4L4.5 6.5L7 9"/></svg>
+            <span>撤销</span>
+          </button>
+          <button class="btn history-btn" id="btnRedo" type="button" disabled aria-label="重做（暂无可重做步骤）" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" title="暂无可重做步骤（Ctrl/⌘+Shift+Z / Ctrl+Y）">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 6.5H6a3.25 3.25 0 1 0 0 6.5h2"/><path d="M9 4l2.5 2.5L9 9"/></svg>
+            <span>重做</span>
+          </button>
         </div>
       </div>
       <p class="plain">随机生成一个头像，再挑选部件、调整形状和配色。锁定喜欢的部件，下次随机时会保留它。</p>
@@ -384,7 +409,7 @@
   <p class="about-meta"><span class="about-version" id="aboutVersion" data-version-state="source">源码预览</span></p>
   <p>在浏览器里搭配发型、五官、服装与配饰，再选择半身、胸像或头像裁切。图像在本机生成，打开即可使用。</p>
   <h3>本地作品和分享</h3>
-  <p>编辑后的头像会自动保存到当前浏览器的「我的作品」。打开分享链接或载入示例时会先预览，点击「保存为新作品」或开始编辑后才会建立新记录，不会覆盖原有作品。</p>
+  <p>编辑后的头像会自动保存到当前浏览器的「我的作品」，每份作品独立保存最近的编辑步骤，支持撤销、重做与刷新后恢复。打开分享链接或载入示例时会先预览，点击「保存为新作品」或开始编辑后才会建立新记录，不会覆盖原有作品。</p>
   <h3>头像如何生成</h3>
   <p>头像由 11 个绘制层叠成。发型和服装的前后层负责遮挡，形状与颜色可以独立调整。若想复现同一个头像，请保存完整配置或分享链接。</p>
 </dialog>
@@ -1571,6 +1596,8 @@ var WorkLibrary = (function () {
   var PENDING_MAX_AGE_MS = 86400000;
   var PENDING_MAX_TABS = 8;
   var MAX_TITLE_LEN = 60;
+  var MAX_UNDO_STEPS = 50;
+  var MAX_SNAPSHOTS = MAX_UNDO_STEPS + 1;
   var LEGACY_DRAFT_TITLE = '旧草稿';
 
   function isPlainObject(v) {
@@ -1637,7 +1664,156 @@ var WorkLibrary = (function () {
       at: at
     };
   }
-  function sanitizeWork(raw) {
+  function resolveMaxSnapshots(maxSnapshots) {
+    return typeof maxSnapshots === 'number' && Number.isInteger(maxSnapshots) && maxSnapshots >= 2
+      ? maxSnapshots
+      : MAX_SNAPSHOTS;
+  }
+  function normalizeHistory(rawSnapshots, rawIndex, fallbackTime, maxSnapshots) {
+    if (!Array.isArray(rawSnapshots) || !rawSnapshots.length) return null;
+    var snapshots = [];
+    for (var i = 0; i < rawSnapshots.length; i++) {
+      var snap = sanitizeSnapshot(rawSnapshots[i], fallbackTime);
+      if (!snap) return null;
+      snapshots.push(snap);
+    }
+    var currentIndex = typeof rawIndex === 'number' && Number.isInteger(rawIndex) ? rawIndex : snapshots.length - 1;
+    if (currentIndex < 0) currentIndex = 0;
+    if (currentIndex >= snapshots.length) currentIndex = snapshots.length - 1;
+    var limit = resolveMaxSnapshots(maxSnapshots);
+    if (snapshots.length > limit) {
+      var start = Math.max(0, Math.min(snapshots.length - limit, currentIndex - (limit - 1)));
+      snapshots = snapshots.slice(start, start + limit);
+      currentIndex = currentIndex - start;
+    }
+    return { snapshots: snapshots, currentIndex: currentIndex };
+  }
+  function historiesEqual(a, b) {
+    if (!a || !b || !Array.isArray(a.snapshots) || !Array.isArray(b.snapshots)) return false;
+    if (a.currentIndex !== b.currentIndex) return false;
+    if (a.snapshots.length !== b.snapshots.length) return false;
+    for (var i = 0; i < a.snapshots.length; i++) {
+      if (!a.snapshots[i] || !b.snapshots[i]) return false;
+      if (!AvatarState.statesEqual(a.snapshots[i].state, b.snapshots[i].state)) return false;
+    }
+    return true;
+  }
+  function historyStatus(workOrHistory) {
+    var snaps = workOrHistory && Array.isArray(workOrHistory.snapshots) ? workOrHistory.snapshots : [];
+    var total = snaps.length;
+    if (!total) {
+      return { total:0, currentIndex:0, undoCount:0, redoCount:0, canUndo:false, canRedo:false, undoLabel:'', redoLabel:'' };
+    }
+    var idx = typeof workOrHistory.currentIndex === 'number' && Number.isInteger(workOrHistory.currentIndex)
+      ? workOrHistory.currentIndex
+      : total - 1;
+    if (idx < 0) idx = 0;
+    if (idx >= total) idx = total - 1;
+    return {
+      total: total,
+      currentIndex: idx,
+      undoCount: idx,
+      redoCount: total - 1 - idx,
+      canUndo: idx > 0,
+      canRedo: idx < total - 1,
+      undoLabel: idx > 0 && snaps[idx] ? (snaps[idx].label || '编辑') : '',
+      redoLabel: idx < total - 1 && snaps[idx + 1] ? (snaps[idx + 1].label || '编辑') : ''
+    };
+  }
+  function applyEditToHistory(history, nextState, opts) {
+    opts = opts || {};
+    var ts = typeof opts.at === 'number' && isFinite(opts.at) ? opts.at : Date.now();
+    var limit = resolveMaxSnapshots(opts.maxSnapshots);
+    var base = normalizeHistory(history && history.snapshots, history && history.currentIndex, ts, limit);
+    var nextSan = AvatarState.sanitizeState(nextState);
+    if (!base || !nextSan) {
+      return {
+        changed: false,
+        skipped: true,
+        collapsed: false,
+        invalid: true,
+        snapshots: base ? base.snapshots : [],
+        currentIndex: base ? base.currentIndex : 0
+      };
+    }
+    var nextPersist = AvatarState.persistableState(nextSan);
+    var curSnap = base.snapshots[base.currentIndex];
+    if (curSnap && AvatarState.statesEqual(curSnap.state, nextPersist)) {
+      return {
+        changed: false,
+        skipped: true,
+        collapsed: false,
+        snapshots: base.snapshots,
+        currentIndex: base.currentIndex
+      };
+    }
+    var kept = base.snapshots.slice(0, base.currentIndex + 1);
+    var label = cleanTitle(opts.label || '编辑', '编辑').slice(0, 40);
+    // 回到紧邻的上一步时不写重复快照，直接收束；更早的同值状态仍按新步骤记录。
+    var prevSnap = base.currentIndex > 0 ? kept[base.currentIndex - 1] : null;
+    if (prevSnap && AvatarState.statesEqual(prevSnap.state, nextPersist)) {
+      kept.pop();
+      return {
+        changed: true,
+        skipped: false,
+        collapsed: true,
+        snapshots: kept,
+        currentIndex: kept.length - 1
+      };
+    }
+    if (opts.replaceCurrent && base.currentIndex > 0) {
+      kept[base.currentIndex] = { state: nextPersist, label: label, at: ts };
+      return {
+        changed: true,
+        skipped: false,
+        collapsed: false,
+        snapshots: kept,
+        currentIndex: base.currentIndex
+      };
+    }
+    kept.push({ state: nextPersist, label: label, at: ts });
+    if (kept.length > limit) {
+      kept = kept.slice(kept.length - limit);
+    }
+    return {
+      changed: true,
+      skipped: false,
+      collapsed: false,
+      snapshots: kept,
+      currentIndex: kept.length - 1
+    };
+  }
+  function stepHistory(history, delta) {
+    var base = normalizeHistory(history && history.snapshots, history && history.currentIndex, Date.now());
+    if (!base || typeof delta !== 'number' || !Number.isInteger(delta) || delta === 0) {
+      return {
+        changed: false,
+        snapshots: base ? base.snapshots : [],
+        currentIndex: base ? base.currentIndex : 0,
+        fromIndex: base ? base.currentIndex : 0,
+        label: ''
+      };
+    }
+    var target = base.currentIndex + delta;
+    if (target < 0 || target >= base.snapshots.length) {
+      return {
+        changed: false,
+        snapshots: base.snapshots,
+        currentIndex: base.currentIndex,
+        fromIndex: base.currentIndex,
+        label: ''
+      };
+    }
+    var labelSnap = delta < 0 ? base.snapshots[base.currentIndex] : base.snapshots[target];
+    return {
+      changed: true,
+      snapshots: base.snapshots,
+      currentIndex: target,
+      fromIndex: base.currentIndex,
+      label: labelSnap ? (labelSnap.label || '编辑') : '编辑'
+    };
+  }
+  function sanitizeWork(raw, maxSnapshots) {
     if (!isPlainObject(raw)) return null;
     if (raw.v !== STORAGE_VERSION) return null;
     if (typeof raw.id !== 'string' || !raw.id.trim()) return null;
@@ -1645,16 +1821,8 @@ var WorkLibrary = (function () {
     var createdAt = typeof raw.createdAt === 'number' && isFinite(raw.createdAt) ? raw.createdAt : now;
     var updatedAt = typeof raw.updatedAt === 'number' && isFinite(raw.updatedAt) ? raw.updatedAt : createdAt;
     var rev = typeof raw.rev === 'number' && Number.isInteger(raw.rev) && raw.rev >= 1 ? raw.rev : 1;
-    if (!Array.isArray(raw.snapshots) || !raw.snapshots.length) return null;
-    var snapshots = [];
-    for (var i = 0; i < raw.snapshots.length; i++) {
-      var snap = sanitizeSnapshot(raw.snapshots[i], updatedAt);
-      if (!snap) return null;
-      snapshots.push(snap);
-    }
-    var currentIndex = typeof raw.currentIndex === 'number' && Number.isInteger(raw.currentIndex) ? raw.currentIndex : snapshots.length - 1;
-    if (currentIndex < 0) currentIndex = 0;
-    if (currentIndex >= snapshots.length) currentIndex = snapshots.length - 1;
+    var normalized = normalizeHistory(raw.snapshots, raw.currentIndex, updatedAt, maxSnapshots);
+    if (!normalized) return null;
     var source = typeof raw.source === 'string' ? raw.source : 'editor';
     return {
       v: STORAGE_VERSION,
@@ -1664,8 +1832,8 @@ var WorkLibrary = (function () {
       updatedAt: updatedAt,
       rev: rev,
       source: source,
-      currentIndex: currentIndex,
-      snapshots: snapshots
+      currentIndex: normalized.currentIndex,
+      snapshots: normalized.snapshots
     };
   }
   function currentStateOf(work) {
@@ -1687,24 +1855,33 @@ var WorkLibrary = (function () {
   }
   function makeWorkRecord(opts) {
     var now = typeof opts.now === 'number' && isFinite(opts.now) ? opts.now : Date.now();
-    var baseSan = AvatarState.sanitizeState(opts.baseState);
-    if (!baseSan) return null;
-    var basePersist = AvatarState.persistableState(baseSan);
-    var snapshots = [{
-      state: basePersist,
-      label: cleanTitle(opts.baseLabel || '初始状态', '初始状态').slice(0, 40),
-      at: now
-    }];
-    var currentIndex = 0;
-    if (opts.currentState) {
-      var curSan = AvatarState.sanitizeState(opts.currentState);
-      if (curSan && !AvatarState.statesEqual(baseSan, curSan)) {
-        snapshots.push({
-          state: AvatarState.persistableState(curSan),
-          label: cleanTitle(opts.currentLabel || '编辑', '编辑').slice(0, 40),
-          at: now
-        });
-        currentIndex = 1;
+    var snapshots;
+    var currentIndex;
+    if (Array.isArray(opts.snapshots) && opts.snapshots.length) {
+      var normalized = normalizeHistory(opts.snapshots, opts.currentIndex, now, opts.maxSnapshots);
+      if (!normalized) return null;
+      snapshots = normalized.snapshots;
+      currentIndex = normalized.currentIndex;
+    } else {
+      var baseSan = AvatarState.sanitizeState(opts.baseState);
+      if (!baseSan) return null;
+      var basePersist = AvatarState.persistableState(baseSan);
+      snapshots = [{
+        state: basePersist,
+        label: cleanTitle(opts.baseLabel || '初始状态', '初始状态').slice(0, 40),
+        at: now
+      }];
+      currentIndex = 0;
+      if (opts.currentState) {
+        var curSan = AvatarState.sanitizeState(opts.currentState);
+        if (curSan && !AvatarState.statesEqual(baseSan, curSan)) {
+          snapshots.push({
+            state: AvatarState.persistableState(curSan),
+            label: cleanTitle(opts.currentLabel || '编辑', '编辑').slice(0, 40),
+            at: now
+          });
+          currentIndex = 1;
+        }
       }
     }
     return {
@@ -1745,9 +1922,19 @@ var WorkLibrary = (function () {
   function sanitizePendingEdit(raw) {
     if (!isPlainObject(raw) || raw.v !== STORAGE_VERSION) return null;
     if (raw.kind !== 'edit' && raw.kind !== 'create') return null;
-    var nextSan = AvatarState.sanitizeState(raw.nextState);
+    var at = typeof raw.at === 'number' && isFinite(raw.at) ? raw.at : Date.now();
+    var normalizedHist = null;
+    if (Array.isArray(raw.snapshots) && raw.snapshots.length) {
+      normalizedHist = normalizeHistory(raw.snapshots, raw.currentIndex, at, MAX_SNAPSHOTS);
+      if (!normalizedHist) return null;
+    }
+    var nextSan = normalizedHist
+      ? AvatarState.sanitizeState(normalizedHist.snapshots[normalizedHist.currentIndex].state)
+      : AvatarState.sanitizeState(raw.nextState);
     if (!nextSan) return null;
-    var baseSan = AvatarState.sanitizeState(raw.baseState);
+    var baseSan = normalizedHist
+      ? AvatarState.sanitizeState(normalizedHist.snapshots[0].state)
+      : AvatarState.sanitizeState(raw.baseState);
     if (!baseSan) baseSan = nextSan;
     var workId = typeof raw.workId === 'string' && raw.workId.trim() ? raw.workId.trim() : null;
     if (raw.kind === 'edit') {
@@ -1763,11 +1950,13 @@ var WorkLibrary = (function () {
       expectedRev: raw.kind === 'edit' ? raw.expectedRev : null,
       source: typeof raw.source === 'string' && raw.source ? raw.source : 'editor',
       baseState: AvatarState.persistableState(baseSan),
-      baseLabel: cleanTitle(raw.baseLabel || '初始状态', '初始状态').slice(0, 40),
+      baseLabel: cleanTitle(normalizedHist ? normalizedHist.snapshots[0].label : (raw.baseLabel || '初始状态'), '初始状态').slice(0, 40),
       nextState: AvatarState.persistableState(nextSan),
-      label: cleanTitle(raw.label || '编辑', '编辑').slice(0, 40),
+      label: cleanTitle(normalizedHist ? normalizedHist.snapshots[normalizedHist.currentIndex].label : (raw.label || '编辑'), '编辑').slice(0, 40),
       explicitCreate: raw.explicitCreate === true,
-      at: typeof raw.at === 'number' && isFinite(raw.at) ? raw.at : Date.now()
+      snapshots: normalizedHist ? normalizedHist.snapshots : null,
+      currentIndex: normalizedHist ? normalizedHist.currentIndex : null,
+      at: at
     };
   }
   function readPendingMap(storage, nowTs) {
@@ -1813,11 +2002,31 @@ var WorkLibrary = (function () {
       return false;
     }
   }
+  function pendingHasFullHistory(entry) {
+    return !!(entry && Array.isArray(entry.snapshots) && entry.snapshots.length);
+  }
+  function pendingEditEqual(a, b) {
+    if (!a || !b) return false;
+    if (a.tabId !== b.tabId || a.kind !== b.kind || a.workId !== b.workId) return false;
+    if (a.expectedRev !== b.expectedRev || a.at !== b.at) return false;
+    if (!!a.explicitCreate !== !!b.explicitCreate) return false;
+    if (a.currentIndex !== b.currentIndex) return false;
+    if (!!a.snapshots !== !!b.snapshots) return false;
+    if (a.snapshots) {
+      if (a.snapshots.length !== b.snapshots.length) return false;
+      for (var i = 0; i < a.snapshots.length; i++) {
+        if (!a.snapshots[i] || !b.snapshots[i]) return false;
+        if (!AvatarState.statesEqual(a.snapshots[i].state, b.snapshots[i].state)) return false;
+      }
+    }
+    return AvatarState.statesEqual(a.nextState, b.nextState);
+  }
   function readPendingEdit(storage, tabId, nowTs) {
     var map = readPendingMap(storage, nowTs);
     var keys = Object.keys(map);
     if (!keys.length) return null;
-    if (tabId && map[tabId]) return map[tabId];
+    if (tabId) return map[tabId] || null;
+    // 仅保留无 tabId 的旧调用兼容；界面启动、恢复、比较和清理都必须传确切 tabId。
     keys.sort(function (a, b) { return map[b].at - map[a].at; });
     return map[keys[0]];
   }
@@ -1848,6 +2057,35 @@ var WorkLibrary = (function () {
       return false;
     }
   }
+  function clearPendingEditIfCurrent(storage, expected, nowTs) {
+    if (!expected || !expected.tabId) return false;
+    try {
+      if (!storage) return false;
+      var map = readPendingMap(storage, nowTs);
+      var current = map[expected.tabId];
+      if (!current) return true;
+      if (!pendingEditEqual(current, expected)) return false;
+      delete map[expected.tabId];
+      return savePendingMap(storage, map);
+    } catch (e) {
+      return false;
+    }
+  }
+  function conflictCopyId(workId, history) {
+    var snaps = history && Array.isArray(history.snapshots) ? history.snapshots : [];
+    var parts = [String(workId || ''), String(history && typeof history.currentIndex === 'number' ? history.currentIndex : snaps.length - 1)];
+    for (var i = 0; i < snaps.length; i++) {
+      var san = AvatarState.sanitizeState(snaps[i] && snaps[i].state);
+      parts.push(san ? JSON.stringify(AvatarState.persistableState(san)) : '');
+    }
+    var text = parts.join('\n');
+    var hash = 2166136261;
+    for (var ci = 0; ci < text.length; ci++) {
+      hash ^= text.charCodeAt(ci);
+      hash = Math.imul(hash, 16777619);
+    }
+    return 'copy-' + ((hash >>> 0).toString(16)) + '-' + snaps.length;
+  }
 
   function createStore(env) {
     env = env || {};
@@ -1858,8 +2096,14 @@ var WorkLibrary = (function () {
     var nowFn = typeof env.now === 'function' ? env.now : function () { return Date.now(); };
     var idFn = typeof env.randomId === 'function' ? env.randomId : defaultRandomId;
     var dbName = env.dbName || DB_NAME;
+    var maxUndoSteps = typeof env.maxUndoSteps === 'number' && Number.isInteger(env.maxUndoSteps) && env.maxUndoSteps >= 1
+      ? env.maxUndoSteps
+      : MAX_UNDO_STEPS;
+    var maxSnapshots = maxUndoSteps + 1;
     var dbPromise = null;
     var activeDb = null;
+    var activeWrites = [];
+    var writeBlocked = false;
 
     function closeDb() {
       if (activeDb) {
@@ -1927,14 +2171,20 @@ var WorkLibrary = (function () {
     function runTx(stores, mode, runner) {
       return open().then(function (opened) {
         if (!opened.ok) return { ok:false, reason:opened.reason };
+        if (mode === 'readwrite' && writeBlocked) return { ok:false, reason:'unavailable' };
         var db = opened.db;
         return new Promise(function (resolve) {
           var settled = false;
           var outcome = null;
           var tx;
+          var writeEntry = null;
           function done(res) {
             if (settled) return;
             settled = true;
+            if (writeEntry) {
+              var wi = activeWrites.indexOf(writeEntry);
+              if (wi >= 0) activeWrites.splice(wi, 1);
+            }
             resolve(res);
           }
           try {
@@ -1943,6 +2193,10 @@ var WorkLibrary = (function () {
             if (e && e.name === 'InvalidStateError') closeDb();
             done({ ok:false, reason:storageReason(e), error:e });
             return;
+          }
+          if (mode === 'readwrite') {
+            writeEntry = { tx:tx };
+            activeWrites.push(writeEntry);
           }
           tx.oncomplete = function () {
             done(outcome || { ok:false, reason:'unavailable' });
@@ -1969,6 +2223,16 @@ var WorkLibrary = (function () {
           }
         });
       });
+    }
+
+    function setWriteBlocked(blocked) {
+      writeBlocked = !!blocked;
+    }
+    function cancelActiveWrites() {
+      var entries = activeWrites.slice();
+      for (var i = 0; i < entries.length; i++) {
+        try { entries[i].tx.abort(); } catch (e) {}
+      }
     }
 
     function migrateLegacyDraft(storage) {
@@ -2069,7 +2333,7 @@ var WorkLibrary = (function () {
                 skippedFuture = true;
                 continue;
               }
-              var safe = sanitizeWork(item);
+              var safe = sanitizeWork(item, maxSnapshots);
               if (safe) works.push(safe);
             }
             var sorted = sortWorks(works);
@@ -2086,7 +2350,7 @@ var WorkLibrary = (function () {
         var req = tx.objectStore(STORE_WORKS).get(id);
         req.onerror = function () { fail(req.error); };
         req.onsuccess = function () {
-          setResult({ ok:true, work:req.result ? sanitizeWork(req.result) : null });
+          setResult({ ok:true, work:req.result ? sanitizeWork(req.result, maxSnapshots) : null });
         };
       });
     }
@@ -2099,7 +2363,7 @@ var WorkLibrary = (function () {
         var req = worksStore.get(id);
         req.onerror = function () { fail(req.error); };
         req.onsuccess = function () {
-          var safe = req.result ? sanitizeWork(req.result) : null;
+          var safe = req.result ? sanitizeWork(req.result, maxSnapshots) : null;
           if (!safe) {
             setResult({ ok:false, reason:'not-found' });
             return;
@@ -2127,7 +2391,7 @@ var WorkLibrary = (function () {
           if (requestedId) {
             for (var ei = 0; ei < existing.length; ei++) {
               if (existing[ei] && existing[ei].id === requestedId) {
-                var safeExisting = sanitizeWork(existing[ei]);
+                var safeExisting = sanitizeWork(existing[ei], maxSnapshots);
                 if (safeExisting) {
                   setResult({ ok:true, work:safeExisting, deduplicated:true });
                   return;
@@ -2147,6 +2411,9 @@ var WorkLibrary = (function () {
             currentState: opts.currentState,
             baseLabel: opts.baseLabel,
             currentLabel: opts.currentLabel,
+            snapshots: opts.snapshots,
+            currentIndex: opts.currentIndex,
+            maxSnapshots: maxSnapshots,
             now: ts
           });
           if (!record) {
@@ -2185,7 +2452,7 @@ var WorkLibrary = (function () {
         var getReq = worksStore.get(opts.id);
         getReq.onerror = function () { fail(getReq.error); };
         getReq.onsuccess = function () {
-          var existing = getReq.result ? sanitizeWork(getReq.result) : null;
+          var existing = getReq.result ? sanitizeWork(getReq.result, maxSnapshots) : null;
           if (!existing) {
             setResult({ ok:false, reason:'conflict', latest:null });
             return;
@@ -2194,26 +2461,125 @@ var WorkLibrary = (function () {
             setResult({ ok:false, reason:'conflict', latest:existing });
             return;
           }
-          var currentSnap = existing.snapshots[existing.currentIndex];
-          if (currentSnap && AvatarState.statesEqual(currentSnap.state, nextPersist)) {
+          var ts = nowFn();
+          var applied = applyEditToHistory(existing, nextPersist, {
+            label: opts.label || '编辑',
+            at: ts,
+            replaceCurrent: !!opts.replaceCurrent,
+            maxSnapshots: maxSnapshots
+          });
+          if (applied.skipped) {
+            setResult({ ok:true, work:existing, skipped:true, collapsed:false });
+            return;
+          }
+          var updated = Object.assign({}, existing, {
+            updatedAt: ts,
+            rev: existing.rev + 1,
+            currentIndex: applied.currentIndex,
+            snapshots: applied.snapshots
+          });
+          var putWorkReq;
+          try { putWorkReq = worksStore.put(updated); } catch (e) { fail(e); return; }
+          putWorkReq.onerror = function () { fail(putWorkReq.error); };
+          putWorkReq.onsuccess = function () {
+            var putActiveReq;
+            try {
+              putActiveReq = metaStore.put({ key:META_ACTIVE, v:STORAGE_VERSION, workId:updated.id, updatedAt:ts });
+            } catch (e) { fail(e); return; }
+            putActiveReq.onerror = function () { fail(putActiveReq.error); };
+            putActiveReq.onsuccess = function () { setResult({ ok:true, work:updated, collapsed:applied.collapsed }); };
+          };
+        };
+      });
+    }
+
+    function stepWorkHistory(opts) {
+      opts = opts || {};
+      if (typeof opts.id !== 'string' || !opts.id) {
+        return Promise.resolve({ ok:false, reason:'invalid' });
+      }
+      return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var metaStore = tx.objectStore(STORE_META);
+        var getReq = worksStore.get(opts.id);
+        getReq.onerror = function () { fail(getReq.error); };
+        getReq.onsuccess = function () {
+          var existing = getReq.result ? sanitizeWork(getReq.result, maxSnapshots) : null;
+          if (!existing) {
+            setResult({ ok:false, reason:'conflict', latest:null });
+            return;
+          }
+          if (existing.rev !== opts.expectedRev) {
+            setResult({ ok:false, reason:'conflict', latest:existing });
+            return;
+          }
+          var target = typeof opts.targetIndex === 'number'
+            ? opts.targetIndex
+            : (typeof opts.delta === 'number' ? existing.currentIndex + opts.delta : NaN);
+          if (!Number.isInteger(target) || target < 0 || target >= existing.snapshots.length) {
+            setResult({ ok:false, reason:'out-of-range', work:existing });
+            return;
+          }
+          if (target === existing.currentIndex) {
             setResult({ ok:true, work:existing, skipped:true });
             return;
           }
           var ts = nowFn();
-          var step0 = existing.snapshots[0];
-          var backToStep0 = step0 && AvatarState.statesEqual(step0.state, nextPersist);
-          var snapshots = backToStep0
-            ? [step0]
-            : [step0, {
-                state: nextPersist,
-                label: cleanTitle(opts.label || '编辑', '编辑').slice(0, 40),
-                at: ts
-              }];
           var updated = Object.assign({}, existing, {
             updatedAt: ts,
             rev: existing.rev + 1,
-            currentIndex: backToStep0 ? 0 : 1,
-            snapshots: snapshots
+            currentIndex: target
+          });
+          var putWorkReq;
+          try { putWorkReq = worksStore.put(updated); } catch (e) { fail(e); return; }
+          putWorkReq.onerror = function () { fail(putWorkReq.error); };
+          putWorkReq.onsuccess = function () {
+            var putActiveReq;
+            try {
+              putActiveReq = metaStore.put({ key:META_ACTIVE, v:STORAGE_VERSION, workId:updated.id, updatedAt:ts });
+            } catch (e) { fail(e); return; }
+            putActiveReq.onerror = function () { fail(putActiveReq.error); };
+            putActiveReq.onsuccess = function () { setResult({ ok:true, work:updated }); };
+          };
+        };
+      });
+    }
+
+    function syncWorkHistory(opts) {
+      opts = opts || {};
+      if (typeof opts.id !== 'string' || !opts.id) {
+        return Promise.resolve({ ok:false, reason:'invalid' });
+      }
+      var tsInit = nowFn();
+      var normalized = normalizeHistory(opts.snapshots, opts.currentIndex, tsInit, maxSnapshots);
+      if (!normalized) {
+        return Promise.resolve({ ok:false, reason:'invalid' });
+      }
+      return runTx([STORE_WORKS, STORE_META], 'readwrite', function (tx, setResult, fail) {
+        var worksStore = tx.objectStore(STORE_WORKS);
+        var metaStore = tx.objectStore(STORE_META);
+        var getReq = worksStore.get(opts.id);
+        getReq.onerror = function () { fail(getReq.error); };
+        getReq.onsuccess = function () {
+          var existing = getReq.result ? sanitizeWork(getReq.result, maxSnapshots) : null;
+          if (!existing) {
+            setResult({ ok:false, reason:'conflict', latest:null });
+            return;
+          }
+          if (existing.rev !== opts.expectedRev) {
+            setResult({ ok:false, reason:'conflict', latest:existing });
+            return;
+          }
+          if (historiesEqual(existing, normalized)) {
+            setResult({ ok:true, work:existing, skipped:true });
+            return;
+          }
+          var ts = nowFn();
+          var updated = Object.assign({}, existing, {
+            updatedAt: ts,
+            rev: existing.rev + 1,
+            currentIndex: normalized.currentIndex,
+            snapshots: normalized.snapshots
           });
           var putWorkReq;
           try { putWorkReq = worksStore.put(updated); } catch (e) { fail(e); return; }
@@ -2240,7 +2606,7 @@ var WorkLibrary = (function () {
         var getReq = worksStore.get(opts.id);
         getReq.onerror = function () { fail(getReq.error); };
         getReq.onsuccess = function () {
-          var existing = getReq.result ? sanitizeWork(getReq.result) : null;
+          var existing = getReq.result ? sanitizeWork(getReq.result, maxSnapshots) : null;
           if (!existing) {
             setResult({ ok:false, reason:'conflict', latest:null });
             return;
@@ -2265,14 +2631,60 @@ var WorkLibrary = (function () {
       });
     }
 
-    function replayPendingEdit(storage, tabId) {
+    function replayPendingEdit(storage, tabId, opts) {
+      var ownerConfirmed = !opts || opts.ownerConfirmed !== false;
+      function latestPending() {
+        return readPendingEdit(storage, owner, nowFn());
+      }
+      function pendingChangedResult() {
+        var latest = latestPending();
+        return { ok:false, reason:'pending-changed', pending:latest || pending, latest:null };
+      }
+      function stillCurrent() {
+        var latest = latestPending();
+        return !!(latest && pendingEditEqual(latest, pending));
+      }
+      function clearIfCurrent() {
+        return clearPendingEditIfCurrent(storage, pending, nowFn());
+      }
+      function findConflictCopy(latestWork) {
+        if (!hasFullHistory) {
+          return Promise.resolve({ ok:false, reason:'conflict', latest:latestWork, pending:pending });
+        }
+        var copyId = conflictCopyId(pending.workId, { snapshots:pending.snapshots, currentIndex:pending.currentIndex });
+        return getWork(copyId).then(function (copyRes) {
+          if (copyRes.ok && copyRes.work && historiesEqual(copyRes.work, pending)) {
+            var cleared = clearIfCurrent();
+            return {
+              ok:true,
+              recovered:true,
+              copiedBeforeUnload:true,
+              pendingCleared:cleared,
+              work:copyRes.work,
+              pending:pending
+            };
+          }
+          return { ok:false, reason:'conflict', latest:latestWork, pending:pending };
+        });
+      }
+
       var tsNow = nowFn();
       var pending = readPendingEdit(storage, tabId, tsNow);
       if (!pending) return Promise.resolve({ ok:true, recovered:false, none:true });
       var owner = pending.tabId;
+      var hasFullHistory = Array.isArray(pending.snapshots) && pending.snapshots.length > 0;
+      // 只有在明确持有该 tabId 的活跃文档锁、且暂存属于本标签时才自动消费。
+      // 旧格式暂存同样不能被归属不确定的其他文档追加或删除。
+      if (tabId && owner !== tabId) {
+        return Promise.resolve({ ok:false, reason:'ownership-unconfirmed', pending:pending });
+      }
+      if (!ownerConfirmed) {
+        return Promise.resolve({ ok:false, reason:'ownership-unconfirmed', pending:pending });
+      }
       if (pending.kind === 'edit') {
         return getWork(pending.workId).then(function (found) {
           if (!found.ok) return { ok:false, reason:found.reason, pending:pending };
+          if (!stillCurrent()) return pendingChangedResult();
           if (!found.work) {
             return createWork({
               source: pending.source || 'editor',
@@ -2280,18 +2692,41 @@ var WorkLibrary = (function () {
               baseLabel: pending.baseLabel,
               currentState: pending.nextState,
               currentLabel: pending.label,
+              snapshots: hasFullHistory ? pending.snapshots : null,
+              currentIndex: hasFullHistory ? pending.currentIndex : null,
               setActive: true
             }).then(function (created) {
               if (created.ok) {
-                clearPendingEdit(storage, owner, tsNow);
-                return { ok:true, recovered:true, work:created.work };
+                clearIfCurrent();
+                return { ok:true, recovered:true, work:created.work, pending:pending };
               }
               return { ok:false, reason:created.reason, pending:pending };
             });
           }
+          if (hasFullHistory) {
+            if (historiesEqual(found.work, pending)) {
+              clearIfCurrent();
+              return { ok:true, recovered:false, committedBeforeUnload:true, work:found.work, pending:pending };
+            }
+            if (found.work.rev !== pending.expectedRev) {
+              return findConflictCopy(found.work);
+            }
+            return syncWorkHistory({
+              id: found.work.id,
+              expectedRev: found.work.rev,
+              snapshots: pending.snapshots,
+              currentIndex: pending.currentIndex
+            }).then(function (saved) {
+              if (saved.ok) {
+                clearIfCurrent();
+                return { ok:true, recovered:!saved.skipped, work:saved.work, pending:pending };
+              }
+              return { ok:false, reason:saved.reason, latest:saved.latest || found.work, pending:pending };
+            });
+          }
           if (AvatarState.statesEqual(currentStateOf(found.work), pending.nextState)) {
-            clearPendingEdit(storage, owner, tsNow);
-            return { ok:true, recovered:false, work:found.work };
+            clearIfCurrent();
+            return { ok:true, recovered:false, work:found.work, pending:pending };
           }
           if (found.work.rev !== pending.expectedRev) {
             return { ok:false, reason:'conflict', latest:found.work, pending:pending };
@@ -2303,8 +2738,8 @@ var WorkLibrary = (function () {
             label: pending.label
           }).then(function (saved) {
             if (saved.ok) {
-              clearPendingEdit(storage, owner, tsNow);
-              return { ok:true, recovered:true, work:saved.work };
+              clearIfCurrent();
+              return { ok:true, recovered:true, work:saved.work, pending:pending };
             }
             return { ok:false, reason:saved.reason, latest:saved.latest || found.work, pending:pending };
           });
@@ -2313,8 +2748,26 @@ var WorkLibrary = (function () {
       if (pending.workId) {
         return getWork(pending.workId).then(function (foundById) {
           if (!foundById.ok) return { ok:false, reason:foundById.reason, pending:pending };
+          if (!stillCurrent()) return pendingChangedResult();
           if (foundById.work) {
-            clearPendingEdit(storage, owner, tsNow);
+            if (hasFullHistory && !historiesEqual(foundById.work, pending)) {
+              if (foundById.work.rev !== 1) {
+                return findConflictCopy(foundById.work);
+              }
+              return syncWorkHistory({
+                id: foundById.work.id,
+                expectedRev: foundById.work.rev,
+                snapshots: pending.snapshots,
+                currentIndex: pending.currentIndex
+              }).then(function (synced) {
+                if (synced.ok) {
+                  clearIfCurrent();
+                  return { ok:true, recovered:true, committedBeforeUnload:false, work:synced.work, pending:pending };
+                }
+                return { ok:false, reason:synced.reason, latest:synced.latest || foundById.work, pending:pending };
+              });
+            }
+            clearIfCurrent();
             return { ok:true, recovered:false, committedBeforeUnload:true, work:foundById.work, pending:pending };
           }
           return createWork({
@@ -2324,10 +2777,12 @@ var WorkLibrary = (function () {
             baseLabel: pending.baseLabel,
             currentState: pending.explicitCreate ? null : pending.nextState,
             currentLabel: pending.label,
+            snapshots: hasFullHistory ? pending.snapshots : null,
+            currentIndex: hasFullHistory ? pending.currentIndex : null,
             setActive: true
           }).then(function (created) {
             if (created.ok) {
-              clearPendingEdit(storage, owner, tsNow);
+              clearIfCurrent();
               return {
                 ok: true,
                 recovered: !created.deduplicated,
@@ -2342,14 +2797,16 @@ var WorkLibrary = (function () {
       }
       return listWorks().then(function (list) {
         if (!list.ok) return { ok:false, reason:list.reason, pending:pending };
+        if (!stillCurrent()) return pendingChangedResult();
         var existing = list.works.find(function (w) {
+          if (hasFullHistory) return w.updatedAt >= pending.at - 2000 && historiesEqual(w, pending);
           return w.updatedAt >= pending.at - 2000 &&
             AvatarState.statesEqual(stepZeroStateOf(w), pending.baseState) &&
             AvatarState.statesEqual(currentStateOf(w), pending.nextState);
         });
         if (existing) {
-          clearPendingEdit(storage, owner, tsNow);
-          return { ok:true, recovered:false, work:existing };
+          clearIfCurrent();
+          return { ok:true, recovered:false, work:existing, pending:pending };
         }
         return createWork({
           source: pending.source || 'editor',
@@ -2357,11 +2814,13 @@ var WorkLibrary = (function () {
           baseLabel: pending.baseLabel,
           currentState: pending.explicitCreate ? null : pending.nextState,
           currentLabel: pending.label,
+          snapshots: hasFullHistory ? pending.snapshots : null,
+          currentIndex: hasFullHistory ? pending.currentIndex : null,
           setActive: true
         }).then(function (created) {
           if (created.ok) {
-            clearPendingEdit(storage, owner, tsNow);
-            return { ok:true, recovered:true, work:created.work };
+            clearIfCurrent();
+            return { ok:true, recovered:true, work:created.work, pending:pending };
           }
           return { ok:false, reason:created.reason, pending:pending };
         });
@@ -2378,7 +2837,11 @@ var WorkLibrary = (function () {
       setActiveWork: setActiveWork,
       createWork: createWork,
       saveWorkEdit: saveWorkEdit,
-      renameWork: renameWork
+      stepWorkHistory: stepWorkHistory,
+      syncWorkHistory: syncWorkHistory,
+      renameWork: renameWork,
+      cancelActiveWrites: cancelActiveWrites,
+      setWriteBlocked: setWriteBlocked
     };
   }
 
@@ -2406,11 +2869,18 @@ var WorkLibrary = (function () {
     META_ACTIVE: META_ACTIVE,
     PENDING_KEY: PENDING_KEY,
     MAX_TITLE_LEN: MAX_TITLE_LEN,
+    MAX_UNDO_STEPS: MAX_UNDO_STEPS,
+    MAX_SNAPSHOTS: MAX_SNAPSHOTS,
     LEGACY_DRAFT_TITLE: LEGACY_DRAFT_TITLE,
     storageReason: storageReason,
     cleanTitle: cleanTitle,
     nextAutoTitle: nextAutoTitle,
     copyTitleFor: copyTitleFor,
+    normalizeHistory: normalizeHistory,
+    historiesEqual: historiesEqual,
+    historyStatus: historyStatus,
+    applyEditToHistory: applyEditToHistory,
+    stepHistory: stepHistory,
     sanitizeWork: sanitizeWork,
     currentStateOf: currentStateOf,
     stepZeroStateOf: stepZeroStateOf,
@@ -2421,6 +2891,10 @@ var WorkLibrary = (function () {
     readPendingEdit: readPendingEdit,
     writePendingEdit: writePendingEdit,
     clearPendingEdit: clearPendingEdit,
+    pendingEditEqual: pendingEditEqual,
+    clearPendingEditIfCurrent: clearPendingEditIfCurrent,
+    pendingHasFullHistory: pendingHasFullHistory,
+    conflictCopyId: conflictCopyId,
     shouldAdoptShareReplay: shouldAdoptShareReplay,
     generateWorkId: defaultRandomId,
     createStore: createStore
@@ -2562,13 +3036,31 @@ if (typeof document !== 'undefined') (function () {
   function safeLocalStorage() {
     try { return window.localStorage; } catch (e) { return null; }
   }
+  function navigationTypeOf() {
+    try {
+      var entries = typeof performance !== 'undefined' && performance.getEntriesByType
+        ? performance.getEntriesByType('navigation')
+        : null;
+      if (entries && entries.length) return entries[0].type || '';
+    } catch (e) {}
+    return '';
+  }
   function resolveTabId() {
     var key = 'avatar-studio.tab-id';
+    var navType = navigationTypeOf();
     try {
       var ss = window.sessionStorage;
       if (ss && typeof ss.getItem === 'function') {
         var existing = ss.getItem(key);
-        if (existing && existing.trim()) return existing.trim().slice(0, 80);
+        if (existing && existing.trim()) {
+          // 复制标签会继承 sessionStorage；只有刷新/前进后退沿用原归属。
+          if (!navType || navType === 'reload' || navType === 'back_forward') {
+            return existing.trim().slice(0, 80);
+          }
+          var copied = 'tab-' + libraryModel.generateWorkId();
+          ss.setItem(key, copied);
+          return copied;
+        }
         var fresh = 'tab-' + libraryModel.generateWorkId();
         ss.setItem(key, fresh);
         return fresh;
@@ -2577,7 +3069,126 @@ if (typeof document !== 'undefined') (function () {
     return 'tab-' + libraryModel.generateWorkId();
   }
 
+  var lockApiSupported = !!(typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function');
   var tabId = resolveTabId();
+  var ownerLockState = 'pending';
+  var ownerLockPromise = null;
+  var ownerLockRelease = null;
+  var writeLeaseRevoked = false;
+  var ownershipAmbiguous = false;
+  function ownershipWriteAllowed() {
+    if (writeLeaseRevoked || ownershipAmbiguous) return false;
+    if (ownerLockState === 'held') return true;
+    if (!lockApiSupported && ownerLockState === 'unavailable') return true;
+    return false;
+  }
+  function ownershipEditsAllowed() {
+    if (conflict || writeLeaseRevoked) return false;
+    return ownershipWriteAllowed() || ownerLockState === 'pending';
+  }
+  function ownershipRenameAllowed() {
+    return ownershipWriteAllowed() && !conflict && !unsaved;
+  }
+  function acquireTabOwnershipLock() {
+    var targetId = tabId;
+    var navType = navigationTypeOf();
+    var retries = (navType === 'reload' || navType === 'back_forward') ? 6 : 0;
+    ownerLockState = 'pending';
+    if (!lockApiSupported) {
+      ownerLockState = 'unavailable';
+      return Promise.resolve(ownerLockState);
+    }
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = null;
+      function finish(state) {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) clearTimeout(timer);
+        ownerLockState = state;
+        resolve(state);
+      }
+      function request(remaining) {
+        if (targetId !== tabId) { finish(ownerLockState); return; }
+        var req;
+        try {
+          req = navigator.locks.request('avatar-studio.tab-owner:' + targetId, { ifAvailable:true }, function (lock) {
+            if (targetId !== tabId) return undefined;
+            if (!lock) {
+              if (remaining > 0) {
+                setTimeout(function () { request(remaining - 1); }, 50);
+                return undefined;
+              }
+              finish('blocked');
+              return undefined;
+            }
+            ownerLockState = 'held';
+            finish('held');
+            return new Promise(function (release) { ownerLockRelease = release; });
+          });
+        } catch (e) {
+          finish('unavailable');
+          return;
+        }
+        if (req && typeof req.catch === 'function') {
+          req.catch(function () { finish('unavailable'); });
+        }
+      }
+      timer = setTimeout(function () { finish('unavailable'); }, 1200);
+      request(retries);
+    });
+  }
+  function rotateTabId() {
+    if (ownerLockRelease) {
+      var oldRelease = ownerLockRelease;
+      ownerLockRelease = null;
+      try { oldRelease(); } catch (e) {}
+    }
+    var fresh = 'tab-' + libraryModel.generateWorkId();
+    tabId = fresh;
+    ownerLockState = 'pending';
+    ownershipAmbiguous = false;
+    try { window.sessionStorage.setItem('avatar-studio.tab-id', fresh); } catch (e) {}
+    ownerLockPromise = acquireTabOwnershipLock().then(function (state) {
+      if (state === 'held') {
+        if (!writeLeaseRevoked && bootDone && historyDirty && !conflict) {
+          recordPendingEdit();
+          drainSaveQueue();
+        }
+      } else if (lockApiSupported && bootDone && !conflict) {
+        enterAmbiguousOwnershipWarning();
+      }
+      return state;
+    });
+    return fresh;
+  }
+  function enterAmbiguousOwnershipWarning() {
+    if (conflict) return;
+    var pending = currentOwnPendingEdit();
+    if (pending) {
+      restorePendingBranch(pending, 'ownership-unconfirmed', worksCache, activeWork);
+      return;
+    }
+    ownershipAmbiguous = true;
+    var baseSnap = localHistory.snapshots[0];
+    conflict = {
+      workId: activeWork ? activeWork.id : null,
+      workTitle: activeWork ? activeWork.title : '未保存的新作品',
+      baseState: activeWork ? libraryModel.stepZeroStateOf(activeWork) : baseSnap.state,
+      baseLabel: activeWork && activeWork.snapshots[0] ? activeWork.snapshots[0].label : (baseSnap.label || '初始状态'),
+      latest: activeWork || null,
+      localSnapshots: cloneSnapshots(localHistory.snapshots),
+      localCurrentIndex: localHistory.currentIndex,
+      pending: null,
+      ambiguous: true,
+      kind: activeWork ? 'edit' : 'create'
+    };
+    unsaved = null;
+    syncHistoryControls();
+    renderWorkBar();
+    toast('无法确认此页的编辑归属；已暂停自动保存，可保存副本或导出');
+  }
+  ownerLockPromise = acquireTabOwnershipLock();
   var store = libraryModel.createStore();
   var channel = null;
   try {
@@ -2609,15 +3220,79 @@ if (typeof document !== 'undefined') (function () {
   var bootDone = false;
   var userActedBeforeBoot = false;
   var saveInFlight = false;
-  var pendingSave = null;
+  var historyDirty = false;
+  var explicitCreatePending = false;
   var pendingCreateId = null;
   var drainPromise = null;
   var drainResolve = null;
   var continuousSaveTimer = null;
-  var continuousSaveLabel = '调整参数';
+  var copyInFlight = false;
+  var pendingWriteFailed = false;
+  var coalesceSession = null;
+  var coalesceIdleTimer = null;
+  var activePointerKey = null;
   var contextEpoch = 0;
   var editingRenameId = null;
   var libraryAlertMsg = '';
+
+  function cloneSnapshots(list) {
+    return (Array.isArray(list) ? list : []).map(function (item) {
+      return {
+        state: stateModel.persistableState(stateModel.sanitizeState(item.state)),
+        label: item.label || '编辑',
+        at: typeof item.at === 'number' && isFinite(item.at) ? item.at : Date.now()
+      };
+    });
+  }
+  function cloneHistory(hist) {
+    var snaps = cloneSnapshots(hist && hist.snapshots);
+    if (!snaps.length) {
+      snaps = [{ state: stateModel.persistableState(stateModel.sanitizeState(state)), label: '初始形象', at: Date.now() }];
+    }
+    var idx = hist && typeof hist.currentIndex === 'number' && Number.isInteger(hist.currentIndex)
+      ? Math.max(0, Math.min(snaps.length - 1, hist.currentIndex))
+      : snaps.length - 1;
+    return { snapshots: snaps, currentIndex: idx };
+  }
+  function makeSingleHistory(st, label) {
+    var san = stateModel.sanitizeState(st) || stateModel.defaultState();
+    return {
+      snapshots: [{
+        state: stateModel.persistableState(san),
+        label: label || '初始形象',
+        at: Date.now()
+      }],
+      currentIndex: 0
+    };
+  }
+  var localHistory = makeSingleHistory(
+    preview ? preview.baseState : freshBaseState,
+    preview ? preview.baseLabel : '初始形象'
+  );
+  function setLocalHistoryFromBase(baseState, baseLabel) {
+    endCoalesce();
+    localHistory = makeSingleHistory(baseState, baseLabel);
+    syncHistoryControls();
+  }
+  function setLocalHistoryFromWork(work) {
+    endCoalesce();
+    localHistory = work ? cloneHistory(work) : makeSingleHistory(state, '初始形象');
+    syncHistoryControls();
+  }
+  function endCoalesce() {
+    coalesceSession = null;
+    if (coalesceIdleTimer !== null) {
+      clearTimeout(coalesceIdleTimer);
+      coalesceIdleTimer = null;
+    }
+  }
+  function scheduleCoalesceIdleEnd(ms) {
+    if (coalesceIdleTimer !== null) clearTimeout(coalesceIdleTimer);
+    coalesceIdleTimer = setTimeout(function () {
+      coalesceIdleTimer = null;
+      if (!activePointerKey) coalesceSession = null;
+    }, ms || 700);
+  }
 
   function shareUrl() {
     var token = stateModel.encodeState(state);
@@ -2717,88 +3392,108 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function clearOwnPendingEdit() {
-    libraryModel.clearPendingEdit(safeLocalStorage(), tabId);
+    if (!ownershipWriteAllowed()) return false;
+    var cleared = libraryModel.clearPendingEdit(safeLocalStorage(), tabId);
+    if (cleared) pendingWriteFailed = false;
+    return cleared;
+  }
+  function clearOwnPendingEditIfCurrent(expected) {
+    if (!ownershipWriteAllowed()) return false;
+    var cleared = libraryModel.clearPendingEditIfCurrent(safeLocalStorage(), expected);
+    if (cleared) pendingWriteFailed = false;
+    return cleared;
+  }
+  function writeOwnPendingEdit(entry) {
+    var written = libraryModel.writePendingEdit(safeLocalStorage(), entry);
+    pendingWriteFailed = !written;
+    return written;
+  }
+  function currentOwnPendingEdit() {
+    return libraryModel.readPendingEdit(safeLocalStorage(), tabId);
   }
   function ensurePendingCreateId() {
     if (!pendingCreateId) pendingCreateId = libraryModel.generateWorkId();
     return pendingCreateId;
   }
-  function recordPendingEdit(label, targetState, explicitCreate) {
-    if (conflict) return;
-    var snap = targetState || stateModel.persistableState(stateModel.sanitizeState(state));
-    var exp = !!explicitCreate;
+  function recordPendingEdit(force) {
+    if (!ownershipWriteAllowed()) return;
+    if (conflict && !force) return;
+    var hist = cloneHistory(localHistory);
+    var curSnap = hist.snapshots[hist.currentIndex];
+    var baseSnap = hist.snapshots[0];
+    var exp = !!explicitCreatePending;
     if (preview || (unsaved && unsaved.pendingCreate)) {
       var meta = preview || unsaved.pendingCreate;
-      if (!exp && stateModel.statesEqual(meta.baseState, snap)) {
+      if (!exp && hist.snapshots.length <= 1 && stateModel.statesEqual(meta.baseState, curSnap.state)) {
         clearOwnPendingEdit();
         return;
       }
-      libraryModel.writePendingEdit(safeLocalStorage(), {
+      writeOwnPendingEdit({
         tabId: tabId,
         kind: 'create',
         workId: ensurePendingCreateId(),
         source: meta.kind || meta.source || 'editor',
         baseState: meta.baseState,
-        baseLabel: meta.baseLabel || '初始状态',
-        nextState: snap,
-        label: label || '编辑',
+        baseLabel: meta.baseLabel || baseSnap.label || '初始状态',
+        nextState: curSnap.state,
+        label: curSnap.label || '编辑',
         explicitCreate: exp,
+        snapshots: hist.snapshots,
+        currentIndex: hist.currentIndex,
         at: Date.now()
       });
       return;
     }
     if (!activeWork) {
-      if (!exp && stateModel.statesEqual(freshBaseState, snap)) {
+      if (!exp && hist.snapshots.length <= 1 && stateModel.statesEqual(freshBaseState, curSnap.state)) {
         clearOwnPendingEdit();
         return;
       }
-      libraryModel.writePendingEdit(safeLocalStorage(), {
+      writeOwnPendingEdit({
         tabId: tabId,
         kind: 'create',
         workId: ensurePendingCreateId(),
         source: 'editor',
         baseState: freshBaseState,
         baseLabel: '初始形象',
-        nextState: snap,
-        label: label || '编辑',
+        nextState: curSnap.state,
+        label: curSnap.label || '编辑',
         explicitCreate: exp,
+        snapshots: hist.snapshots,
+        currentIndex: hist.currentIndex,
         at: Date.now()
       });
       return;
     }
-    if (stateModel.statesEqual(libraryModel.currentStateOf(activeWork), snap)) {
+    if (libraryModel.historiesEqual(activeWork, hist)) {
       clearOwnPendingEdit();
       return;
     }
-    libraryModel.writePendingEdit(safeLocalStorage(), {
+    writeOwnPendingEdit({
       tabId: tabId,
       kind: 'edit',
       workId: activeWork.id,
       expectedRev: activeWork.rev,
       source: activeWork.source || 'editor',
-      baseState: libraryModel.stepZeroStateOf(activeWork),
-      baseLabel: activeWork.snapshots[0] ? activeWork.snapshots[0].label : '初始状态',
-      nextState: snap,
-      label: label || '编辑',
+      baseState: baseSnap.state,
+      baseLabel: baseSnap.label || '初始状态',
+      nextState: curSnap.state,
+      label: curSnap.label || '编辑',
       explicitCreate: false,
+      snapshots: hist.snapshots,
+      currentIndex: hist.currentIndex,
       at: Date.now()
     });
   }
 
-  function scheduleContinuousEdit(label) {
-    continuousSaveLabel = label;
-    recordPendingEdit(label);
-    if (continuousSaveTimer !== null) clearTimeout(continuousSaveTimer);
-    continuousSaveTimer = setTimeout(function () {
-      continuousSaveTimer = null;
-      noteEdit(continuousSaveLabel);
-    }, 250);
-  }
   function flushContinuousEdit() {
-    if (continuousSaveTimer === null) return;
-    clearTimeout(continuousSaveTimer);
-    continuousSaveTimer = null;
-    noteEdit(continuousSaveLabel);
+    if (continuousSaveTimer !== null) {
+      clearTimeout(continuousSaveTimer);
+      continuousSaveTimer = null;
+    }
+    if (historyDirty && bootDone && !conflict) {
+      drainSaveQueue();
+    }
   }
   function flushAndWaitForSave() {
     flushContinuousEdit();
@@ -2814,6 +3509,10 @@ if (typeof document !== 'undefined') (function () {
         '<input id="' + id + '" type="range" data-param="' + p.key + '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" aria-describedby="' + vid + '">' +
         '<span class="val" id="' + vid + '" data-val="' + p.key + '"></span></div>';
     }).join('');
+    $('#params').addEventListener('pointerdown', function (e) {
+      var k = e.target && e.target.dataset && e.target.dataset.param;
+      if (k) activePointerKey = 'param:' + k;
+    });
     $('#params').addEventListener('input', function (e) {
       var k = e.target.dataset.param; if (!k) return;
       state.params[k] = parseFloat(e.target.value);
@@ -2821,16 +3520,25 @@ if (typeof document !== 'undefined') (function () {
       var v = document.querySelector('[data-val="' + k + '"]');
       if (v) v.textContent = shown;
       e.target.setAttribute('aria-valuetext', shown);
-      scheduleContinuousEdit('调整形状');
+      applyLocalEdit('调整形状', { coalesceKey: 'param:' + k, deferSave: true });
       scheduleRefresh();
     });
     $('#params').addEventListener('change', function (e) {
-      if (!e.target.dataset.param) return;
-      if (continuousSaveTimer !== null) {
-        clearTimeout(continuousSaveTimer);
-        continuousSaveTimer = null;
+      var k = e.target.dataset.param;
+      if (!k) return;
+      var key = 'param:' + k;
+      applyLocalEdit('调整形状', { coalesceKey: key, deferSave: false });
+      if (activePointerKey === key) {
+        activePointerKey = null;
+        endCoalesce();
+      } else {
+        scheduleCoalesceIdleEnd(700);
       }
-      noteEdit('调整形状');
+    });
+    $('#params').addEventListener('focusout', function (e) {
+      if (!e.target || !e.target.dataset || !e.target.dataset.param) return;
+      flushContinuousEdit();
+      endCoalesce();
     });
   }
 
@@ -2854,16 +3562,19 @@ if (typeof document !== 'undefined') (function () {
       var k = e.target.dataset.color; if (!k) return;
       state.colors[k] = e.target.value;
       state.locks.colors = true;
-      scheduleContinuousEdit('调整配色');
+      applyLocalEdit('调整配色', { coalesceKey: 'color:' + k, deferSave: true });
       scheduleRefresh();
     });
     $('#colors').addEventListener('change', function (e) {
-      if (!e.target.dataset.color) return;
-      if (continuousSaveTimer !== null) {
-        clearTimeout(continuousSaveTimer);
-        continuousSaveTimer = null;
-      }
-      noteEdit('调整配色');
+      var k = e.target.dataset.color;
+      if (!k) return;
+      applyLocalEdit('调整配色', { coalesceKey: 'color:' + k, deferSave: false });
+      scheduleCoalesceIdleEnd(700);
+    });
+    $('#colors').addEventListener('focusout', function (e) {
+      if (!e.target || !e.target.dataset || !e.target.dataset.color) return;
+      flushContinuousEdit();
+      endCoalesce();
     });
   }
 
@@ -2879,7 +3590,11 @@ if (typeof document !== 'undefined') (function () {
     return st;
   }
   function enterExamplePreview(seed) {
-    var ready = (!conflict && !unsaved) ? flushAndWaitForSave() : Promise.resolve();
+    if (conflict || unsaved) {
+      toast('请先处理当前未保存的更改，再切换示例');
+      return Promise.resolve();
+    }
+    var ready = flushAndWaitForSave();
     return ready.then(function () {
       var returnWorkId = preview ? preview.returnWorkId : (activeWork ? activeWork.id : null);
       var returnState = preview ? preview.returnState : (activeWork ? null : stateModel.persistableState(stateModel.sanitizeState(state)));
@@ -2889,8 +3604,10 @@ if (typeof document !== 'undefined') (function () {
       var ex = exampleState(seed);
       ex.view = view;
       contextEpoch += 1;
-      pendingSave = null;
+      historyDirty = false;
+      explicitCreatePending = false;
       pendingCreateId = null;
+      if (continuousSaveTimer !== null) { clearTimeout(continuousSaveTimer); continuousSaveTimer = null; }
       unsaved = null;
       conflict = null;
       clearOwnPendingEdit();
@@ -2906,8 +3623,9 @@ if (typeof document !== 'undefined') (function () {
         returnMigrationFailed: returnMigrationFailed,
         returnMigrationReason: returnMigrationReason
       };
+      setLocalHistoryFromBase(preview.baseState, preview.baseLabel);
       document.documentElement.setAttribute('data-avatar-source', 'example');
-      refresh();
+      refresh({ syncFocusedInputs: true });
       renderWorkBar();
       toast('已进入示例预览，保存或编辑后将新建作品');
     });
@@ -2946,13 +3664,14 @@ if (typeof document !== 'undefined') (function () {
     lc.setAttribute('aria-pressed', colorsOn ? 'true' : 'false');
     lc.setAttribute('aria-label', colorsOn ? '已锁定配色' : '锁定配色');
   }
-  function syncControls() {
+  function syncControls(syncFocusedInputs) {
+    var force = !!syncFocusedInputs;
     if (document.activeElement !== $('#seed')) $('#seed').value = state.seed;
     PARAMS.forEach(function (p) {
       var el = document.querySelector('[data-param="' + p.key + '"]');
       var shown = Number(state.params[p.key]).toFixed(2);
       if (el) {
-        if (document.activeElement !== el) el.value = state.params[p.key];
+        if (force || document.activeElement !== el) el.value = state.params[p.key];
         el.setAttribute('aria-valuetext', shown);
       }
       var v = document.querySelector('[data-val="' + p.key + '"]');
@@ -2960,7 +3679,7 @@ if (typeof document !== 'undefined') (function () {
     });
     COLOR_KEYS.forEach(function (c) {
       var el = document.querySelector('[data-color="' + c.key + '"]');
-      if (el && document.activeElement !== el) el.value = state.colors[c.key];
+      if (el && (force || document.activeElement !== el)) el.value = state.colors[c.key];
     });
     document.querySelectorAll('[data-pal]').forEach(function (b) {
       var on = parseInt(b.dataset.pal, 10) === state.palette;
@@ -2973,13 +3692,13 @@ if (typeof document !== 'undefined') (function () {
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
-  function refresh() {
+  function refresh(opts) {
     if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
     refreshFrame = null;
     state = stateModel.sanitizeState(state);
     $('#canvas').innerHTML = stateModel.render(state);
     buildThumbs();
-    syncControls();
+    syncControls(opts && opts.syncFocusedInputs);
     syncLocks();
     $('#legacyBg').hidden = state.slots.bg !== 'rays';
   }
@@ -2988,6 +3707,65 @@ if (typeof document !== 'undefined') (function () {
       refreshFrame = null;
       refresh();
     });
+  }
+
+  function syncHistoryControls(opts) {
+    var undoBtn = $('#btnUndo');
+    var redoBtn = $('#btnRedo');
+    var stepBadge = $('#workStepBadge');
+    if (!undoBtn || !redoBtn) return;
+
+    var status = libraryModel.historyStatus(localHistory);
+    var blocked = !!conflict;
+    var canUndo = !blocked && status.canUndo;
+    var canRedo = !blocked && status.canRedo;
+    var prevFocused = document.activeElement;
+
+    undoBtn.disabled = !canUndo;
+    redoBtn.disabled = !canRedo;
+
+    if (canUndo) {
+      undoBtn.title = '撤销「' + status.undoLabel + '」（Ctrl/⌘+Z）';
+      undoBtn.setAttribute('aria-label', '撤销：' + status.undoLabel);
+    } else if (blocked) {
+      undoBtn.title = '当前存在跨标签冲突，请先处理冲突';
+      undoBtn.setAttribute('aria-label', '撤销不可用：请先处理冲突');
+    } else {
+      undoBtn.title = '暂无可撤销步骤（Ctrl/⌘+Z）';
+      undoBtn.setAttribute('aria-label', '撤销（暂无可撤销步骤）');
+    }
+
+    if (canRedo) {
+      redoBtn.title = '重做「' + status.redoLabel + '」（Ctrl/⌘+Shift+Z / Ctrl+Y）';
+      redoBtn.setAttribute('aria-label', '重做：' + status.redoLabel);
+    } else if (blocked) {
+      redoBtn.title = '当前存在跨标签冲突，请先处理冲突';
+      redoBtn.setAttribute('aria-label', '重做不可用：请先处理冲突');
+    } else {
+      redoBtn.title = '暂无可重做步骤（Ctrl/⌘+Shift+Z / Ctrl+Y）';
+      redoBtn.setAttribute('aria-label', '重做（暂无可重做步骤）');
+    }
+
+    if (stepBadge) {
+      var showStep = !conflict && !preview && status.total > 1;
+      if (showStep) {
+        stepBadge.textContent = '第 ' + (status.currentIndex + 1) + '/' + status.total + ' 步';
+        stepBadge.hidden = false;
+      } else {
+        stepBadge.textContent = '';
+        stepBadge.hidden = true;
+      }
+    }
+
+    if (opts && opts.preserveFocus) {
+      if (prevFocused === undoBtn && undoBtn.disabled) {
+        var nextFocus = !redoBtn.disabled ? redoBtn : ($('#viewSeg button.on') || $('#btnRandom'));
+        if (nextFocus && typeof nextFocus.focus === 'function') nextFocus.focus({ preventScroll:true });
+      } else if (prevFocused === redoBtn && redoBtn.disabled) {
+        var prevAlt = !undoBtn.disabled ? undoBtn : ($('#viewSeg button.on') || $('#btnRandom'));
+        if (prevAlt && typeof prevAlt.focus === 'function') prevAlt.focus({ preventScroll:true });
+      }
+    }
   }
 
   /* ---------- 作品栏与作品库对话框 ---------- */
@@ -3035,11 +3813,33 @@ if (typeof document !== 'undefined') (function () {
       bar.hidden = false;
       bar.classList.add('is-error');
       bar.setAttribute('role', 'alert');
+      if (conflict.ambiguous) {
+        titleEl.textContent = conflict.kind === 'create' ? '无法确认未保存新作品的归属' : '无法确认未保存编辑的归属';
+        statusEl.textContent = '检测到另一个标签页可能仍在使用同一份未保存历史。为避免覆盖，已暂停自动保存；可保存副本、导出配置 JSON，或关闭其他标签页后刷新重试。';
+        var ambiguousCopy = makeActionButton('btnConflictCopy', copyInFlight ? '正在保存副本…' : '保存为副本', true, resolveConflictCopy);
+        ambiguousCopy.disabled = copyInFlight;
+        actionsEl.appendChild(ambiguousCopy);
+        if (conflict.latest && conflict.kind !== 'create') {
+          var useSavedBtn = makeActionButton('btnUseSaved', '使用已保存版本', false, useSavedAfterAmbiguous);
+          useSavedBtn.disabled = copyInFlight;
+          actionsEl.appendChild(useSavedBtn);
+        }
+        actionsEl.appendChild(makeActionButton('btnConflictExport', '导出配置 JSON', false, exportConfigJsonFile));
+        syncHistoryControls();
+        return;
+      }
       titleEl.textContent = libraryModel.saveErrorMessage('conflict');
-      statusEl.textContent = '其他标签页已保存新版，当前画面未覆盖原进度。';
-      actionsEl.appendChild(makeActionButton('btnConflictReload', '重新载入新版', false, resolveConflictReload));
-      actionsEl.appendChild(makeActionButton('btnConflictCopy', '保存为副本', true, resolveConflictCopy));
+      statusEl.textContent = pendingWriteFailed
+        ? '其他标签页已保存新版，当前画面未覆盖原进度。浏览器无法写入恢复暂存，刷新会丢失当前分支；请先导出配置 JSON。'
+        : '其他标签页已保存新版，当前画面未覆盖原进度；刷新后仍可继续处理。';
+      var reloadBtn = makeActionButton('btnConflictReload', '重新载入新版', false, resolveConflictReload);
+      reloadBtn.disabled = copyInFlight;
+      actionsEl.appendChild(reloadBtn);
+      var copyBtn = makeActionButton('btnConflictCopy', copyInFlight ? '正在保存副本…' : '保存为副本', true, resolveConflictCopy);
+      copyBtn.disabled = copyInFlight;
+      actionsEl.appendChild(copyBtn);
       actionsEl.appendChild(makeActionButton('btnConflictExport', '导出配置 JSON', false, exportConfigJsonFile));
+      syncHistoryControls();
       return;
     }
 
@@ -3050,9 +3850,12 @@ if (typeof document !== 'undefined') (function () {
       titleEl.textContent = unsaved.migrationFailed
         ? ('旧草稿迁移失败 · ' + libraryModel.saveErrorMessage(unsaved.reason))
         : libraryModel.saveErrorMessage(unsaved.reason);
-      statusEl.textContent = '当前画面与上次已保存版本均保留，可重试或导出备份。';
+      statusEl.textContent = pendingWriteFailed
+        ? '当前画面与上次已保存版本均保留，但浏览器无法写入恢复暂存，刷新会丢失当前分支；可重试或导出配置 JSON。'
+        : '当前画面与上次已保存版本均保留，可重试或导出备份；刷新后仍可继续处理。';
       actionsEl.appendChild(makeActionButton('btnRetrySave', '重试保存', true, retrySave));
       actionsEl.appendChild(makeActionButton('btnExportUnsavedJson', '导出配置 JSON', false, exportConfigJsonFile));
+      syncHistoryControls();
       return;
     }
 
@@ -3080,16 +3883,18 @@ if (typeof document !== 'undefined') (function () {
           returnFromPreview
         ));
       }
+      syncHistoryControls();
       return;
     }
 
     if (activeWork) {
       bar.hidden = false;
       titleEl.textContent = activeWork.title;
-      statusEl.textContent = (saveInFlight || pendingSave)
+      statusEl.textContent = (saveInFlight || historyDirty)
         ? '正在保存…'
         : ('已自动保存 · ' + libraryModel.formatUpdatedTime(activeWork.updatedAt));
       actionsEl.appendChild(makeActionButton('btnQuickLibrary', '切换作品', false, openLibraryDialog));
+      syncHistoryControls();
       return;
     }
 
@@ -3097,10 +3902,12 @@ if (typeof document !== 'undefined') (function () {
       bar.hidden = false;
       titleEl.textContent = '新头像';
       statusEl.textContent = '首次修改后将自动保存到「我的作品」。';
+      syncHistoryControls();
       return;
     }
 
     bar.hidden = true;
+    syncHistoryControls();
   }
 
   function refreshWorksCache(andRenderDialog) {
@@ -3170,7 +3977,10 @@ if (typeof document !== 'undefined') (function () {
 
       var timeEl = document.createElement('span');
       timeEl.className = 'work-time';
-      timeEl.textContent = '更新于 ' + libraryModel.formatUpdatedTime(work.updatedAt, nowTs);
+      var stepSuffix = work.snapshots && work.snapshots.length > 1
+        ? (' · 第 ' + (work.currentIndex + 1) + '/' + work.snapshots.length + ' 步')
+        : '';
+      timeEl.textContent = '更新于 ' + libraryModel.formatUpdatedTime(work.updatedAt, nowTs) + stepSuffix;
 
       info.appendChild(head);
       info.appendChild(timeEl);
@@ -3240,6 +4050,13 @@ if (typeof document !== 'undefined') (function () {
         renameBtn.dataset.renameBtn = work.id;
         renameBtn.setAttribute('aria-label', '重命名 ' + work.title);
         renameBtn.addEventListener('click', function () {
+          if (!ownershipRenameAllowed()) {
+            editingRenameId = null;
+            libraryAlertMsg = '当前无法重命名：请先处理未保存的更改或等待编辑归属确认。';
+            renderLibraryDialog();
+            toast('当前无法重命名作品');
+            return;
+          }
           editingRenameId = work.id;
           libraryAlertMsg = '';
           renderLibraryDialog();
@@ -3261,6 +4078,13 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function commitRenameWork(work, rawTitle) {
+    if (!ownershipRenameAllowed()) {
+      editingRenameId = null;
+      libraryAlertMsg = '当前无法重命名：请先处理未保存的更改或等待编辑归属确认。';
+      renderLibraryDialog();
+      toast('当前无法重命名作品');
+      return;
+    }
     var nextTitle = libraryModel.cleanTitle(rawTitle, '');
     if (!nextTitle) {
       libraryAlertMsg = '请输入有效的作品名称。';
@@ -3291,7 +4115,15 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function openWorkById(id) {
-    var ready = (!conflict && !unsaved) ? flushAndWaitForSave() : Promise.resolve();
+    if (conflict || unsaved || !ownershipWriteAllowed()) {
+      libraryAlertMsg = !ownershipWriteAllowed()
+        ? '当前标签页没有确认的编辑归属，不能切换作品；请先保存副本、导出或恢复归属。'
+        : '当前有未保存的更改，请先重试保存、保存为副本或导出配置 JSON。';
+      renderLibraryDialog();
+      toast('现在不能切换作品');
+      return Promise.resolve();
+    }
+    var ready = flushAndWaitForSave();
     return ready.then(function () {
       return store.setActiveWork(id);
     }).then(function (res) {
@@ -3300,16 +4132,19 @@ if (typeof document !== 'undefined') (function () {
         return refreshWorksCache(true);
       }
       contextEpoch += 1;
-      pendingSave = null;
+      historyDirty = false;
+      explicitCreatePending = false;
       pendingCreateId = null;
+      if (continuousSaveTimer !== null) { clearTimeout(continuousSaveTimer); continuousSaveTimer = null; }
       preview = null;
       unsaved = null;
       conflict = null;
       clearOwnPendingEdit();
       activeWork = res.work;
       state = libraryModel.currentStateOf(res.work);
+      setLocalHistoryFromWork(res.work);
       document.documentElement.setAttribute('data-avatar-source', 'library');
-      refresh();
+      refresh({ syncFocusedInputs: true });
       renderWorkBar();
       broadcastLibraryChange(res.work.id);
       if (libraryDialog.open) libraryDialog.close();
@@ -3328,8 +4163,10 @@ if (typeof document !== 'undefined') (function () {
     var migFailed = !!preview.returnMigrationFailed;
     var migReason = preview.returnMigrationReason || 'unavailable';
     contextEpoch += 1;
-    pendingSave = null;
+    historyDirty = false;
+    explicitCreatePending = false;
     pendingCreateId = null;
+    if (continuousSaveTimer !== null) { clearTimeout(continuousSaveTimer); continuousSaveTimer = null; }
     unsaved = migFailed ? { reason:migReason, migrationFailed:true, pendingCreate:null } : null;
     conflict = null;
     clearOwnPendingEdit();
@@ -3338,15 +4175,16 @@ if (typeof document !== 'undefined') (function () {
     activeWork = null;
     state = restored || stateModel.defaultState();
     freshBaseState = stateModel.persistableState(state);
+    setLocalHistoryFromBase(freshBaseState, migFailed ? libraryModel.LEGACY_DRAFT_TITLE : '初始形象');
     document.documentElement.setAttribute('data-avatar-source', migFailed ? 'draft' : 'default');
-    refresh();
+    refresh({ syncFocusedInputs: true });
     renderWorkBar();
     toast(migFailed ? ('已返回原草稿；' + libraryModel.saveErrorMessage(migReason)) : '已返回原画面');
   }
 
   function savePreviewAsNewWork() {
     if (!preview) return;
-    enqueueSave(preview.baseLabel || '保存新作品', { explicitCreate:true });
+    applyLocalEdit(preview.baseLabel || '保存新作品', { explicitCreate:true, deferSave:false });
   }
 
   function retryLegacyMigrationFromPreview() {
@@ -3371,8 +4209,32 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
+  function useSavedAfterAmbiguous() {
+    if (!conflict || !conflict.ambiguous || !conflict.latest || copyInFlight) return;
+    var latest = conflict.latest;
+    // 只切换本页身份，不清除原标签暂存；原标签仍可在刷新后恢复自己的分支。
+    ownershipAmbiguous = false;
+    rotateTabId();
+    contextEpoch += 1;
+    historyDirty = false;
+    explicitCreatePending = false;
+    pendingCreateId = null;
+    unsaved = null;
+    conflict = null;
+    preview = null;
+    activeWork = latest;
+    state = libraryModel.currentStateOf(latest);
+    setLocalHistoryFromWork(latest);
+    document.documentElement.setAttribute('data-avatar-source', 'library');
+    refresh({ syncFocusedInputs: true });
+    clearShareParamAfterSave();
+    renderWorkBar();
+    refreshWorksCache(false);
+    toast('已使用已保存版本；原标签未保存分支仍保留在暂存中');
+  }
+
   function resolveConflictReload() {
-    if (!conflict) return;
+    if (!conflict || copyInFlight || conflict.ambiguous) return;
     var targetId = conflict.workId;
     store.getWork(targetId).then(function (res) {
       if (!res.ok) {
@@ -3380,22 +4242,24 @@ if (typeof document !== 'undefined') (function () {
         return;
       }
       if (!res.work) {
-        conflict = null;
-        activeWork = null;
-        clearOwnPendingEdit();
+        toast('原作品已不存在，当前分支仍保留；可保存为副本或导出配置 JSON');
         renderWorkBar();
-        toast('原作品已不存在，请另存为副本');
         return;
       }
       contextEpoch += 1;
-      pendingSave = null;
+      copyInFlight = false;
+      historyDirty = false;
+      explicitCreatePending = false;
       pendingCreateId = null;
+      if (continuousSaveTimer !== null) { clearTimeout(continuousSaveTimer); continuousSaveTimer = null; }
       unsaved = null;
       conflict = null;
+      // 用户明确选择载入新版，放弃本标签未保存分支后才清理暂存。
       clearOwnPendingEdit();
       activeWork = res.work;
       state = libraryModel.currentStateOf(res.work);
-      refresh();
+      setLocalHistoryFromWork(res.work);
+      refresh({ syncFocusedInputs: true });
       renderWorkBar();
       refreshWorksCache(false);
       toast('已载入最新版本');
@@ -3403,45 +4267,99 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function resolveConflictCopy() {
-    if (!conflict) return;
+    if (!conflict || copyInFlight) return;
+    var target = conflict;
     var snap = stateModel.persistableState(stateModel.sanitizeState(state));
-    var baseState = conflict.baseState || snap;
-    var baseLabel = conflict.baseLabel || '初始状态';
-    var copyFromTitle = conflict.workTitle || '未命名作品';
+    var baseState = target.baseState || snap;
+    var baseLabel = target.baseLabel || '初始状态';
+    var copyFromTitle = target.workTitle || '未命名作品';
+    var copySnapshots = Array.isArray(target.localSnapshots) && target.localSnapshots.length
+      ? cloneSnapshots(target.localSnapshots)
+      : null;
+    var copyIndex = typeof target.localCurrentIndex === 'number' ? target.localCurrentIndex : null;
+    var copyHistory = copySnapshots
+      ? { snapshots: copySnapshots, currentIndex: copyIndex }
+      : { snapshots: [{ state: snap, label: '保存为副本', at: Date.now() }], currentIndex: 0 };
+    if (!target.copyId) target.copyId = libraryModel.conflictCopyId(target.workId, copyHistory);
+    var copyPending = target.pending || currentOwnPendingEdit();
+    var ambiguous = !!target.ambiguous;
     var epoch = contextEpoch;
+    copyInFlight = true;
+    renderWorkBar();
     store.createWork({
+      id: target.copyId,
       copyFromTitle: copyFromTitle,
       source: 'duplicate',
       baseState: baseState,
       baseLabel: baseLabel,
       currentState: snap,
       currentLabel: '保存为副本',
+      snapshots: copySnapshots,
+      currentIndex: copyIndex,
       setActive: true
     }).then(function (res) {
-      if (epoch !== contextEpoch) return;
+      copyInFlight = false;
+      if (res.ok) {
+        if (ambiguous) {
+          // 归属不明时副本已安全落盘，但不能删除原标签仍可能使用的暂存；本页换用新身份继续编辑。
+          ownershipAmbiguous = false;
+          rotateTabId();
+        } else if (copyPending) {
+          // 归属明确时副本已实际落盘，才安全清理对应的本标签暂存。
+          clearOwnPendingEditIfCurrent(copyPending);
+        } else {
+          clearOwnPendingEdit();
+        }
+      }
+      if (epoch !== contextEpoch) {
+        renderWorkBar();
+        return;
+      }
       if (res.ok) {
         activeWork = res.work;
         conflict = null;
         unsaved = null;
+        historyDirty = false;
+        explicitCreatePending = false;
         storageNotice = '';
         pendingCreateId = null;
-        clearOwnPendingEdit();
+        setLocalHistoryFromWork(res.work);
+        state = libraryModel.currentStateOf(res.work);
+        refresh({ syncFocusedInputs: true });
         clearShareParamAfterSave();
         document.documentElement.setAttribute('data-avatar-source', 'library');
         broadcastLibraryChange(res.work.id);
         refreshWorksCache(true);
         renderWorkBar();
-        toast('已保存为副本「' + res.work.title + '」');
+        toast(ambiguous
+          ? ('已保存为副本「' + res.work.title + '」；原标签暂存保留')
+          : ('已保存为副本「' + res.work.title + '」'));
       } else {
         announceStorageFailure(res.reason);
         renderWorkBar();
+        toast('副本尚未保存，可重试；当前分支仍保留');
       }
+    }, function () {
+      copyInFlight = false;
+      announceStorageFailure('unavailable');
+      renderWorkBar();
+      toast('副本尚未保存，可重试；当前分支仍保留');
     });
   }
 
   function retrySave() {
-    if (conflict) return;
-    enqueueSave('重试保存', { explicitCreate: !!(preview && stateModel.statesEqual(preview.baseState, state)) });
+    if (conflict || !ownershipWriteAllowed()) return;
+    if (continuousSaveTimer !== null) {
+      clearTimeout(continuousSaveTimer);
+      continuousSaveTimer = null;
+    }
+    if (preview && localHistory.snapshots.length <= 1 && stateModel.statesEqual(preview.baseState, state)) {
+      explicitCreatePending = true;
+    }
+    historyDirty = true;
+    recordPendingEdit();
+    renderWorkBar();
+    drainSaveQueue();
   }
 
   function openLibraryDialog() {
@@ -3483,27 +4401,107 @@ if (typeof document !== 'undefined') (function () {
     }
   }
 
-  function enqueueSave(label, opts) {
-    var target = stateModel.persistableState(stateModel.sanitizeState(state));
-    var explicitCreate = !!(opts && opts.explicitCreate);
-    if (conflict) {
+  function applyLocalEdit(label, opts) {
+    opts = opts || {};
+    var coalesceKey = opts.coalesceKey || null;
+    var deferSave = !!opts.deferSave;
+    var explicitCreate = !!opts.explicitCreate;
+    if (!ownershipEditsAllowed()) {
+      // 归属不明、离页或冲突时，控件可能已经在调用前改了 state；回到当前历史快照，避免画面与已存分支分叉。
+      state = stateModel.sanitizeState(localHistory.snapshots[localHistory.currentIndex].state);
+      refresh({ syncFocusedInputs:true });
+      syncHistoryControls();
       renderWorkBar();
       return;
     }
-    recordPendingEdit(label || '编辑', target, explicitCreate);
+    if (!coalesceKey) {
+      endCoalesce();
+    }
+    if (explicitCreate) {
+      explicitCreatePending = true;
+      historyDirty = true;
+    } else {
+      var target = stateModel.persistableState(stateModel.sanitizeState(state));
+      var replaceCurrent = !!(coalesceKey && coalesceSession && coalesceSession.key === coalesceKey);
+      var applied = libraryModel.applyEditToHistory(localHistory, target, {
+        label: label || '编辑',
+        at: Date.now(),
+        replaceCurrent: replaceCurrent
+      });
+      if (!applied.changed) {
+        if (!deferSave && continuousSaveTimer !== null) {
+          clearTimeout(continuousSaveTimer);
+          continuousSaveTimer = null;
+          if (historyDirty && bootDone) drainSaveQueue();
+        }
+        return;
+      }
+      localHistory = { snapshots: applied.snapshots, currentIndex: applied.currentIndex };
+      if (coalesceKey) {
+        if (applied.collapsed) coalesceSession = null;
+        else coalesceSession = { key: coalesceKey };
+      }
+      historyDirty = true;
+    }
+    recordPendingEdit();
+    syncHistoryControls();
+    renderWorkBar();
     if (!bootDone) {
       userActedBeforeBoot = true;
-      pendingSave = { state:target, label:label || '编辑', explicitCreate:explicitCreate, epoch:contextEpoch };
-      renderWorkBar();
       return;
     }
-    pendingSave = { state:target, label:label || '编辑', explicitCreate:explicitCreate, epoch:contextEpoch };
-    renderWorkBar();
-    drainSaveQueue();
+    if (deferSave) {
+      if (continuousSaveTimer !== null) clearTimeout(continuousSaveTimer);
+      continuousSaveTimer = setTimeout(function () {
+        continuousSaveTimer = null;
+        if (historyDirty && bootDone && !conflict) drainSaveQueue();
+      }, 250);
+    } else {
+      if (continuousSaveTimer !== null) {
+        clearTimeout(continuousSaveTimer);
+        continuousSaveTimer = null;
+      }
+      drainSaveQueue();
+    }
   }
 
   function noteEdit(label) {
-    enqueueSave(label || '编辑', { explicitCreate:false });
+    applyLocalEdit(label || '编辑', { explicitCreate:false, deferSave:false });
+  }
+
+  function performStep(delta) {
+    if (conflict) {
+      toast('当前存在跨标签冲突，请先处理冲突');
+      return;
+    }
+    if (!ownershipEditsAllowed()) {
+      toast('当前标签页没有编辑归属，已暂停撤销和重做');
+      return;
+    }
+    if (continuousSaveTimer !== null) {
+      clearTimeout(continuousSaveTimer);
+      continuousSaveTimer = null;
+    }
+    endCoalesce();
+    var stepped = libraryModel.stepHistory(localHistory, delta);
+    if (!stepped.changed) return;
+    localHistory = { snapshots: stepped.snapshots, currentIndex: stepped.currentIndex };
+    state = stateModel.sanitizeState(localHistory.snapshots[localHistory.currentIndex].state);
+    historyDirty = true;
+    refresh({ syncFocusedInputs: true });
+    syncHistoryControls({ preserveFocus: true });
+    recordPendingEdit();
+    renderWorkBar();
+    if (delta < 0) {
+      toast(stepped.currentIndex === 0 ? ('已撤销：' + stepped.label + '（已回到起点）') : ('已撤销：' + stepped.label));
+    } else {
+      toast('已重做：' + stepped.label);
+    }
+    if (!bootDone) {
+      userActedBeforeBoot = true;
+      return;
+    }
+    drainSaveQueue();
   }
 
   function finishDrainPromise() {
@@ -3516,71 +4514,81 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function drainSaveQueue() {
-    if (saveInFlight || !pendingSave) {
-      if (!saveInFlight && !pendingSave) finishDrainPromise();
+    if (!ownershipWriteAllowed()) {
+      if (!saveInFlight) finishDrainPromise();
+      return;
+    }
+    if (saveInFlight || !historyDirty) {
+      if (!saveInFlight && !historyDirty) finishDrainPromise();
       return;
     }
     if (!drainPromise) {
       drainPromise = new Promise(function (resolve) { drainResolve = resolve; });
     }
-    var job = pendingSave;
-    pendingSave = null;
-    if (job.epoch !== contextEpoch) {
-      drainSaveQueue();
-      return;
-    }
+    var desired = cloneHistory(localHistory);
+    var desiredExplicit = explicitCreatePending;
+    var jobEpoch = contextEpoch;
+    var jobPending = currentOwnPendingEdit();
+    historyDirty = false;
+    explicitCreatePending = false;
     saveInFlight = true;
     renderWorkBar();
 
-    function finishStep(stopQueue) {
+    function finishStep(step) {
+      step = step || {};
       saveInFlight = false;
-      renderWorkBar();
-      if (!stopQueue && pendingSave) {
-        recordPendingEdit(pendingSave.label, pendingSave.state, pendingSave.explicitCreate);
+      if (!step.stop && historyDirty) {
+        recordPendingEdit();
+        renderWorkBar();
         drainSaveQueue();
-      } else {
-        if (stopQueue || continuousSaveTimer === null) {
-          clearOwnPendingEdit();
-        }
-        finishDrainPromise();
+        return;
       }
+      if (step.retainPending) {
+        recordPendingEdit(true);
+        if (conflict) conflict.pending = currentOwnPendingEdit();
+      } else if (!step.stop && step.saved) {
+        if (jobPending) clearOwnPendingEditIfCurrent(jobPending);
+        else pendingWriteFailed = false;
+      }
+      renderWorkBar();
+      finishDrainPromise();
     }
 
     var promise;
     if (unsaved && unsaved.migrationFailed) {
       promise = store.migrateLegacyDraft(safeLocalStorage()).then(function (mig) {
-        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (jobEpoch !== contextEpoch) return { ignored:true };
         if (!mig.ok) {
           unsaved = { reason:mig.reason, migrationFailed:true, pendingCreate:null };
           announceStorageFailure(mig.reason);
-          return { stop:true };
+          return { stop:true, retainPending:false };
         }
         var workPromise = mig.work
           ? Promise.resolve({ ok:true, work:mig.work })
           : (mig.workId ? store.getWork(mig.workId) : Promise.resolve({ ok:true, work:null }));
         return workPromise.then(function (found) {
-          if (job.epoch !== contextEpoch) return { ignored:true };
+          if (jobEpoch !== contextEpoch) return { ignored:true };
           if (found.ok && found.work) {
             activeWork = found.work;
             unsaved = null;
-            if (!stateModel.statesEqual(libraryModel.currentStateOf(activeWork), job.state)) {
-              pendingSave = job;
+            if (!libraryModel.historiesEqual(activeWork, localHistory)) {
+              historyDirty = true;
             } else {
               storageNotice = '';
               clearShareParamAfterSave();
               refreshWorksCache(true);
             }
-            return { stop:false };
+            return { stop:false, saved:true };
           }
           unsaved = null;
-          pendingSave = job;
+          historyDirty = true;
           return { stop:false };
         });
       });
     } else if (preview || (unsaved && unsaved.pendingCreate)) {
       var meta = preview || unsaved.pendingCreate;
-      var sameAsBase = stateModel.statesEqual(meta.baseState, job.state);
-      if (!job.explicitCreate && sameAsBase) {
+      var sameAsBase = desired.snapshots.length <= 1 && stateModel.statesEqual(meta.baseState, desired.snapshots[0].state);
+      if (!desiredExplicit && sameAsBase) {
         finishStep(false);
         return;
       }
@@ -3589,11 +4597,11 @@ if (typeof document !== 'undefined') (function () {
         source: meta.kind || meta.source || 'editor',
         baseState: meta.baseState,
         baseLabel: meta.baseLabel || '初始状态',
-        currentState: job.explicitCreate ? null : job.state,
-        currentLabel: job.label,
+        snapshots: desired.snapshots,
+        currentIndex: desired.currentIndex,
         setActive: true
       }).then(function (res) {
-        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (jobEpoch !== contextEpoch) return { ignored:true };
         if (res.ok) {
           activeWork = res.work;
           pendingCreateId = null;
@@ -3601,12 +4609,18 @@ if (typeof document !== 'undefined') (function () {
           unsaved = null;
           conflict = null;
           storageNotice = '';
+          if (!historyDirty && !libraryModel.historiesEqual(activeWork, localHistory)) {
+            historyDirty = true;
+          } else if (!historyDirty) {
+            localHistory = cloneHistory(activeWork);
+          }
           clearShareParamAfterSave();
           document.documentElement.setAttribute('data-avatar-source', 'library');
           broadcastLibraryChange(res.work.id);
           refreshWorksCache(true);
-          if (job.explicitCreate) toast('已保存为新作品「' + res.work.title + '」');
-          return { stop:false };
+          syncHistoryControls();
+          if (desiredExplicit) toast('已保存为新作品「' + res.work.title + '」');
+          return { stop:false, saved:true };
         }
         unsaved = {
           reason: res.reason,
@@ -3618,10 +4632,10 @@ if (typeof document !== 'undefined') (function () {
           }
         };
         announceStorageFailure(res.reason);
-        return { stop:true };
+        return { stop:true, retainPending:true };
       });
     } else if (!activeWork) {
-      if (!job.explicitCreate && stateModel.statesEqual(freshBaseState, job.state)) {
+      if (!desiredExplicit && desired.snapshots.length <= 1 && stateModel.statesEqual(freshBaseState, desired.snapshots[0].state)) {
         finishStep(false);
         return;
       }
@@ -3630,22 +4644,28 @@ if (typeof document !== 'undefined') (function () {
         source: 'editor',
         baseState: freshBaseState,
         baseLabel: '初始形象',
-        currentState: job.state,
-        currentLabel: job.label,
+        snapshots: desired.snapshots,
+        currentIndex: desired.currentIndex,
         setActive: true
       }).then(function (res) {
-        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (jobEpoch !== contextEpoch) return { ignored:true };
         if (res.ok) {
           activeWork = res.work;
           pendingCreateId = null;
           unsaved = null;
           conflict = null;
           storageNotice = '';
+          if (!historyDirty && !libraryModel.historiesEqual(activeWork, localHistory)) {
+            historyDirty = true;
+          } else if (!historyDirty) {
+            localHistory = cloneHistory(activeWork);
+          }
           clearShareParamAfterSave();
           document.documentElement.setAttribute('data-avatar-source', 'library');
           broadcastLibraryChange(res.work.id);
           refreshWorksCache(true);
-          return { stop:false };
+          syncHistoryControls();
+          return { stop:false, saved:true };
         }
         unsaved = {
           reason: res.reason,
@@ -3657,25 +4677,31 @@ if (typeof document !== 'undefined') (function () {
           }
         };
         announceStorageFailure(res.reason);
-        return { stop:true };
+        return { stop:true, retainPending:true };
       });
     } else {
-      promise = store.saveWorkEdit({
+      promise = store.syncWorkHistory({
         id: activeWork.id,
         expectedRev: activeWork.rev,
-        nextState: job.state,
-        label: job.label
+        snapshots: desired.snapshots,
+        currentIndex: desired.currentIndex
       }).then(function (res) {
-        if (job.epoch !== contextEpoch) return { ignored:true };
+        if (jobEpoch !== contextEpoch) return { ignored:true };
         if (res.ok) {
           activeWork = res.work;
           unsaved = null;
           conflict = null;
           storageNotice = '';
+          if (!historyDirty && !libraryModel.historiesEqual(activeWork, localHistory)) {
+            historyDirty = true;
+          } else if (!historyDirty) {
+            localHistory = cloneHistory(activeWork);
+          }
           clearShareParamAfterSave();
           broadcastLibraryChange(res.work.id);
           refreshWorksCache(true);
-          return { stop:false };
+          syncHistoryControls();
+          return { stop:false, saved:true };
         }
         if (res.reason === 'conflict') {
           conflict = {
@@ -3683,24 +4709,28 @@ if (typeof document !== 'undefined') (function () {
             workTitle: activeWork.title,
             baseState: libraryModel.stepZeroStateOf(activeWork),
             baseLabel: activeWork.snapshots[0] ? activeWork.snapshots[0].label : '初始状态',
-            latest: res.latest || null
+            latest: res.latest || null,
+            localSnapshots: cloneSnapshots(localHistory.snapshots),
+            localCurrentIndex: localHistory.currentIndex
           };
-          pendingSave = null;
+          historyDirty = false;
+          explicitCreatePending = false;
+          syncHistoryControls({ preserveFocus: true });
           toast('此作品已在其他标签页更新，当前更改尚未保存');
-          return { stop:true };
+          return { stop:true, retainPending:true };
         }
         unsaved = { reason:res.reason, migrationFailed:false, pendingCreate:null };
         announceStorageFailure(res.reason);
-        return { stop:true };
+        return { stop:true, retainPending:true };
       });
     }
 
     promise.then(function (step) {
-      finishStep(!!(step && step.stop));
+      finishStep(step || {});
     }, function () {
       unsaved = { reason:'unavailable', migrationFailed:false, pendingCreate:null };
       announceStorageFailure('unavailable');
-      finishStep(true);
+      finishStep({ stop:true, retainPending:true });
     });
   }
 
@@ -3767,14 +4797,55 @@ if (typeof document !== 'undefined') (function () {
   var libraryButton = $('#btnLibrary');
   var libraryDialog = $('#libraryDialog');
 
+  function isEditableTarget(el) {
+    if (!el || typeof el.tagName !== 'string') return false;
+    var tag = el.tagName.toUpperCase();
+    if (tag === 'TEXTAREA') return true;
+    if (el.isContentEditable) return true;
+    if (typeof el.closest === 'function' && el.closest('[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]')) return true;
+    if (tag === 'INPUT') {
+      var type = String(el.type || 'text').toLowerCase();
+      return type !== 'range' && type !== 'color' && type !== 'button' && type !== 'submit' &&
+        type !== 'reset' && type !== 'checkbox' && type !== 'radio' && type !== 'file';
+    }
+    return false;
+  }
+
   function closeMoreActions() {
     moreActions.open = false;
     moreSummary.focus({ preventScroll:true });
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape' || !moreActions.open || aboutDialog.open || libraryDialog.open) return;
-    e.preventDefault();
-    closeMoreActions();
+    if (e.key === 'Escape' && moreActions.open && !aboutDialog.open && !libraryDialog.open) {
+      e.preventDefault();
+      closeMoreActions();
+      return;
+    }
+    if (e.defaultPrevented || e.isComposing || aboutDialog.open || libraryDialog.open) return;
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !isEditableTarget(e.target)) {
+      var lower = String(e.key || '').toLowerCase();
+      if (lower === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        performStep(-1);
+        return;
+      }
+      if ((lower === 'z' && e.shiftKey) || (lower === 'y' && e.ctrlKey && !e.metaKey && !e.shiftKey)) {
+        e.preventDefault();
+        performStep(1);
+      }
+    }
+  });
+  $('#btnUndo').addEventListener('click', function () { performStep(-1); });
+  $('#btnRedo').addEventListener('click', function () { performStep(1); });
+  window.addEventListener('pointerup', function () {
+    if (!activePointerKey) return;
+    activePointerKey = null;
+    scheduleCoalesceIdleEnd(50);
+  });
+  window.addEventListener('pointercancel', function () {
+    if (!activePointerKey) return;
+    activePointerKey = null;
+    endCoalesce();
   });
   moreActions.addEventListener('focusout', function (e) {
     if (e.relatedTarget && !moreActions.contains(e.relatedTarget)) moreActions.open = false;
@@ -3838,7 +4909,69 @@ if (typeof document !== 'undefined') (function () {
   });
   $('#lockParams').addEventListener('click', function () { state.locks.params = !state.locks.params; noteEdit('切换形状锁'); refresh(); });
   $('#lockColors').addEventListener('click', function () { state.locks.colors = !state.locks.colors; noteEdit('切换配色锁'); refresh(); });
-  window.addEventListener('pagehide', function () { flushContinuousEdit(); });
+  window.addEventListener('pagehide', function () {
+    // 离开当前文档后立即失去写入租约：取消定时保存和在途事务，直到 pageshow 重新确认归属。
+    writeLeaseRevoked = true;
+    try { store.setWriteBlocked(true); } catch (e) {}
+    if (continuousSaveTimer !== null) {
+      clearTimeout(continuousSaveTimer);
+      continuousSaveTimer = null;
+    }
+    try { store.cancelActiveWrites(); } catch (e) {}
+    if (ownerLockRelease) {
+      var release = ownerLockRelease;
+      ownerLockRelease = null;
+      ownerLockState = 'released';
+      try { release(); } catch (e) {}
+    }
+  });
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted || !bootDone) return;
+    var storedTabId = '';
+    try { storedTabId = window.sessionStorage.getItem('avatar-studio.tab-id') || ''; } catch (err) {}
+    ownerLockPromise = acquireTabOwnershipLock();
+    ownerLockPromise.then(function (state) {
+      var mismatch = !!(storedTabId && storedTabId !== tabId);
+      function resumeOwned() {
+        if (mismatch) {
+          try { window.sessionStorage.setItem('avatar-studio.tab-id', tabId); } catch (err) {
+            enterAmbiguousOwnershipWarning();
+            return;
+          }
+        }
+        writeLeaseRevoked = false;
+        ownershipAmbiguous = false;
+        try { store.setWriteBlocked(false); } catch (err) {}
+        if (historyDirty && !conflict) {
+          recordPendingEdit();
+          drainSaveQueue();
+        } else {
+          syncHistoryControls();
+          renderWorkBar();
+        }
+      }
+      if (state === 'held') {
+        resumeOwned();
+        return;
+      }
+      if (!lockApiSupported) {
+        // 无 Web Locks 的普通新会话仍可继续编辑；只有仍有本 id 暂存时才走安全恢复。
+        var pending = currentOwnPendingEdit();
+        if (!pending) {
+          resumeOwned();
+        } else {
+          // 歧义下仍需允许显式安全副本；普通保存由 ownershipAmbiguous 阻止。
+          try { window.sessionStorage.setItem('avatar-studio.tab-id', tabId); } catch (err) {}
+          try { store.setWriteBlocked(false); } catch (err) {}
+          enterAmbiguousOwnershipWarning();
+        }
+        return;
+      }
+      try { window.sessionStorage.setItem('avatar-studio.tab-id', tabId); } catch (err) {}
+      try { store.setWriteBlocked(false); } catch (err) {}
+      enterAmbiguousOwnershipWarning();
+    });
+  });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') flushContinuousEdit();
   });
@@ -3853,6 +4986,105 @@ if (typeof document !== 'undefined') (function () {
     return reason === 'future'
       ? '分享版本无法识别，已显示默认形象。当前页面不能还原更新的格式。'
       : '链接无效，已显示默认形象';
+  }
+
+  function pendingHistoryFromReplay(pending) {
+    if (Array.isArray(pending.snapshots) && pending.snapshots.length) {
+      return cloneHistory({ snapshots: pending.snapshots, currentIndex: pending.currentIndex });
+    }
+    return cloneHistory({
+      snapshots: [
+        { state: pending.baseState, label: pending.baseLabel || '初始状态', at: pending.at },
+        { state: pending.nextState, label: pending.label || '编辑', at: pending.at }
+      ],
+      currentIndex: 1
+    });
+  }
+  function restorePendingBranch(pending, reason, works, fallbackWork) {
+    if (!pending) return false;
+    var latest = null;
+    if (pending.workId) {
+      latest = (works || []).find(function (w) { return w.id === pending.workId; }) || null;
+      if (!latest && fallbackWork && fallbackWork.id === pending.workId) latest = fallbackWork;
+    }
+    var hist = pendingHistoryFromReplay(pending);
+    var ambiguous = reason === 'ownership-unconfirmed';
+    ownershipAmbiguous = ambiguous;
+    localHistory = hist;
+    state = stateModel.sanitizeState(hist.snapshots[hist.currentIndex].state);
+    historyDirty = false;
+    if (pending.kind === 'edit') {
+      activeWork = latest;
+      preview = null;
+      pendingCreateId = null;
+      explicitCreatePending = false;
+      if (reason === 'conflict' || ambiguous) {
+        conflict = {
+          workId: pending.workId,
+          workTitle: latest ? latest.title : '未命名作品',
+          baseState: pending.baseState,
+          baseLabel: pending.baseLabel,
+          latest: latest,
+          localSnapshots: cloneSnapshots(hist.snapshots),
+          localCurrentIndex: hist.currentIndex,
+          pending: pending,
+          ambiguous: ambiguous,
+          kind: 'edit'
+        };
+        unsaved = null;
+        if (ambiguous) {
+          toast('无法确认此页是否拥有未保存分支；已暂停自动保存，可保存副本或导出');
+        } else {
+          toast('此作品已在其他标签页更新，已恢复未保存编辑；刷新后仍可处理');
+        }
+      } else {
+        conflict = null;
+        unsaved = { reason:reason, migrationFailed:false, pendingCreate:null };
+        toast(libraryModel.saveErrorMessage(reason) + '；当前分支将在刷新后继续保留');
+      }
+      document.documentElement.setAttribute('data-avatar-source', 'library');
+    } else if (ambiguous) {
+      activeWork = null;
+      preview = null;
+      pendingCreateId = pending.workId || null;
+      explicitCreatePending = !!pending.explicitCreate;
+      unsaved = null;
+      conflict = {
+        workId: pending.workId,
+        workTitle: '未保存的新作品',
+        baseState: pending.baseState,
+        baseLabel: pending.baseLabel,
+        latest: null,
+        localSnapshots: cloneSnapshots(hist.snapshots),
+        localCurrentIndex: hist.currentIndex,
+        pending: pending,
+        ambiguous: true,
+        kind: 'create'
+      };
+      document.documentElement.setAttribute('data-avatar-source', 'default');
+      toast('无法确认此页是否拥有未保存的新作品分支；已暂停自动保存，可保存副本或导出');
+    } else {
+      activeWork = null;
+      preview = null;
+      pendingCreateId = pending.workId || null;
+      explicitCreatePending = !!pending.explicitCreate;
+      conflict = null;
+      unsaved = {
+        reason: reason,
+        migrationFailed: false,
+        pendingCreate: {
+          source: pending.source || 'editor',
+          baseState: pending.baseState,
+          baseLabel: pending.baseLabel
+        }
+      };
+      document.documentElement.setAttribute('data-avatar-source', 'default');
+      toast(libraryModel.saveErrorMessage(reason) + '；新作品分支将在刷新后继续保留');
+    }
+    syncHistoryControls();
+    refresh({ syncFocusedInputs: true });
+    renderWorkBar();
+    return true;
   }
 
   function bootLibrary() {
@@ -3871,9 +5103,10 @@ if (typeof document !== 'undefined') (function () {
         } else if (mig.fallbackDraft && !userActedBeforeBoot) {
           state = stateModel.sanitizeState(mig.fallbackDraft);
           freshBaseState = stateModel.persistableState(state);
+          setLocalHistoryFromBase(freshBaseState, libraryModel.LEGACY_DRAFT_TITLE);
           unsaved = { reason:mig.reason, migrationFailed:true, pendingCreate:null };
           document.documentElement.setAttribute('data-avatar-source', 'draft');
-          refresh();
+          refresh({ syncFocusedInputs: true });
           renderWorkBar();
           if (initialShareParam.present) {
             toast(invalidShareFallbackNotice(initialShareRead && initialShareRead.reason, true));
@@ -3891,18 +5124,34 @@ if (typeof document !== 'undefined') (function () {
           }
         }
         document.documentElement.setAttribute('data-library-ready', 'true');
-        if (pendingSave) drainSaveQueue();
+        if (historyDirty) drainSaveQueue();
         return;
       }
 
-      return store.replayPendingEdit(storageRef, tabId).then(function (replayed) {
+      var bootWriteBlocked = false;
+      var bootPending = libraryModel.readPendingEdit(storageRef, tabId);
+      return ownerLockPromise.then(function (lockState) {
+        if (lockState !== 'held' && lockApiSupported && !bootPending) {
+          // 没有本 id 暂存需要保护：给这个无法取得活跃锁的新文档一个明确的新身份，再重新取锁。
+          rotateTabId();
+          return ownerLockPromise;
+        }
+        return lockState;
+      }).then(function (lockState) {
+        if (lockApiSupported && !ownershipWriteAllowed() && !writeLeaseRevoked) bootWriteBlocked = true;
+        return store.replayPendingEdit(storageRef, tabId, { ownerConfirmed: lockState === 'held' });
+      }).then(function (replayed) {
         return store.listWorks().then(function (list) {
           bootDone = true;
           if (!list.ok) {
-            unsaved = { reason:list.reason, migrationFailed:false, pendingCreate:null };
-            renderWorkBar();
+            if (replayed && !replayed.ok && replayed.pending && !preview && !userActedBeforeBoot) {
+              restorePendingBranch(replayed.pending, replayed.reason, [], replayed.latest || null);
+            } else {
+              unsaved = { reason:list.reason, migrationFailed:false, pendingCreate:null };
+              renderWorkBar();
+            }
             document.documentElement.setAttribute('data-library-ready', 'true');
-            if (pendingSave) drainSaveQueue();
+            if (historyDirty) drainSaveQueue();
             return;
           }
           worksCache = list.works;
@@ -3914,24 +5163,11 @@ if (typeof document !== 'undefined') (function () {
           }
           if (!lastWork && worksCache.length) lastWork = worksCache[0];
 
-          if (replayed && !replayed.ok && replayed.reason === 'conflict' && replayed.pending && !preview && !userActedBeforeBoot) {
-            var latest = replayed.latest || lastWork;
-            activeWork = latest;
-            state = stateModel.sanitizeState(replayed.pending.nextState);
-            conflict = {
-              workId: replayed.pending.workId,
-              workTitle: latest ? latest.title : '未命名作品',
-              baseState: replayed.pending.baseState,
-              baseLabel: replayed.pending.baseLabel,
-              latest: latest || null
-            };
-            libraryModel.clearPendingEdit(storageRef, replayed.pending.tabId);
-            document.documentElement.setAttribute('data-avatar-source', 'library');
-            refresh();
-            renderWorkBar();
-            toast('此作品已在其他标签页更新，已恢复未保存编辑');
+          if (replayed && !replayed.ok && replayed.pending && !preview && !userActedBeforeBoot) {
+            // 启动回放失败也保留本标签暂存和完整分支，刷新后还能继续处理。
+            restorePendingBranch(replayed.pending, replayed.reason, worksCache, replayed.latest || lastWork);
             document.documentElement.setAttribute('data-library-ready', 'true');
-            if (pendingSave) drainSaveQueue();
+            if (historyDirty) drainSaveQueue();
             return;
           }
 
@@ -3939,12 +5175,13 @@ if (typeof document !== 'undefined') (function () {
             preview = null;
             activeWork = replayed.work;
             state = libraryModel.currentStateOf(replayed.work);
+            setLocalHistoryFromWork(replayed.work);
             clearShareParamAfterSave();
             document.documentElement.setAttribute('data-avatar-source', 'library');
-            refresh();
+            refresh({ syncFocusedInputs: true });
             renderWorkBar();
             document.documentElement.setAttribute('data-library-ready', 'true');
-            if (pendingSave) drainSaveQueue();
+            if (historyDirty) drainSaveQueue();
             return;
           }
 
@@ -3956,8 +5193,9 @@ if (typeof document !== 'undefined') (function () {
             if (lastWork && !userActedBeforeBoot) {
               activeWork = lastWork;
               state = libraryModel.currentStateOf(lastWork);
+              setLocalHistoryFromWork(lastWork);
               document.documentElement.setAttribute('data-avatar-source', 'library');
-              refresh();
+              refresh({ syncFocusedInputs: true });
               renderWorkBar();
               toast(invalidShareFallbackNotice(reason, true));
             } else {
@@ -3968,8 +5206,9 @@ if (typeof document !== 'undefined') (function () {
           } else if (lastWork && !userActedBeforeBoot) {
             activeWork = lastWork;
             state = libraryModel.currentStateOf(lastWork);
+            setLocalHistoryFromWork(lastWork);
             document.documentElement.setAttribute('data-avatar-source', 'library');
-            refresh();
+            refresh({ syncFocusedInputs: true });
             renderWorkBar();
           } else {
             document.documentElement.setAttribute('data-avatar-source', 'default');
@@ -3978,11 +5217,14 @@ if (typeof document !== 'undefined') (function () {
             else if (mig.draftError === 'future') toast('本地草稿版本无法识别，已显示默认形象');
           }
 
+          if (bootWriteBlocked && !conflict && !unsaved) {
+            enterAmbiguousOwnershipWarning();
+          }
           if (list.skippedFuture) {
             toast('发现更高版本作品记录，当前页面已跳过显示');
           }
           document.documentElement.setAttribute('data-library-ready', 'true');
-          if (pendingSave) drainSaveQueue();
+          if (historyDirty) drainSaveQueue();
         });
       });
     });

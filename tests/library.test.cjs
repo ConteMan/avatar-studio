@@ -344,11 +344,15 @@ test('新建作品与连续编辑保留第零步和当前快照，跳过重复�
   });
   assert.equal(savedA2.ok, true);
   assert.equal(savedA2.work.rev, 2);
-  assert.equal(savedA2.work.snapshots.length, 2);
+  assert.equal(savedA2.work.snapshots.length, 3);
+  assert.equal(savedA2.work.currentIndex, 2);
   assert.equal(savedA2.work.snapshots[0].state.slots.hair, 'cloud');
   assert.equal(savedA2.work.snapshots[0].state.slots.eyes, 'round');
   assert.equal(savedA2.work.snapshots[1].state.slots.hair, 'bob');
-  assert.equal(savedA2.work.snapshots[1].state.slots.eyes, 'wink');
+  assert.equal(savedA2.work.snapshots[1].state.slots.eyes, 'round');
+  assert.equal(savedA2.work.snapshots[2].state.slots.hair, 'bob');
+  assert.equal(savedA2.work.snapshots[2].state.slots.eyes, 'wink');
+  assert.equal(app.render(lib.currentStateOf(savedA2.work)), app.render(editA2));
 
   // 分享预览另存（无修改）：仅第零步，currentIndex=0
   const shareB = app.randomize(app.defaultState(), '分享B🎨');
@@ -420,7 +424,9 @@ test('跨标签页修订号冲突：拒绝旧修订覆盖，支持保存副本�
   assert.equal(conflictRes.ok, false);
   assert.equal(conflictRes.reason, 'conflict');
   assert.equal(conflictRes.latest.rev, 2);
-  assert.equal(conflictRes.latest.snapshots[1].state.slots.topper, 'dog');
+  assert.equal(conflictRes.latest.currentIndex, 2);
+  assert.equal(conflictRes.latest.snapshots.length, 3);
+  assert.equal(lib.currentStateOf(conflictRes.latest).slots.topper, 'dog');
 
   // 标签页 1 拿旧 rev=1 重命名也必须拦截
   const renameConflict = await tab1.renameWork({ id: workId, expectedRev: 1, title: '旧标签改名' });
@@ -430,7 +436,8 @@ test('跨标签页修订号冲突：拒绝旧修订覆盖，支持保存副本�
   // 确认库中仍是标签页 2 的版本
   const latestInDb = await tab1.getWork(workId);
   assert.equal(latestInDb.work.rev, 2);
-  assert.equal(latestInDb.work.snapshots[1].state.slots.topper, 'dog');
+  assert.equal(latestInDb.work.currentIndex, 2);
+  assert.equal(lib.currentStateOf(latestInDb.work).slots.topper, 'dog');
 
   // 标签页 1 选择保存为副本：保留原第零步且不覆盖原作品
   const copy = await tab1.createWork({
@@ -448,7 +455,7 @@ test('跨标签页修订号冲突：拒绝旧修订覆盖，支持保存副本�
   const allWorks = await tab1.listWorks();
   assert.equal(allWorks.works.length, 2);
   const originalStillIntact = allWorks.works.find(w => w.id === workId);
-  assert.equal(originalStillIntact.snapshots[1].state.slots.topper, 'dog');
+  assert.equal(lib.currentStateOf(originalStillIntact).slots.topper, 'dog');
 });
 
 test('存储不可用、配额不足与未来版本记录不破坏既有数据和渲染', async () => {
@@ -580,7 +587,8 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
   assert.equal(replayedEdit.ok, true);
   assert.equal(replayedEdit.recovered, true);
   assert.equal(replayedEdit.work.rev, 2);
-  assert.equal(replayedEdit.work.snapshots[1].state.params.volume, 1.33);
+  assert.equal(replayedEdit.work.currentIndex, 2);
+  assert.equal(lib.currentStateOf(replayedEdit.work).params.volume, 1.33);
   assert.equal(storage.raw.has(lib.PENDING_KEY), false);
   assert.equal(storage.raw.get(app.DRAFT_KEY), legacyRaw);
 
@@ -620,7 +628,8 @@ test('待保存暂存键支持卸载前编辑回放、幂等去重、修订冲�
   assert.equal(conflicted.ok, false);
   assert.equal(conflicted.reason, 'conflict');
   assert.equal(conflicted.latest.rev, 2);
-  assert.equal(conflicted.latest.snapshots[1].state.params.volume, 1.33);
+  assert.equal(conflicted.latest.currentIndex, 2);
+  assert.equal(lib.currentStateOf(conflicted.latest).params.volume, 1.33);
   lib.clearPendingEdit(storage);
 
   // 4. 新建作品中途卸载（含确定性 workId）-> 回放建档，且已建档时不重复建
@@ -766,4 +775,929 @@ test('R1 显式分享另存后立即刷新：已提交未回调与未提交均�
   assert.equal(replayUncommitted.work.id, 'share-save-op-2');
   assert.equal(lib.shouldAdoptShareReplay(sharePreview, replayUncommitted, 'tab-r1'), true);
   assert.equal((await store.listWorks()).works.length, 2);
+});
+
+function historyState(volume) {
+  const st = app.defaultState();
+  st.params.volume = volume;
+  return app.persistableState(app.sanitizeState(st));
+}
+
+function snapshotOf(state, label, at) {
+  return { state, label, at };
+}
+
+test('历史快照去重、相邻收束、分支替换与 50 步上限', () => {
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.0);
+  const d = historyState(1.1);
+
+  let hist = { snapshots: [snapshotOf(base, '起点', 1)], currentIndex: 0 };
+  let applied = lib.applyEditToHistory(hist, a, { label: '步A', at: 2 });
+  assert.equal(applied.changed, true);
+  assert.equal(applied.snapshots.length, 2);
+  hist = { snapshots: applied.snapshots, currentIndex: applied.currentIndex };
+
+  applied = lib.applyEditToHistory(hist, b, { label: '步B', at: 3 });
+  assert.equal(applied.currentIndex, 2);
+  hist = { snapshots: applied.snapshots, currentIndex: applied.currentIndex };
+
+  // 与当前步骤完全等值：跳过，不写重复快照
+  const same = lib.applyEditToHistory(hist, b, { label: '重复', at: 4 });
+  assert.equal(same.changed, false);
+  assert.equal(same.skipped, true);
+  assert.equal(same.snapshots.length, 3);
+
+  // 回到紧邻上一步（A）时收束，丢弃当前 B，不保留重复状态
+  const backToA = lib.applyEditToHistory(hist, a, { label: '回到A', at: 5 });
+  assert.equal(backToA.changed, true);
+  assert.equal(backToA.collapsed, true);
+  assert.equal(backToA.currentIndex, 1);
+  assert.equal(backToA.snapshots.length, 2);
+  assert.equal(app.render(backToA.snapshots[1].state), app.render(a));
+
+  // 撤销后继续编辑：替换重做分支
+  let branch = { snapshots: backToA.snapshots, currentIndex: backToA.currentIndex };
+  const replaced = lib.applyEditToHistory(branch, d, { label: '分支D', at: 6 });
+  assert.equal(replaced.currentIndex, 2);
+  assert.equal(replaced.snapshots.length, 3);
+  assert.equal(app.render(replaced.snapshots[1].state), app.render(a));
+  assert.equal(app.render(replaced.snapshots[2].state), app.render(d));
+
+  // 50 个可撤销步骤 + 当前步骤 = 最多 51 份快照，保留最新编辑
+  let capped = { snapshots: [snapshotOf(base, '起点', 0)], currentIndex: 0 };
+  for (let i = 1; i <= 60; i += 1) {
+    const next = historyState(0.72 + i * 0.01);
+    const step = lib.applyEditToHistory(capped, next, { label: `步${i}`, at: i });
+    assert.equal(step.changed, true);
+    capped = { snapshots: step.snapshots, currentIndex: step.currentIndex };
+  }
+  assert.equal(capped.snapshots.length, lib.MAX_SNAPSHOTS);
+  assert.equal(capped.snapshots.length, 51);
+  assert.equal(capped.currentIndex, 50);
+  assert.equal(capped.snapshots[0].state.params.volume, 0.82);
+  assert.equal(capped.snapshots[50].state.params.volume, 1.32);
+  const status = lib.historyStatus(capped);
+  assert.equal(status.undoCount, 50);
+  assert.equal(status.redoCount, 0);
+  assert.equal(status.canUndo, true);
+  assert.equal(status.canRedo, false);
+
+  let undo = lib.stepHistory(capped, -1);
+  let pos = { snapshots: undo.snapshots, currentIndex: undo.currentIndex };
+  for (let i = 1; i < 50; i += 1) {
+    const stepped = lib.stepHistory(pos, -1);
+    assert.equal(stepped.changed, true);
+    pos = { snapshots: stepped.snapshots, currentIndex: stepped.currentIndex };
+  }
+  assert.equal(pos.currentIndex, 0);
+  assert.equal(lib.stepHistory(pos, -1).changed, false);
+  for (let i = 0; i < 50; i += 1) {
+    const stepped = lib.stepHistory(pos, 1);
+    assert.equal(stepped.changed, true);
+    pos = { snapshots: stepped.snapshots, currentIndex: stepped.currentIndex };
+  }
+  assert.equal(pos.currentIndex, 50);
+  assert.equal(lib.stepHistory(pos, 1).changed, false);
+
+  // 加载时按当前步骤裁剪窗口，仍保留最新位置
+  const rawStates = [];
+  for (let i = 0; i <= 60; i += 1) rawStates.push(snapshotOf(historyState(0.72 + i * 0.01), `原始${i}`, i));
+  const trimmed = lib.normalizeHistory(rawStates, 55, 1, lib.MAX_SNAPSHOTS);
+  assert.equal(trimmed.snapshots.length, 51);
+  assert.equal(trimmed.currentIndex, 50);
+  assert.equal(app.render(trimmed.snapshots[50].state), app.render(rawStates[55].state));
+
+  // 上限后继续编辑：只丢最旧步骤，最新快照与当前位置保留
+  const appended = lib.applyEditToHistory(capped, historyState(0.73), { label: '新步', at: 99 });
+  assert.equal(appended.snapshots.length, 51);
+  assert.equal(appended.currentIndex, 50);
+  assert.equal(appended.snapshots[50].state.params.volume, 0.73);
+  assert.equal(appended.snapshots[0].state.params.volume, 0.83);
+});
+
+test('syncWorkHistory 持久化快照与撤销位置，冲突不覆盖，加载裁剪旧记录', async () => {
+  const idb = createMockIDB();
+  let tick = 50000;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => 'history-work' });
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.0);
+  const d = historyState(1.1);
+
+  const created = await store.createWork({
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+  });
+  assert.equal(created.ok, true);
+  assert.equal(created.work.rev, 1);
+  assert.equal(created.work.snapshots.length, 3);
+  assert.equal(created.work.currentIndex, 2);
+
+  const saved = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 1,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4)],
+    currentIndex: 3,
+  });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.work.rev, 2);
+  assert.equal(saved.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(saved.work)), app.render(c));
+
+  // 撤销位置持久化：快照不变，只移动 currentIndex
+  const undone = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 2,
+    snapshots: saved.work.snapshots,
+    currentIndex: 2,
+  });
+  assert.equal(undone.ok, true);
+  assert.equal(undone.work.rev, 3);
+  assert.equal(undone.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(undone.work)), app.render(b));
+
+  // 撤销后继续编辑：同步完整新历史替换分支
+  const branched = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 3,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(d, '步D', 5)],
+    currentIndex: 3,
+  });
+  assert.equal(branched.ok, true);
+  assert.equal(branched.work.rev, 4);
+  assert.equal(branched.work.snapshots.length, 4);
+  assert.equal(app.render(lib.currentStateOf(branched.work)), app.render(d));
+
+  const reloaded = await store.getWork('history-work');
+  assert.equal(reloaded.work.rev, 4);
+  assert.equal(reloaded.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(reloaded.work)), app.render(d));
+
+  // 旧修订号写入必须冲突，不得把旧步骤覆盖回新版
+  const stale = await store.syncWorkHistory({
+    id: 'history-work',
+    expectedRev: 3,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  assert.equal(stale.ok, false);
+  assert.equal(stale.reason, 'conflict');
+  assert.equal(stale.latest.rev, 4);
+  assert.equal(app.render(lib.currentStateOf(stale.latest)), app.render(d));
+
+  // 第一阶段双快照记录保持可读
+  const legacyTwo = await store.createWork({
+    id: 'phase1-two',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '第零步',
+    currentState: a,
+    currentLabel: '第一阶段编辑',
+  });
+  assert.equal(legacyTwo.ok, true);
+  assert.equal(legacyTwo.work.snapshots.length, 2);
+  assert.equal(legacyTwo.work.currentIndex, 1);
+
+  // 超限旧记录加载时按当前位置裁剪，仍保留最新快照
+  const longSnapshots = [];
+  for (let i = 0; i <= 60; i += 1) longSnapshots.push(snapshotOf(historyState(0.72 + i * 0.01), `长记录${i}`, i));
+  idb.dbs.get(lib.DB_NAME).stores.get(lib.STORE_WORKS).records.set('long-record', {
+    v: lib.STORAGE_VERSION,
+    id: 'long-record',
+    title: '超长记录',
+    createdAt: 1,
+    updatedAt: 2,
+    rev: 1,
+    source: 'editor',
+    currentIndex: 55,
+    snapshots: longSnapshots,
+  });
+  const longLoaded = await store.getWork('long-record');
+  assert.equal(longLoaded.ok, true);
+  assert.equal(longLoaded.work.snapshots.length, 51);
+  assert.equal(longLoaded.work.currentIndex, 50);
+  assert.equal(app.render(lib.currentStateOf(longLoaded.work)), app.render(longSnapshots[55].state));
+  assert.equal(lib.historyStatus(longLoaded.work).undoCount, 50);
+});
+
+test('待保存暂存支持完整历史回放、撤销位置恢复与旧格式兼容', async () => {
+  const idb = createMockIDB();
+  let tick = 60000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `hist-rec-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.0);
+  const d = historyState(1.1);
+
+  const created = await store.createWork({
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+  });
+  assert.equal(created.ok, true);
+
+  // 完整历史 + 未落盘的新分支：回放后保留全部快照和当前步骤
+  const fullHistory = [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4)];
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '步C',
+    snapshots: fullHistory,
+    currentIndex: 3,
+    at: tick,
+  });
+  const replayed = await store.replayPendingEdit(storage);
+  assert.equal(replayed.ok, true);
+  assert.equal(replayed.recovered, true);
+  assert.equal(replayed.work.rev, 2);
+  assert.equal(replayed.work.snapshots.length, 4);
+  assert.equal(replayed.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(replayed.work)), app.render(c));
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+
+  // 撤销但尚未落盘：回放恢复 currentIndex，不新增快照
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '步A',
+    snapshots: fullHistory,
+    currentIndex: 1,
+    at: tick + 100,
+  });
+  const replayedUndo = await store.replayPendingEdit(storage);
+  assert.equal(replayedUndo.ok, true);
+  assert.equal(replayedUndo.recovered, true);
+  assert.equal(replayedUndo.work.rev, 3);
+  assert.equal(replayedUndo.work.snapshots.length, 4);
+  assert.equal(replayedUndo.work.currentIndex, 1);
+  assert.equal(app.render(lib.currentStateOf(replayedUndo.work)), app.render(a));
+
+  // 已落盘同一历史：幂等清理，不增修订号
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '步A',
+    snapshots: fullHistory,
+    currentIndex: 1,
+    at: tick + 200,
+  });
+  const idem = await store.replayPendingEdit(storage);
+  assert.equal(idem.ok, true);
+  assert.equal(idem.recovered, false);
+  assert.equal(idem.work.rev, 3);
+  assert.equal(storage.raw.has(lib.PENDING_KEY), false);
+
+  // 旧修订号的完整历史不得覆盖其他标签的新版本
+  lib.writePendingEdit(storage, {
+    kind: 'edit',
+    workId: created.work.id,
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: d,
+    label: '步D',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4), snapshotOf(d, '步D', 5)],
+    currentIndex: 4,
+    at: tick + 300,
+  });
+  const conflicted = await store.replayPendingEdit(storage);
+  assert.equal(conflicted.ok, false);
+  assert.equal(conflicted.reason, 'conflict');
+  assert.equal(conflicted.latest.rev, 3);
+  assert.equal(app.render(lib.currentStateOf(conflicted.latest)), app.render(a));
+
+  // 新建作品携带完整历史：回放后保留原始快照与当前位置，重复回放幂等
+  const shareBase = app.randomize(app.defaultState(), '历史分享🎨');
+  const shareA = app.selectSlot(shareBase, 'eyes', 'wink');
+  const shareB = app.selectSlot(shareA, 'mouth', 'cat');
+  const createHistory = [
+    snapshotOf(app.persistableState(shareBase), '分享原稿', 1),
+    snapshotOf(app.persistableState(shareA), '选择部件', 2),
+    snapshotOf(app.persistableState(shareB), '选择部件', 3),
+  ];
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-history-create',
+    kind: 'create',
+    workId: 'history-create-1',
+    source: 'share',
+    baseState: app.persistableState(shareBase),
+    baseLabel: '分享原稿',
+    nextState: app.persistableState(shareB),
+    label: '选择部件',
+    snapshots: createHistory,
+    currentIndex: 2,
+    at: tick + 400,
+  });
+  const createdByReplay = await store.replayPendingEdit(storage, 'tab-history-create');
+  assert.equal(createdByReplay.ok, true);
+  assert.equal(createdByReplay.recovered, true);
+  assert.equal(createdByReplay.work.id, 'history-create-1');
+  assert.equal(createdByReplay.work.snapshots.length, 3);
+  assert.equal(createdByReplay.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(createdByReplay.work)), app.render(shareB));
+
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-history-create',
+    kind: 'create',
+    workId: 'history-create-1',
+    source: 'share',
+    baseState: app.persistableState(shareBase),
+    baseLabel: '分享原稿',
+    nextState: app.persistableState(shareB),
+    label: '选择部件',
+    snapshots: createHistory,
+    currentIndex: 2,
+    at: tick + 500,
+  });
+  const createdAgain = await store.replayPendingEdit(storage, 'tab-history-create');
+  assert.equal(createdAgain.ok, true);
+  assert.equal(createdAgain.recovered, false);
+  assert.equal(createdAgain.committedBeforeUnload, true);
+  assert.equal((await store.listWorks()).works.filter(w => w.id === 'history-create-1').length, 1);
+});
+
+test('完整历史与旧格式暂存都只由确认归属的标签回放，异步交错不删新暂存', async () => {
+  const idb = createMockIDB();
+  let tick = 70000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `own-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.05);
+
+  const created = await store.createWork({
+    id: 'own-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+  });
+  assert.equal(created.ok, true);
+
+  // 完整历史从 tab-A 写入后，tab-B 既读不到也不能回放或删除
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'own-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '步A',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+    at: tick,
+  });
+  assert.equal(lib.readPendingEdit(storage, 'tab-B', tick + 1000), null);
+  const foreign = await store.replayPendingEdit(storage, 'tab-B');
+  assert.equal(foreign.none, true);
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const unchanged = await store.getWork('own-work');
+  assert.equal(unchanged.work.rev, 1);
+  assert.equal(unchanged.work.currentIndex, 2);
+
+  // 拥有标签回放成功后才清理
+  const owned = await store.replayPendingEdit(storage, 'tab-A');
+  assert.equal(owned.ok, true);
+  assert.equal(owned.recovered, true);
+  const afterOwned = await store.getWork('own-work');
+  assert.equal(afterOwned.work.rev, 2);
+  assert.equal(afterOwned.work.currentIndex, 1);
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+
+  // 旧格式（无 snapshots）也不能被不同 tab id 的文档自动消费；拥有标签确认后才能追加
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'own-work',
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '旧格式步C',
+    at: tick,
+  });
+  assert.equal(lib.readPendingEdit(storage, 'tab-B', tick + 1000), null);
+  const blockedLegacy = await store.replayPendingEdit(storage, 'tab-B');
+  assert.equal(blockedLegacy.ok, true);
+  assert.equal(blockedLegacy.none, true);
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const afterBlockedLegacy = await store.getWork('own-work');
+  assert.equal(afterBlockedLegacy.work.rev, 2);
+  assert.equal(afterBlockedLegacy.work.currentIndex, 1);
+  const legacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: true });
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.recovered, true);
+  const afterLegacy = await store.getWork('own-work');
+  assert.equal(afterLegacy.work.rev, 3);
+  assert.equal(afterLegacy.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(afterLegacy.work)), app.render(c));
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+
+  // 回放读到旧暂存后、事务完成前写入更长的新暂存：不得提交或删除旧历史
+  const created2 = await store.createWork({
+    id: 'interleave-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1)],
+    currentIndex: 0,
+  });
+  assert.equal(created2.ok, true);
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'interleave-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '旧暂存',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+    at: tick + 100,
+  });
+  const oldEntry = lib.readPendingEdit(storage, 'tab-A', tick + 1000);
+  assert.equal(oldEntry.snapshots.length, 2);
+  const replayPromise = store.replayPendingEdit(storage, 'tab-A');
+  const newerAt = tick + 200;
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'interleave-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '新暂存',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '步C', 4)],
+    currentIndex: 3,
+    at: newerAt,
+  });
+  const interleaved = await replayPromise;
+  assert.equal(interleaved.ok, false);
+  assert.equal(interleaved.reason, 'pending-changed');
+  const afterInterleave = await store.getWork('interleave-work');
+  assert.equal(afterInterleave.work.rev, 1);
+  assert.equal(afterInterleave.work.snapshots.length, 1);
+  const newerEntry = lib.readPendingEdit(storage, 'tab-A', tick + 1000);
+  assert.equal(newerEntry.at, newerAt);
+  assert.equal(newerEntry.snapshots.length, 4);
+  assert.equal(lib.clearPendingEditIfCurrent(storage, oldEntry, tick + 1000), false);
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  assert.equal(lib.clearPendingEditIfCurrent(storage, newerEntry, tick + 1000), true);
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+});
+
+test('失败或冲突回放保留暂存，修正后可重试且不覆盖新版', async () => {
+  const idb = createMockIDB();
+  let tick = 80000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `retain-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.1);
+  let quota = true;
+
+  const created = await store.createWork({
+    id: 'retain-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  assert.equal(created.ok, true);
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'retain-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: b,
+    label: '配额分支',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+    at: tick,
+  });
+  // 在配额失败期间回放：保留暂存和原记录，修正后可再次刷新恢复
+  quota = false;
+  const quotaIdb = createMockIDB({
+    onPut(storeName, _value, { makeQuotaError }) {
+      if (quota && storeName === lib.STORE_WORKS) throw makeQuotaError();
+    }
+  });
+  const quotaStore2 = lib.createStore({ indexedDB: quotaIdb, now: () => (tick += 100), randomId: () => `q-${++seq}` });
+  const seeded = await quotaStore2.createWork({
+    id: 'retain-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  assert.equal(seeded.ok, true);
+  quota = true;
+  const failed = await quotaStore2.replayPendingEdit(storage, 'tab-A');
+  assert.equal(failed.ok, false);
+  assert.equal(failed.reason, 'quota');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const intact = await quotaStore2.getWork('retain-work');
+  assert.equal(intact.work.rev, 1);
+  assert.equal(intact.work.snapshots.length, 2);
+
+  quota = false;
+  const retried = await quotaStore2.replayPendingEdit(storage, 'tab-A');
+  assert.equal(retried.ok, true);
+  assert.equal(retried.recovered, true);
+  const restored = await quotaStore2.getWork('retain-work');
+  assert.equal(restored.work.rev, 2);
+  assert.equal(restored.work.currentIndex, 2);
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+
+  // 冲突回放：另一标签已前进时保留暂存，连续两次回放都仍可处理
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'retain-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '冲突分支',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(c, '步C', 3)],
+    currentIndex: 2,
+    at: tick,
+  });
+  const firstConflict = await quotaStore2.replayPendingEdit(storage, 'tab-A');
+  assert.equal(firstConflict.ok, false);
+  assert.equal(firstConflict.reason, 'conflict');
+  assert.equal(firstConflict.latest.rev, 2);
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const secondConflict = await quotaStore2.replayPendingEdit(storage, 'tab-A');
+  assert.equal(secondConflict.ok, false);
+  assert.equal(secondConflict.reason, 'conflict');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const stillLatest = await quotaStore2.getWork('retain-work');
+  assert.equal(stillLatest.work.rev, 2);
+  assert.equal(stillLatest.work.currentIndex, 2);
+});
+
+test('冲突副本使用确定 workId，连点与副本落盘后刷新只保留一份', async () => {
+  const idb = createMockIDB();
+  let tick = 90000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `copy-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.05);
+  const d = historyState(1.1);
+
+  await store.createWork({
+    id: 'copy-source',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+  });
+  const updatedElsewhere = await store.syncWorkHistory({
+    id: 'copy-source',
+    expectedRev: 1,
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(d, '另一标签步D', 4)],
+    currentIndex: 3,
+  });
+  assert.equal(updatedElsewhere.ok, true);
+  assert.equal(updatedElsewhere.work.rev, 2);
+
+  const localSnapshots = [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3), snapshotOf(c, '本地步C', 4)];
+  const localIndex = 3;
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'copy-source',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '本地步C',
+    snapshots: localSnapshots,
+    currentIndex: localIndex,
+    at: tick,
+  });
+  const pending = lib.readPendingEdit(storage, 'tab-A', tick + 1000);
+  const conflict = await store.replayPendingEdit(storage, 'tab-A');
+  assert.equal(conflict.ok, false);
+  assert.equal(conflict.reason, 'conflict');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+
+  const copyId = lib.conflictCopyId('copy-source', { snapshots: localSnapshots, currentIndex: localIndex });
+  assert.equal(copyId, lib.conflictCopyId('copy-source', { snapshots: localSnapshots, currentIndex: localIndex }));
+  assert.notEqual(copyId, lib.conflictCopyId('copy-source', { snapshots: localSnapshots, currentIndex: 2 }));
+  const copyOpts = {
+    id: copyId,
+    copyFromTitle: '测试作品',
+    source: 'duplicate',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: lib.normalizeHistory(localSnapshots, localIndex, tick, lib.MAX_SNAPSHOTS).snapshots,
+    currentIndex: localIndex,
+  };
+  // 连点：同一确定性 id 的第二次创建返回去重记录，不产生第二份
+  const first = await store.createWork(copyOpts);
+  const second = await store.createWork(copyOpts);
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(second.deduplicated, true);
+  assert.equal(second.work.id, copyId);
+  const afterClicks = await store.listWorks();
+  assert.equal(afterClicks.works.filter(w => w.id === copyId).length, 1);
+  assert.equal(afterClicks.works.length, 2);
+
+  // 副本已落盘但成功回调未清理暂存时立即刷新：回放识别副本、清暂存且不重复建档
+  const adopted = await store.replayPendingEdit(storage, 'tab-A');
+  assert.equal(adopted.ok, true);
+  assert.equal(adopted.recovered, true);
+  assert.equal(adopted.copiedBeforeUnload, true);
+  assert.equal(adopted.work.id, copyId);
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+  const finalList = await store.listWorks();
+  assert.equal(finalList.works.length, 2);
+  assert.equal(finalList.works.filter(w => w.id === copyId).length, 1);
+  const original = await store.getWork('copy-source');
+  assert.equal(original.work.rev, 2);
+  assert.equal(original.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(original.work)), app.render(d));
+
+  // 副本写入失败时保留暂存，可再次重试
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'copy-source',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '本地步C',
+    snapshots: localSnapshots,
+    currentIndex: localIndex,
+    at: tick + 100,
+  });
+  let failCopy = true;
+  const failIdb = createMockIDB({
+    onPut(storeName, _value, { makeQuotaError }) {
+      if (failCopy && storeName === lib.STORE_WORKS) throw makeQuotaError();
+    }
+  });
+  const failStore = lib.createStore({ indexedDB: failIdb, now: () => (tick += 100), randomId: () => `fail-${++seq}` });
+  failCopy = true;
+  const failedCopy = await failStore.createWork(Object.assign({}, copyOpts, { id: 'copy-retry-work' }));
+  assert.equal(failedCopy.ok, false);
+  assert.equal(failedCopy.reason, 'quota');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  failCopy = false;
+  const retriedCopy = await failStore.createWork(Object.assign({}, copyOpts, { id: 'copy-retry-work' }));
+  assert.equal(retriedCopy.ok, true);
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000).snapshots.length, 4);
+});
+
+test('暂存写入失败返回 false，不清除已有其他标签记录', () => {
+  const base = historyState(1);
+  const storage = {
+    data: new Map(),
+    getItem(k) { return this.data.has(k) ? this.data.get(k) : null; },
+    setItem() { throw new Error('quota'); },
+    removeItem(k) { this.data.delete(k); },
+  };
+  const ok = lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'bad-storage',
+    expectedRev: 1,
+    baseState: base,
+    nextState: base,
+    at: 1,
+  });
+  assert.equal(ok, false);
+  assert.equal(storage.data.has(lib.PENDING_KEY), false);
+  assert.equal(lib.readPendingEdit(storage, 'tab-A'), null);
+});
+
+test('未确认活跃文档归属时不自动提交完整历史或旧格式暂存', async () => {
+  const idb = createMockIDB();
+  let tick = 95000;
+  let seq = 0;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => `owner-${++seq}` });
+  const storage = memoryStorage();
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const b = historyState(0.9);
+  const c = historyState(1.05);
+
+  await store.createWork({
+    id: 'owner-check',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'owner-check',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: b,
+    label: '待确认分支',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2), snapshotOf(b, '步B', 3)],
+    currentIndex: 2,
+    at: tick,
+  });
+
+  // 同一 tab id 但归属未确认：不提交、不删除暂存
+  const blocked = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: false });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, 'ownership-unconfirmed');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const unchanged = await store.getWork('owner-check');
+  assert.equal(unchanged.work.rev, 1);
+  assert.equal(unchanged.work.currentIndex, 1);
+  assert.equal(unchanged.work.snapshots.length, 2);
+
+  // 确认归属后才自动恢复
+  const recovered = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: true });
+  assert.equal(recovered.ok, true);
+  assert.equal(recovered.recovered, true);
+  const saved = await store.getWork('owner-check');
+  assert.equal(saved.work.rev, 2);
+  assert.equal(saved.work.currentIndex, 2);
+  assert.equal(app.render(lib.currentStateOf(saved.work)), app.render(b));
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+
+  // 旧格式没有完整历史，继续允许在归属未确认时按最终状态追加
+  lib.writePendingEdit(storage, {
+    tabId: 'tab-A',
+    kind: 'edit',
+    workId: 'owner-check',
+    expectedRev: 2,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: c,
+    label: '旧格式步C',
+    at: tick,
+  });
+  const blockedLegacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: false });
+  assert.equal(blockedLegacy.ok, false);
+  assert.equal(blockedLegacy.reason, 'ownership-unconfirmed');
+  assert.ok(lib.readPendingEdit(storage, 'tab-A', tick + 1000));
+  const afterBlockedLegacy = await store.getWork('owner-check');
+  assert.equal(afterBlockedLegacy.work.rev, 2);
+  assert.equal(afterBlockedLegacy.work.currentIndex, 2);
+  const legacy = await store.replayPendingEdit(storage, 'tab-A', { ownerConfirmed: true });
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.recovered, true);
+  const afterLegacy = await store.getWork('owner-check');
+  assert.equal(afterLegacy.work.rev, 3);
+  assert.equal(afterLegacy.work.currentIndex, 3);
+  assert.equal(app.render(lib.currentStateOf(afterLegacy.work)), app.render(c));
+  assert.equal(lib.readPendingEdit(storage, 'tab-A', tick + 1000), null);
+});
+
+test('写租约撤销后 readwrite 被阻止，恢复后才允许重新写入', async () => {
+  const idb = createMockIDB();
+  let tick = 100000;
+  const store = lib.createStore({ indexedDB: idb, now: () => (tick += 100), randomId: () => 'lease-work' });
+  const base = historyState(1);
+  const a = historyState(0.8);
+
+  store.setWriteBlocked(true);
+  const blocked = await store.createWork({
+    id: 'lease-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1)],
+    currentIndex: 0,
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, 'unavailable');
+  assert.equal((await store.listWorks()).works.length, 0);
+
+  store.setWriteBlocked(false);
+  const created = await store.createWork({
+    id: 'lease-work',
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    snapshots: [snapshotOf(base, '起点', 1), snapshotOf(a, '步A', 2)],
+    currentIndex: 1,
+  });
+  assert.equal(created.ok, true);
+  assert.equal(created.work.rev, 1);
+  assert.equal((await store.listWorks()).works.length, 1);
+});
+
+test('无自己暂存时不回退读取其他标签的旧单条或 byTab 记录', () => {
+  const base = historyState(1);
+  const a = historyState(0.8);
+  const single = memoryStorage();
+  single.raw.set(lib.PENDING_KEY, JSON.stringify({
+    v: lib.STORAGE_VERSION,
+    tabId: 'legacy-single',
+    kind: 'edit',
+    workId: 'legacy-work',
+    expectedRev: 1,
+    source: 'editor',
+    baseState: base,
+    baseLabel: '起点',
+    nextState: a,
+    label: '旧单条',
+    at: Date.now(),
+  }));
+  assert.ok(lib.readPendingEdit(single, 'legacy-single'));
+  assert.equal(lib.readPendingEdit(single, 'other-tab'), null);
+
+  const byTab = memoryStorage();
+  byTab.raw.set(lib.PENDING_KEY, JSON.stringify({
+    v: lib.STORAGE_VERSION,
+    byTab: {
+      'legacy-a': {
+        v: lib.STORAGE_VERSION,
+        tabId: 'legacy-a',
+        kind: 'edit',
+        workId: 'legacy-work',
+        expectedRev: 1,
+        source: 'editor',
+        baseState: base,
+        baseLabel: '起点',
+        nextState: a,
+        label: '旧A',
+        at: Date.now(),
+      },
+      'legacy-b': {
+        v: lib.STORAGE_VERSION,
+        tabId: 'legacy-b',
+        kind: 'edit',
+        workId: 'legacy-work',
+        expectedRev: 1,
+        source: 'editor',
+        baseState: base,
+        baseLabel: '起点',
+        nextState: a,
+        label: '旧B',
+        at: Date.now() + 1,
+      },
+    },
+  }));
+  assert.equal(lib.readPendingEdit(byTab, 'legacy-a').tabId, 'legacy-a');
+  assert.equal(lib.readPendingEdit(byTab, 'legacy-b').tabId, 'legacy-b');
+  assert.equal(lib.readPendingEdit(byTab, 'unrelated'), null);
 });

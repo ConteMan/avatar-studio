@@ -88,15 +88,16 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 画布 2D context 不可用时提示无法创建画布。`drawImage` 抛错时提示无法绘制。`toBlob` 抛错时提示无法生成图片。回调没有 blob 时提示浏览器未返回图片。图片无法解码时提示无法解码。这些失败都建议改用 SVG。成功时提示已导出 1024×1024 PNG。SVG 下载和 JSON 复制读取同一次点击的统一状态。JSON 只含 `seed`、`drawingSeed`、`slots`、`params`、`colors`、`view`。
 
-## 当前本地作品库（第一阶段）
+## 当前本地作品库与编辑历史
 
 本地作品库由 `WorkLibrary` 模块维护，详细设计与两阶段安排见 [本地作品与编辑历史](local-work-history.md)。
 
-- IndexedDB 数据库名 `avatar-studio.library`（版本 `1`），包含 `works`（主键 `id`，索引 `by_updatedAt`）与 `meta`（`migration.legacyDraft`、`activeWork`）两个对象仓库。记录使用独立存储版本 `STORAGE_VERSION = 1`，包含 `id`、`title`、`createdAt`、`updatedAt`、`rev`、`source`、`currentIndex` 和 `snapshots`。每条快照保存经 `AvatarState.persistableState()` 校验的完整配置（含 `drawingSeed` 与 `locks`）及简短操作名。第一阶段保留第零步与当前快照（最多 2 步），改回第零步同值时收束为单步且 `currentIndex = 0`，避免重复快照，供后续阶段接入撤销/重做。
+- IndexedDB 数据库名 `avatar-studio.library`（版本 `1`），包含 `works`（主键 `id`，索引 `by_updatedAt`）与 `meta`（`migration.legacyDraft`、`activeWork`）两个对象仓库。记录使用独立存储版本 `STORAGE_VERSION = 1`，包含 `id`、`title`、`createdAt`、`updatedAt`、`rev`、`source`、`currentIndex` 和 `snapshots`。每条快照保存经 `AvatarState.persistableState()` 校验的完整配置（含 `drawingSeed` 与 `locks`）及简短操作名。每份作品最多保留 50 个可撤销步骤与当前步骤（51 份快照）；达到上限后继续编辑只丢弃最旧步骤。第一阶段的双快照记录保持可读，超限旧记录在加载时按当前位置裁剪并保留当前画面。
 - 首次启动检测到合法 `localStorage` 键 `avatar-studio.draft` 时，在单一 `readwrite` 事务中同时写入「旧草稿」作品与 `migration.legacyDraft` 标记；事务失败时原子回滚并继续在内存中显示原草稿，重试只导入一次，成功后重复启动不再导入。旧 `avatar-studio.draft` 键保持只读不删改，以支持回退；后续编辑写入 IndexedDB 作品库。
-- 打开首页恢复上次活跃作品；空库仅在首次有效编辑时建立记录。点击页头「我的作品」打开原生 `<dialog>` 列表，按最近编辑倒序显示实时配置渲染的缩略图、标题和更新时间，支持打开恢复与行内重命名，并说明数据仅存于当前浏览器与站点。窄屏保持 `144×144px` 粘性预览与编辑空间，作品列表独立打开。
+- 每份作品独立保存完整步骤历史与 `currentIndex`。一次完整动作记一步；滑块、颜色选择等连续输入按控件合并，与当前步骤等值的提交跳过，回到紧邻上一步时收束，撤销后继续编辑会替换重做分支。编辑区工具栏提供「撤销」「重做」与步骤标记，`Ctrl/⌘+Z`、`Ctrl/⌘+Shift+Z` 与 `Ctrl+Y` 在非文本输入焦点生效；按钮标题与 `aria-label` 显示下一步操作名或禁用原因，冲突时暂停历史操作。
+- 打开首页恢复上次活跃作品及其步骤位置；空库仅在首次有效编辑时建立记录。点击页头「我的作品」打开原生 `<dialog>` 列表，按最近编辑倒序显示实时配置渲染的缩略图、标题和更新时间，支持打开恢复与行内重命名，并说明数据仅存于当前浏览器与站点。窄屏保持 `144×144px` 粘性预览与编辑空间，作品列表独立打开。
 - 打开有效分享或点击示例先进入预览态，不写入作品库也不修改原作品；查看、下载和返回原作品均保持原作品不变。点击「保存为新作品」或首次有效编辑时以预览原稿作为第零步新建独立作品，仅在 IndexedDB 提交成功后才通过 `history.replaceState` 移除 URL 中的分享参数 `s`。打开无效或不兼容分享时，提示失败并保留原有本地作品（空库时回退默认形象）。
-- 单标签内通过串行写队列合并连续编辑并跳过重复快照；编辑与连续输入同步写入按标签归属（`sessionStorage['avatar-studio.tab-id']`）隔离的待保存暂存键 `avatar-studio.pending-edit`（不改动旧键 `avatar-studio.draft`，不使用阻塞式 `beforeunload`），新建作品复用确定性 `workId` 防止回放重复建档。暂存仅由归属标签在队列排空提交成功、显式写失败、触发冲突或切换离开时清理，在 `pagehide`、`visibilitychange` 隐藏及切换作品前冲刷待发编辑（不把 `pagehide` 异步写当作持久化保证）。下次启动优先回放本标签或残留的未落盘记录：若 IDB 已落盘同状态/同 `workId` 则幂等清理；若 `rev` 已被其他标签推进且内容不同则拒绝自动覆盖并展示冲突恢复栏。浏览器进程被强杀前尚未写入或 `localStorage` 不可用/满额时无法依赖暂存恢复，仍可通过配置 JSON 导出备份。跨标签写入与重命名在单事务内校验 `id` 与 `rev`，发现修订号不一致时拒绝覆盖，保持当前编辑画面并提供「重新载入新版」「保存为副本」与「导出配置 JSON」。配额不足或存储不可用时明确提示「更改尚未保存」，保留编辑画面和上次成功保存的版本，并提供重试保存与配置 JSON 导出；有效分享预览中若旧草稿迁移失败，则在预览栏持续提示并提供独立的「重试迁移旧草稿」与「返回原草稿」入口，不误标为分享保存失败。
+- 单标签内通过串行写队列合并连续编辑并跳过重复快照；编辑与连续输入同步写入按标签归属（`sessionStorage['avatar-studio.tab-id']`）隔离的待保存暂存键 `avatar-studio.pending-edit`（不改动旧键 `avatar-studio.draft`，不使用阻塞式 `beforeunload`），新建作品复用确定性 `workId` 防止回放重复建档。暂存只在对应历史实际落盘、用户明确选择重新载入新版放弃本页分支、或副本已确认落盘后清理；冲突、写入失败和启动回放失败保留本标签完整历史与当前位置，连续刷新后仍可重试或保存副本。清理按「读到的暂存仍是当前暂存」比较，旧事务完成或异步回调不能删除更新的暂存。在 `pagehide`、`visibilitychange` 隐藏及切换作品前冲刷待发编辑（不把 `pagehide` 异步写当作持久化保证）；`pagehide` 撤销写入租约、取消定时保存和在途读写事务并释放锁；BFCache 恢复重新取锁并修复 `sessionStorage` 与内存身份的偏差。完整历史只由写入它的 `tabId` 回放；刷新与前进后退沿用归属，新标签、`window.open` 与复制标签重新分配归属。启动时用 Web Locks 为 `tabId` 持有活跃文档锁，只有取得锁才自动回放；锁被占用、不可用或超时无法确认时，不写原作、不删暂存，显示只提供保存副本、使用已保存版本与导出的安全恢复栏，保存副本后才换用新 `tabId` 继续编辑并同步状态、步骤与 URL。没有暂存但拿不到锁的新文档先换新身份再编辑。旧格式暂存也不能被未确认归属的文档消费；自动查询只按当前确切 `tabId`，没有本 id 记录时不回退读取其他标签的旧单条或 `byTab` 记录，同身份旧暂存可受控恢复，其他 id 保持不消费并可在安全栏保存副本或导出。所有正常保存、暂存写入、重命名和当前作品元数据更新都要求持有写入租约。若 IDB 已落盘同一历史/同 `workId` 则幂等清理；若 `rev` 已被其他标签推进且内容不同则拒绝自动覆盖并展示刷新后仍可处理的冲突恢复栏。浏览器进程被强杀前尚未写入或 `localStorage` 不可用/满额时无法依赖暂存恢复，仍可通过配置 JSON 导出备份。跨标签写入与重命名在单事务内校验 `id` 与 `rev`，发现修订号不一致时拒绝覆盖，保持当前编辑画面并提供「重新载入新版」「保存为副本」与「导出配置 JSON」。配额不足或存储不可用时明确提示「更改尚未保存」，保留编辑画面、本页完整分支和上次成功保存的版本，并提供重试保存与配置 JSON 导出；暂存本身也无法写入时明确提示刷新会丢失当前分支；冲突副本使用确定 `workId`，连点或并发只建立一份；有效分享预览中若旧草稿迁移失败，则在预览栏持续提示并提供独立的「重试迁移旧草稿」与「返回原草稿」入口，不误标为分享保存失败。
 
 ## 当前分享与恢复格式
 
@@ -146,6 +147,7 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 - 预览画布提供 `role="img"` 与 `aria-label="当前半身像预览"`；页面标题层级按 `h1` → `h2` 组织。
 - 连续参数滑块使用显式 `<label for>` 绑定可见名称，并通过 `aria-describedby` 关联数值文本、同步 `aria-valuetext`；键盘方向键调节时保留焦点，数值与图形同步更新。
+- 编辑历史提供 `role="group"` 的撤销/重做按钮组，按钮在空历史或冲突时禁用并通过 `title` / `aria-label` 说明原因，撤销或重做后若按钮变为禁用则把焦点移到仍可用的相邻控件；文本输入内不劫持 `Ctrl/⌘+Z`。
 - 裁切视图（`role="group"`）、部件选项、配色预设及全部锁定按钮暴露 `aria-pressed`；槽位锁定、连续参数锁定、配色锁定、槽位「换一个」和例图按钮提供上下文 `aria-label`；缩略图和色点装饰容器标记 `aria-hidden="true"`。
 - 操作提示 `#toast` 使用 `role="status"`、`aria-live="polite"`、`aria-atomic="true"`；按钮、输入框与折叠摘要提供 `:focus-visible` 焦点轮廓。尚未进行真实读屏器测试。
 
@@ -157,7 +159,7 @@ PNG 在点击时记下 `AvatarState.render` 的 SVG 和由当时 seed 得到的�
 
 ## 已批准、后续实现
 
-所有者于 2026-11-26 批准 [六个开发切片](development-plan.md)。切片 1 已建立维护与回归基线，切片 2 已接入页头标志和站点图标（见上一节），切片 3 已实现锁定和同步，切片 4 已实现本节的草稿与版本化分享，切片 5 已实现经所有者验收的手机粘性预览布局与基础可访问性。切片 6 已完成显式白名单 `dist/` 打包、`cloudflare.config.ts`（`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、本地预览与 `cf` dry-run 门禁，并于 `2026-11-27 06:35 +08:00` 正式上线 `0.1.0` 至 <https://avatar.conteman.com/>（Worker `avatar-studio`，`2026-11-27 06:39–06:40 +08:00` 完成公开地址验收，详见 [RELEASING.md](RELEASING.md)）。
+所有者于 2026-11-26 批准 [六个开发切片](development-plan.md)。切片 1 已建立维护与回归基线，切片 2 已接入页头标志和站点图标（见上一节），切片 3 已实现锁定和同步，切片 4 已实现本节的草稿与版本化分享，切片 5 已实现经所有者验收的手机粘性预览布局与基础可访问性。Issue #27 已在本地工作树实现分作品的撤销、重做与步骤恢复，自检与浏览器验收记录见对应 PR，等待评审与合并。切片 6 已完成显式白名单 `dist/` 打包、`cloudflare.config.ts`（`notFoundHandling: "none"`、`workersDev: false`）、`deploy/_headers`、本地预览与 `cf` dry-run 门禁，并于 `2026-11-27 06:35 +08:00` 正式上线 `0.1.0` 至 <https://avatar.conteman.com/>（Worker `avatar-studio`，`2026-11-27 06:39–06:40 +08:00` 完成公开地址验收，详见 [RELEASING.md](RELEASING.md)）。
 
 锁合同与 seed 输入行为见「本轮状态合同」。恢复优先级、旧链接、未来版本和存储失败行为见「当前分享与恢复格式」。
 
